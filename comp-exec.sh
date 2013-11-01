@@ -1,0 +1,301 @@
+#!/bin/bash
+
+output=output-data
+MAKE_OPTIONS='--quiet --no-keep-going'
+APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
+DESIGNS='ETL CTL WT'
+CMS='SUICIDE DELAY BACKOFF'
+BUILDS='tinystm seq lock tsx-hle tsx-rtm'
+ETL='# DEFINES += -DDESIGN=WRITE_BACK_ETL'
+CTL='# DEFINES += -DDESIGN=WRITE_BACK_CTL'
+WT='# DEFINES += -DDESIGN=WRITE_THROUGH'
+SUICIDE='# DEFINES += -DCM=CM_SUICIDE'
+DELAY='# DEFINES += -DCM=CM_DELAY'
+BACKOFF='# DEFINES += -DCM=CM_BACKOFF'
+GET_TIME="grep -e '^Time[ ]\+= ' data.temp | awk '{print \$3}' "
+GET_ENERGY="grep -e 'Energy consumed:' data.temp | awk '{print \$3}' "
+EXEC_FLAG_bayes='-v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t'
+EXEC_FLAG_genome='-g16384 -s64 -n16777216 -t'
+EXEC_FLAG_intruder='-a10 -l128 -n262144 -s1 -t'
+EXEC_FLAG_kmeans='-m15 -n15 -T0.00001 -i stamp/data/kmeans/inputs/random-n65536-d32-c16.txt -t'
+EXEC_FLAG_labyrinth='-i stamp/data/labyrinth/inputs/random-x512-y512-z7-n512.txt -t'
+EXEC_FLAG_ssca2='-s20 -i1.0 -u1.0 -l3 -p3 -t'
+EXEC_FLAG_vacation='-n4 -q60 -u90 -r1048576 -T4194304 -t'
+EXEC_FLAG_yada='-a15 -i stamp/data/yada/inputs/ttimeu1000000.2 -t'
+
+awkscript='
+BEGIN{
+	i=0;
+	dp=0;
+	sum=0;
+}
+{
+	sum+=$1;
+	v[i]=$1;
+	i++;
+}
+END{
+	mean=sum/NR;
+	for(i=0;i<NR;i++)
+		dp+=(mean-v[i])*(mean-v[i]);
+	dp=dp/(NR-1);
+	dp=sqrt(dp);
+	print mean," ",1.96*(dp/sqrt(NR));
+}'
+
+function usage {
+	
+	echo $0' (comp | exec | plot | clean | help) [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>]'
+	echo -e '\t[-t <nb cores>] [-n <nb executions>] [-b <build>] [-p <PLOT>]'
+
+	echo
+	echo 'comp: compile.'
+	echo 'exec: execute.'
+	echo 'plot: plot available statistics.'
+	echo 'clean: remove all executable, object and library files from all directories'
+	echo 'help: show this help.'
+
+	echo
+	echo '-d <tinySTM DESIGN>'
+	echo 'ETL | CTL | WT'
+	echo 'default = ALL'
+
+	echo
+	echo '-m <tinySTM CM>'
+	echo 'ALL | SUICIDE | BACKOFF | DELAY'
+	echo 'default = ALL'
+
+	echo
+	echo '-a <stamp app>'
+	echo 'ALL | bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo 'default = ALL'
+
+	echo
+	echo '-b <build>'
+	echo 'tinystm | seq | lock | tsx-hle | tsx-rtm'
+	echo 'default = ALL'
+	echo
+
+	echo '-p <PLOT>'
+	echo 'selects which plot to performe'
+	echo 'default = (none)'
+
+	echo
+	echo '-t <nb cores>'
+	echo '1 | 2 | 4 | etc... | "1 2 4 8" | "4 8 16" | etc...'
+	echo 'default = "1 2 4 8"'
+
+	echo
+	echo '-n <nb executions>'
+	echo 'default = 10'
+}
+
+function compile {
+
+	#make -C energy-measure/ clean $MAKE_OPTIONS && make -C energy-measure/ $MAKE_OPTIONS
+	#make -C freqscaling/ clean $MAKE_OPTIONS && make -C freqscaling/ $MAKE_OPTIONS
+	
+	echo 'starting compilation...'
+
+	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
+	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
+	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
+
+
+	for build in $BUILDS; do
+		if [ $build == "tinystm" ]; then
+			for design in ${DESIGNS}; do
+				for cm in ${CMS}; do
+					sed "/${!design}/s|# ||;/${!cm}/s|# ||" tinySTM/Makefile.template > tinySTM/Makefile
+					touch tinySTM/Makefile
+					make -C tinySTM/ clean ${MAKE_OPTIONS}
+					make -C tinySTM/ ${MAKE_OPTIONS}
+					
+					echo "## tinySTM ${design}-${cm} compiled"
+					
+					for app in ${APPS}; do
+						SRC_APP_PATH=stamp/apps/$app
+						BIN_APP_PATH=stamp/tinystm/$app
+						make -C $SRC_APP_PATH -f Makefile TMBUILD=tinystm clean ${MAKE_OPTIONS} 2> /dev/null
+						make -C $SRC_APP_PATH -f Makefile TMBUILD=tinystm ${MAKE_OPTIONS} 2> /dev/null
+						mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${design}-${cm}
+						echo "## ${app}-${design}-${cm} compiled"
+					done # FOR EACH APP
+				done # FOR EACH CM
+			done # FOR EACH DESIGN
+		else
+			if [ $build == "tsx-rtm" ]; then
+				make -C tsx/rtm clean ${MAKE_OPTIONS}
+				make -C tsx/rtm ${MAKE_OPTIONS}
+			fi
+			for app in ${APPS}; do
+				SRC_APP_PATH=stamp/apps/$app
+				BIN_APP_PATH=stamp/$build/$app
+				make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+				make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+				echo "## ${app}-$build compiled"
+			done # FOR EACH APP
+		fi
+	done
+	
+	echo 'compilation finished.'
+}
+
+function execute {
+
+	test -e $output || mkdir $output
+	
+	echo 'starting execution...'
+	
+	test -z "$NEXEC" && NEXEC=10
+	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
+	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
+	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
+	test -z "$NB_CORES" && NB_CORES='1 2 4 8'
+
+	for app in ${APPS}; do
+		eval exec_flags=\$EXEC_FLAG_$app
+		for build in $BUILDS; do
+			if [ $build  == 'tinystm' ]; then
+				SUFIXES=""
+				for design in $DESIGNS; do
+					for cm in $CMS; do
+						SUFIXES+="$design-$cm "
+					done
+				done
+			else
+				SUFIXES=$build
+			fi
+			if [ $build == "seq" ]; then
+				NTHREADS="1"
+			else
+				NTHREADS=$NB_CORES
+			fi
+			for sufix in $SUFIXES; do
+				appRunPath="stamp/$build/$app/$app-$sufix"
+				timeOutput="$output/$app-$sufix.time"
+				timeLog=$output/$app-$sufix.timelog
+				#energyOutput="$output/$app-$sufix.energy"
+				#energyLog="$output/$app-$sufix.energylog"
+				#rm -f $output/{$energyOutput,$timeOutput}
+				rm -f $output/$timeOutput
+				for i in $NTHREADS;
+				do
+					rm -f *.temp
+					for((j=0;j<${NEXEC};j++)); do
+						echo "execution $j: ./$appRunPath ${exec_flags}$i"
+							./${appRunPath} ${exec_flags}$i > data.temp
+							eval $GET_TIME >> time.temp
+							#eval $GET_ENERGY >> energy.temp
+					done # FOR EACH EXECUTION
+					echo "$(awk "$awkscript" time.temp)" >> $timeOutput
+					#echo "$(awk "$awkscript" energy.temp)" >> $energyOutput
+					#echo "Número de threads: $i" >> $energyLog
+					#cat energy.temp >> $energyLog
+					#echo >> $energyLog
+					echo "Número de threads: $i" >> $timeLog
+					cat time.temp >> $timeLog
+					echo >> $timeLog
+				done # FOR EACH NUMBER OF THREADS
+			done # FOR EACH SUFIX
+		done # FOR EACH BUILD
+	done # FOR EACH APPS
+	rm -f *.temp
+
+	echo 'execution finished.'
+}
+
+function clean {
+	
+	echo 'starting cleanup...'
+	
+	#make -C energy-measure/ clean
+	test -e tinySTM/Makefile && rm tinySTM/Makefile
+	make -C tinySTM/ -f Makefile.template clean
+	make -C tsx/rtm clean
+	rm -rf stamp/{seq,tinystm,lock}
+
+	echo 'cleanup finished.'
+	
+}
+
+source plotFunctions.sh
+
+function plotstats {
+		
+	echo 'starting to plot...'
+
+	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
+	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
+	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
+	test -z "$NB_CORES" && NB_CORES='1 2 4 8'
+	
+	test "$GOVS" != "" && GOVERNORS=$GOVS
+	test "$GOVS" == "ALL" && GOVERNORS='powersave conservative ondemand performance'
+	
+	case $PLOT in
+		STAMP-HLE-RTM-tinySTM)
+			plot-STAMP-HLE-RTM-tinySTM ;;
+		HLE-RTM-tinySTM)
+			plot-HLE-RTM-tinySTM ;;
+		*)
+			echo "a plot style must be specified!" ;;
+	esac
+
+	echo 'plot finished.'
+}
+
+function cleanup {
+	
+	rm -f *.temp
+	test -d output-data && rm -f output-data/*.{dvfs,png,table}
+	exit
+}
+
+trap cleanup SIGINT
+
+if [ "$#" -eq "0" ]; then
+	echo $0' : error - missing parameters or arguments'
+	echo 'for more information run "'$0' help"'
+else
+	run_opt=$1
+	shift
+	while getopts ":d:m:a:b:t:n:p:g:" opt;
+	do
+		case $opt in
+			d) STM_DESIGNS=$OPTARG ;;
+			m) STM_CMS=$OPTARG ;;
+			a) STAMP_APP=$OPTARG ;;
+			b) BUILDS=$OPTARG ;;
+			t) NB_CORES=$OPTARG ;;
+			n) NEXEC=$OPTARG ;;
+			p) PLOT=$OPTARG ;;
+			g) GOVS=$OPTARG ;;
+			\?) echo $0" : error - invalid option -- $OPTARG"
+				exit 1
+		esac
+	done
+
+	case $run_opt in
+		help)
+			usage
+			;;
+		comp)
+			compile
+			;;
+		exec)
+			execute
+			;;
+		clean)
+			clean
+			;;
+		plot)
+			plotstats
+			;;
+		*)
+			echo $0" : erro - invalid parameter - $run_opt"
+			echo 'for more information run "'$0' help"'
+			;;
+	esac
+fi

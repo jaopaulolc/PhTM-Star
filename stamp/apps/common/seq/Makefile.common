@@ -1,0 +1,15 @@
+# GCC sequential build
+# TMBUILD ?= seq
+
+# ======== Defines ========
+CC       := gcc
+#CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../lib -I../common/$(TMBUILD)
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := gcc
+LDFLAGS  += -lpthread
+LIBDEPS  += 
+
+include ../common/Makefile.common
