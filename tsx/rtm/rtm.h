@@ -8,6 +8,7 @@
 
 typedef struct _tsx_tx_t{
 	long id; 								// thread id
+#ifdef RTM_ABORT_DEBUG
 	long totalAborts; 			// total number of aborts
 	long explicitAborts;		// aborts due to _xabort() call
 	long conflictAborts;		// aborts due to data conflict
@@ -15,8 +16,7 @@ typedef struct _tsx_tx_t{
 	long debugAborts;				// aborts due to debug trap
 	long nestedAborts;			// aborts due to inner nested transaction abort
 	long unknownAborts; 		// aborts whose cause is unknown
-	long status;						// _xbegin() return status
-	long retries;						// number of retries
+#endif  /* RTM_ABORT_DEBUG */
 }tsx_tx_t;
 
 extern __thread tsx_tx_t __thread_tx;

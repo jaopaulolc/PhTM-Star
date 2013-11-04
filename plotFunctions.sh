@@ -15,7 +15,7 @@ function plot-STAMP-HLE-RTM-tinySTM {
 	done
 	test -e $gnuplot && $gnuplot <<-EOF
 		set encoding utf8
-		set terminal postscript eps enhanced color size 9.60,3.20 font "Helvetic-Bold,16"
+		set terminal postscript eps enhanced color size 9.60,2.80 font "Helvetic-Bold,16"
 		set output '$output/stamp-hle-rtm-tinySTM.eps'
 	
 		# estilo das linhas
@@ -34,8 +34,8 @@ function plot-STAMP-HLE-RTM-tinySTM {
 		
 		ncores = "| $NB_CORES"
 		apps = "$APPS"
-		set for[i=1:words(ncores)*words(apps)] label word(ncores,i%5 + 1) at i,-0.35 center
-		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.5,-0.6 center
+		set for[i=1:words(ncores)*words(apps)] label word(ncores,i%5 + 1) at i,-0.40 center
+		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.5,-0.75 center
 
 		plot "tsx-hle.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 2 t 'HLE', \
 				 "tsx-rtm.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 3 t 'RTM', \

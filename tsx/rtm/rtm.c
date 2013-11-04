@@ -5,8 +5,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
+#include <math.h>
 
 __thread tsx_tx_t __thread_tx;
+
+__thread long __tx_status;  // _xbegin() return status
+__thread long __tx_retries; // number of retries
+
+#ifdef RTM_BACKOFF_ENABLED
+__thread unsigned short __thread_seed[3];
+#endif /* RTM_BACKOFF_ENABLED */
 
 light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
 
@@ -18,7 +27,7 @@ void _RTM_FORCE_INLINE _RTM_ABORT_STATS();
 void _RTM_FORCE_INLINE TX_START(){
 
 	do{
-		if((__thread_tx.status = _xbegin()) == _XBEGIN_STARTED){
+		if((__tx_status = _xbegin()) == _XBEGIN_STARTED){
 			if(__rtm_global_lock == 1){
 				_xabort(_XABORT_LOCKED);
 			}
@@ -27,15 +36,22 @@ void _RTM_FORCE_INLINE TX_START(){
 		else{
 			// execution flow continues here on transaction abort
 			_RTM_ABORT_STATS();
-			if((__thread_tx.status & _XABORT_RETRY)){
-				__thread_tx.retries++;
-				if(__thread_tx.retries >= RTM_MAX_RETRIES){
+			if((__tx_status & _XABORT_RETRY)){
+				__tx_retries++;
+				if(__tx_retries >= RTM_MAX_RETRIES){
 					light_lock(&__rtm_global_lock);
 					return;
 				}
+		#ifdef RTM_BACKOFF_ENABLED
+				else{
+					long a = nrand48(__thread_seed);
+					long b = 2 << __thread_tx.totalAborts;
+					usleep( (useconds_t)(a%b) );
+				}
+		#endif /* RTM_BACKOFF_ENABLED */
 			}
 			else {
-				__thread_tx.retries = RTM_MAX_RETRIES;
+				__tx_retries = RTM_MAX_RETRIES;
 				light_lock(&__rtm_global_lock);
 				return;
 			}
@@ -45,15 +61,22 @@ void _RTM_FORCE_INLINE TX_START(){
 
 void _RTM_FORCE_INLINE TX_END(){
 	
-	if(__thread_tx.retries >= RTM_MAX_RETRIES){
+	if(__tx_retries >= RTM_MAX_RETRIES){
 		light_unlock(&__rtm_global_lock);
-		__thread_tx.retries = 0;
+		__tx_retries = 0;
 	}
 	else _xend();
 }
 
 void TX_INIT(long id){
 	__thread_tx.id              = id;
+	__tx_status									= 0;
+	__tx_retries								= 0;
+	#ifdef RTM_BACKOFF_ENABLED
+	__thread_seed[0] = (unsigned short)rand()%USHRT_MAX;
+	__thread_seed[1] = (unsigned short)rand()%USHRT_MAX;
+	__thread_seed[2] = (unsigned short)rand()%USHRT_MAX;
+	#endif /* RTM_BACKOFF_ENABLED */
 	#ifdef RTM_ABORT_DEBUG
 	__thread_tx.totalAborts     = 0;
 	__thread_tx.explicitAborts  = 0;
@@ -62,8 +85,7 @@ void TX_INIT(long id){
 	__thread_tx.debugAborts     = 0;
 	__thread_tx.nestedAborts    = 0;
 	__thread_tx.unknownAborts   = 0;
-	__thread_tx.retries         = 0;
-	#endif /* _RTM_ABORT_DEBUG */
+	#endif /* RTM_ABORT_DEBUG */
 }
 
 void TX_FINISH(){
@@ -78,25 +100,25 @@ void TX_FINISH(){
 		fprintf(stderr," Debug aborts    = %ld (%.2lf%%)\n",__thread_tx.debugAborts,1.0e2*__thread_tx.debugAborts/total);
 		fprintf(stderr," Nested aborts   = %ld (%.2lf%%)\n",__thread_tx.nestedAborts,1.0e2*__thread_tx.nestedAborts/total);
 		fprintf(stderr," Unknown aborts  = %ld (%.2lf%%)\n",__thread_tx.unknownAborts,1.0e2*__thread_tx.unknownAborts/total);
-	#endif /* _RTM_ABORT_DEBUG */
+	#endif /* RTM_ABORT_DEBUG */
 }
 
 void _RTM_FORCE_INLINE _RTM_ABORT_STATS(){
 	#ifdef RTM_ABORT_DEBUG
 		__thread_tx.totalAborts++;
-		if(__thread_tx.status & _XABORT_EXPLICIT){
+		if(__tx_status & _XABORT_EXPLICIT){
 			__thread_tx.explicitAborts++;
 		}
-		else if(__thread_tx.status & _XABORT_CONFLICT){
+		else if(__tx_status & _XABORT_CONFLICT){
 			__thread_tx.conflictAborts++;
 		}
-		else if(__thread_tx.status & _XABORT_CAPACITY){
+		else if(__tx_status & _XABORT_CAPACITY){
 			__thread_tx.capacityAborts++;
 		}
-		else if(__thread_tx.status & _XABORT_DEBUG){
+		else if(__tx_status & _XABORT_DEBUG){
 			__thread_tx.debugAborts++;
 		}
-		else if(__thread_tx.status & _XABORT_NESTED){
+		else if(__tx_status & _XABORT_NESTED){
 			__thread_tx.nestedAborts++;
 		}
 		else {
