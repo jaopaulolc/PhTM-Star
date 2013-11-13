@@ -6,6 +6,12 @@ APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
 DESIGNS='ETL CTL WT'
 CMS='SUICIDE DELAY BACKOFF'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
+MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
+ALLOCS_DIR='allocators'
+ptmalloc=''
+tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
+hoard="$ALLOCS_DIR/libhoard.so"
+tbbmalloc="$ALLOCS_DIR/libtbbmalloc.so.2"
 ETL='# DEFINES += -DDESIGN=WRITE_BACK_ETL'
 CTL='# DEFINES += -DDESIGN=WRITE_BACK_CTL'
 WT='# DEFINES += -DDESIGN=WRITE_THROUGH'
@@ -46,7 +52,7 @@ END{
 function usage {
 	
 	echo $0' (comp | exec | plot | clean | help) [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>]'
-	echo -e '\t[-t <nb cores>] [-n <nb executions>] [-b <build>] [-p <PLOT>]'
+	echo -e '\t[-t <nb cores>] [-n <nb executions>] [-b <build>] [-p <PLOT>] [-M <memalloc>]'
 
 	echo
 	echo 'comp: compile.'
@@ -74,6 +80,11 @@ function usage {
 	echo '-b <build>'
 	echo 'tinystm | seq | lock | tsx-hle | tsx-rtm'
 	echo 'default = ALL'
+	echo
+
+	echo '-M <memalloc>'
+	echo 'ptmalloc | tcmalloc | hoard | tbbmalloc'
+	echo 'default = ptmalloc'
 	echo
 
 	echo '-p <PLOT>'
@@ -153,6 +164,7 @@ function execute {
 	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
 	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
 	test -z "$NB_CORES" && NB_CORES='1 2 4 8'
+	test -z "$MEM_ALLOCS" || MEMALLOCS=$MEM_ALLOCS
 
 	for app in ${APPS}; do
 		eval exec_flags=\$EXEC_FLAG_$app
@@ -175,29 +187,36 @@ function execute {
 			for sufix in $SUFIXES; do
 				appRunPath="stamp/$build/$app/$app-$sufix"
 				timeOutput="$output/$app-$sufix.time"
-				timeLog=$output/$app-$sufix.timelog
+				timeLog="$output/$app-$sufix.timelog"
 				#energyOutput="$output/$app-$sufix.energy"
 				#energyLog="$output/$app-$sufix.energylog"
 				#rm -f $output/{$energyOutput,$timeOutput}
 				rm -f $output/$timeOutput
-				for i in $NTHREADS;
-				do
-					rm -f *.temp
-					for((j=0;j<${NEXEC};j++)); do
-						echo "execution $j: ./$appRunPath ${exec_flags}$i"
-							./${appRunPath} ${exec_flags}$i > data.temp
-							eval $GET_TIME >> time.temp
-							#eval $GET_ENERGY >> energy.temp
-					done # FOR EACH EXECUTION
-					echo "$(awk "$awkscript" time.temp)" >> $timeOutput
-					#echo "$(awk "$awkscript" energy.temp)" >> $energyOutput
-					#echo "Número de threads: $i" >> $energyLog
-					#cat energy.temp >> $energyLog
-					#echo >> $energyLog
-					echo "Número de threads: $i" >> $timeLog
-					cat time.temp >> $timeLog
-					echo >> $timeLog
-				done # FOR EACH NUMBER OF THREADS
+				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeOutput
+				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeLog
+				for memalloc in $MEMALLOCS; do
+					timeTemp="$memalloc.time"
+					timeLogTemp="$memalloc.timelog"
+					for i in $NTHREADS;
+					do
+						rm -f *.temp
+						for((j=0;j<${NEXEC};j++)); do
+							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"
+								LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i > data.temp
+								eval $GET_TIME >> time.temp
+								#eval $GET_ENERGY >> energy.temp
+						done # FOR EACH EXECUTION
+						echo "$(awk "$awkscript" time.temp)" >> $timeTemp
+						#echo "$(awk "$awkscript" energy.temp)" >> $energyTemp
+						#cat energy.temp >> $energyLogTemp
+						#echo >> $energyLogTemp
+						cat time.temp >> $timeLogTemp
+						echo >> $timeLogTemp
+					done # FOR EACH NUMBER OF THREADS
+				done # FOR EACH MEMORY ALLOCATOR
+				eval paste \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.time >> $timeOutput
+				eval paste \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.timelog >> $timeLog
+				eval rm \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.\{time,timelog\}
 			done # FOR EACH SUFIX
 		done # FOR EACH BUILD
 	done # FOR EACH APPS
@@ -261,7 +280,7 @@ if [ "$#" -eq "0" ]; then
 else
 	run_opt=$1
 	shift
-	while getopts ":d:m:a:b:t:n:p:g:" opt;
+	while getopts ":d:m:a:b:t:n:p:g:M:" opt;
 	do
 		case $opt in
 			d) STM_DESIGNS=$OPTARG ;;
@@ -272,6 +291,7 @@ else
 			n) NEXEC=$OPTARG ;;
 			p) PLOT=$OPTARG ;;
 			g) GOVS=$OPTARG ;;
+			M) MEM_ALLOCS=$OPTARG ;;
 			\?) echo $0" : error - invalid option -- $OPTARG"
 				exit 1
 		esac
