@@ -23,11 +23,11 @@
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#define TM_STARTUP(numThread)         /* nothing */
-#define TM_SHUTDOWN()                 /* nothing */
+#define TM_STARTUP(numThread)         TSX_START((long)numThread)
+#define TM_SHUTDOWN()                 TSX_FINISH()
 
-#define TM_THREAD_ENTER()             TX_INIT(thread_getId())
-#define TM_THREAD_EXIT()              TX_FINISH()
+#define TM_THREAD_ENTER()             /* nothing */
+#define TM_THREAD_EXIT()              /* nothing */
 
 #define SEQ_MALLOC(size)              malloc(size)
 #define SEQ_FREE(ptr)                 free(ptr)

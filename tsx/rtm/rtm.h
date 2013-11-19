@@ -8,8 +8,8 @@
 
 typedef struct _tsx_tx_t{
 	long id; 								// thread id
-#ifdef RTM_ABORT_DEBUG
 	long totalAborts; 			// total number of aborts
+#ifdef RTM_ABORT_DEBUG
 	long explicitAborts;		// aborts due to _xabort() call
 	long conflictAborts;		// aborts due to data conflict
 	long capacityAborts;		// aborts due to L1 overflow
@@ -19,22 +19,12 @@ typedef struct _tsx_tx_t{
 #endif  /* RTM_ABORT_DEBUG */
 }tsx_tx_t;
 
-extern __thread tsx_tx_t __thread_tx;
-
-#define tsx_getThreadId()				__thread_tx.id
-#define tsx_getTotalAborts() 		__thread_tx.totalAborts
-#define tsx_getExplicitAborts() __thread_tx.explicitAborts
-#define tsx_getConflictAborts()	__thread_tx.conflictAborts
-#define tsx_getCapacityAborts() __thread_tx.capacityAborts
-#define tsx_getDebugAborts()		__thread_tx.debugAborts
-#define tsx_getNestedAborts()		__thread_tx.nestedAborts
-#define tsx_getUnknownAborts()	__thread_tx.unknownAborts
-
 #define _RTM_FORCE_INLINE __attribute__((__always_inline__)) inline
 
-void TX_START(); 
-void TX_END(); 
-void TX_INIT(long id); 
-void TX_FINISH(); 
+void _RTM_FORCE_INLINE TX_START(); 
+void _RTM_FORCE_INLINE TX_END(); 
+void _RTM_FORCE_INLINE TX_INIT(long id); 
+void _RTM_FORCE_INLINE TSX_START(long nthreads); 
+void _RTM_FORCE_INLINE TSX_FINISH(); 
 
 #endif /* _RTM_INCLUDE */
