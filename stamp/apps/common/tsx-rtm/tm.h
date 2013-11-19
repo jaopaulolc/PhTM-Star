@@ -26,7 +26,7 @@
 #define TM_STARTUP(numThread)         TSX_START((long)numThread)
 #define TM_SHUTDOWN()                 TSX_FINISH()
 
-#define TM_THREAD_ENTER()             /* nothing */
+#define TM_THREAD_ENTER()             TX_INIT(thread_getId())
 #define TM_THREAD_EXIT()              /* nothing */
 
 #define SEQ_MALLOC(size)              malloc(size)

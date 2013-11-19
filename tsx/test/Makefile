@@ -4,7 +4,7 @@ targets = rtm-test hle-test
 RTM_PATH = ../rtm
 HLE_PATH = ../hle
 
-CFLAGS = -O3 -Wall -I $(HLE_PATH) -I $(RTM_PATH)
+CFLAGS = -g -O3 -Wall -I $(HLE_PATH) -I $(RTM_PATH)
 LDFLAGS = -pthread -L $(HLE_PATH) -L $(RTM_PATH)
 
 all: $(targets)

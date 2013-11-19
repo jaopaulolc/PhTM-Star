@@ -20,7 +20,6 @@ void *foo(void *args){
 		TX_END();		/* Try to commit transaction */
 	}
 
-	TX_FINISH();
 	return NULL;
 }
 
@@ -36,6 +35,7 @@ int main(int argc,char** argv){
 
 	pthread_t *thread_handles = (pthread_t *)malloc(sizeof(pthread_t)*nthreads);
 
+	TSX_START(nthreads);
 	long i;
 	for(i=0; i < nthreads; i++){
 		if(pthread_create(&thread_handles[i],NULL,foo,(void*)i) != 0){
@@ -50,6 +50,7 @@ int main(int argc,char** argv){
 	}
 	free(thread_handles);
 	
+	TSX_FINISH();
 	printf("\nx = %ld (verification = %s)\n",x,(x==num_iterations) ? "PASSED" : "FAILED");
 
 	return 0;

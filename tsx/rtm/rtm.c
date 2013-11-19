@@ -26,7 +26,7 @@ light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
 
 void _RTM_FORCE_INLINE _RTM_ABORT_STATS();
 
-void _RTM_FORCE_INLINE TSX_START(int nthreads){
+void _RTM_FORCE_INLINE TSX_START(long nthreads){
 
 	__global_thread_tx = (tsx_tx_t*)calloc(nthreads,sizeof(tsx_tx_t));
 	__global_thread_tx[0].nthreads = nthreads;
@@ -76,65 +76,68 @@ void _RTM_FORCE_INLINE TX_END(){
 	else _xend();
 }
 
-void TX_INIT(long id){
-	
+void _RTM_FORCE_INLINE TX_INIT(long id){
+
 	if(__global_thread_tx != NULL){
 		__thread_tx = &__global_thread_tx[id];
 		__thread_tx->id              = id;
+		__thread_tx->nthreads        = __global_thread_tx[0].nthreads;
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
-	#ifdef RTM_BACKOFF_ENABLED
-		__thread_seed[0] = (unsigned short)rand()%USHRT_MAX;
-		__thread_seed[1] = (unsigned short)rand()%USHRT_MAX;
-		__thread_seed[2] = (unsigned short)rand()%USHRT_MAX;
-	#endif /* RTM_BACKOFF_ENABLED */
-	#ifdef RTM_ABORT_DEBUG
-		__thread_tx->totalAborts     = 0;
-		__thread_tx->explicitAborts  = 0;
-		__thread_tx->conflictAborts  = 0;
-		__thread_tx->capacityAborts  = 0;
-		__thread_tx->debugAborts     = 0;
-		__thread_tx->nestedAborts    = 0;
-		__thread_tx->unknownAborts   = 0;
-	#endif /* RTM_ABORT_DEBUG */
+		#ifdef RTM_BACKOFF_ENABLED
+			__thread_seed[0] = (unsigned short)rand()%USHRT_MAX;
+			__thread_seed[1] = (unsigned short)rand()%USHRT_MAX;
+			__thread_seed[2] = (unsigned short)rand()%USHRT_MAX;
+		#endif /* RTM_BACKOFF_ENABLED */
+		#ifdef RTM_ABORT_DEBUG
+			__thread_tx->totalAborts     = 0;
+			__thread_tx->explicitAborts  = 0;
+			__thread_tx->conflictAborts  = 0;
+			__thread_tx->capacityAborts  = 0;
+			__thread_tx->debugAborts     = 0;
+			__thread_tx->nestedAborts    = 0;
+			__thread_tx->unknownAborts   = 0;
+		#endif /* RTM_ABORT_DEBUG */
+	}
 }
 
-void TSX_FINISH(){
+void _RTM_FORCE_INLINE TSX_FINISH(){
 
 	#ifdef RTM_ABORT_DEBUG
-		if(__thread_tx->id == 0){
-			long totalAborts    = 0;
-			long explicitAborts = 0;
-			long capacityAborts = 0;
-			long debugAborts    = 0;
-			long nestedAborts   = 0;
-			long unknownAborts  = 0;
-			long nthreads = __global_thread_tx[0].nthreads;
-			long i;
-			printf("Core totalAborts explicitAborts conflictAborts capacityAborts debugAborts nestedAborts unknownAborts\n");
-			for(i=0; i < nthreads; i++){
-				printf(" %ld %ld %ld %ld %ld %ld %ld %ld\n",
-					__global_thread_tx[i].id,
-					__global_thread_tx[i].totalAborts,
-					__global_thread_tx[i].explicitAborts,
-					__global_thread_tx[i].capacityAborts,
-					__global_thread_tx[i].debugAborts,
-					__global_thread_tx[i].nestedAborts,
-					__global_thread_tx[i].unknownAborts);
-				
-				totalAborts    += __global_thread_tx[i].totalAborts;
-				explicitAborts += __global_thread_tx[i].explicitAborts;
-				capacityAborts += __global_thread_tx[i].capacityAborts;
-				debugAborts    += __global_thread_tx[i].debugAborts;
-				nestedAborts   += __global_thread_tx[i].nestedAborts;
-				unknownAborts  += __global_thread_tx[i].unknownAborts;
-			}
-			printf(" * %ld %ld %ld %ld %ld %ld %ld\n",
-				totalAborts,explicitAborts,
-				conflictAborts,capacityAborts,
-				debugAborts,nestedAborts,unknownAborts);
-			free(__global_thread_tx);
+		long totalAborts    = 0;
+		long explicitAborts = 0;
+		long conflictAborts = 0;
+		long capacityAborts = 0;
+		long debugAborts    = 0;
+		long nestedAborts   = 0;
+		long unknownAborts  = 0;
+		long nthreads = __global_thread_tx[0].nthreads;
+		long i;
+		printf("Core totalAborts explicitAborts conflictAborts capacityAborts debugAborts nestedAborts unknownAborts\n");
+		for(i=0; i < nthreads; i++){
+			printf(" %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
+				__global_thread_tx[i].id,
+				__global_thread_tx[i].totalAborts,
+				__global_thread_tx[i].explicitAborts,
+				__global_thread_tx[i].conflictAborts,
+				__global_thread_tx[i].capacityAborts,
+				__global_thread_tx[i].debugAborts,
+				__global_thread_tx[i].nestedAborts,
+				__global_thread_tx[i].unknownAborts);
+			
+			totalAborts    += __global_thread_tx[i].totalAborts;
+			explicitAborts += __global_thread_tx[i].explicitAborts;
+			conflictAborts += __global_thread_tx[i].conflictAborts;
+			capacityAborts += __global_thread_tx[i].capacityAborts;
+			debugAborts    += __global_thread_tx[i].debugAborts;
+			nestedAborts   += __global_thread_tx[i].nestedAborts;
+			unknownAborts  += __global_thread_tx[i].unknownAborts;
 		}
+		printf(" *\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
+			totalAborts,explicitAborts,
+			conflictAborts,capacityAborts,
+			debugAborts,nestedAborts,unknownAborts);
+		free(__global_thread_tx);
 	#endif /* RTM_ABORT_DEBUG */
 }
 

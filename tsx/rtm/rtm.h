@@ -8,6 +8,7 @@
 
 typedef struct _tsx_tx_t{
 	long id; 								// thread id
+	long nthreads;
 	long totalAborts; 			// total number of aborts
 #ifdef RTM_ABORT_DEBUG
 	long explicitAborts;		// aborts due to _xabort() call
@@ -21,10 +22,10 @@ typedef struct _tsx_tx_t{
 
 #define _RTM_FORCE_INLINE __attribute__((__always_inline__)) inline
 
-void _RTM_FORCE_INLINE TX_START(); 
-void _RTM_FORCE_INLINE TX_END(); 
-void _RTM_FORCE_INLINE TX_INIT(long id); 
-void _RTM_FORCE_INLINE TSX_START(long nthreads); 
-void _RTM_FORCE_INLINE TSX_FINISH(); 
+void TX_START(); 
+void TX_END(); 
+void TX_INIT(long id); 
+void TSX_START(long nthreads); 
+void TSX_FINISH(); 
 
 #endif /* _RTM_INCLUDE */
