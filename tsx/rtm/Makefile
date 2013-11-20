@@ -2,7 +2,7 @@
 
 target = librtm.a
 
-override CFLAGS  += -O3 -Wall -I. -I../ -mrtm
+override CFLAGS  += -DRTM_ABORT_DEBUG -O3 -Wall -I. -I../ -mrtm
 
 all: $(target)
 

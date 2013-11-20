@@ -20,6 +20,7 @@ DELAY='# DEFINES += -DCM=CM_DELAY'
 BACKOFF='# DEFINES += -DCM=CM_BACKOFF'
 GET_TIME="grep -e '^Time[ ]\+= ' data.temp | awk '{print \$3}' "
 GET_ENERGY="grep -e 'Energy consumed:' data.temp | awk '{print \$3}' "
+GET_ABORT='grep -e "^[ ]\+\*" data.temp | awk "$parseAbort" '
 EXEC_FLAG_bayes='-v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t'
 EXEC_FLAG_genome='-g16384 -s64 -n16777216 -t'
 EXEC_FLAG_intruder='-a10 -l128 -n262144 -s1 -t'
@@ -29,24 +30,55 @@ EXEC_FLAG_ssca2='-s20 -i1.0 -u1.0 -l3 -p3 -t'
 EXEC_FLAG_vacation='-n4 -q60 -u90 -r1048576 -T4194304 -t'
 EXEC_FLAG_yada='-a15 -i stamp/data/yada/inputs/ttimeu1000000.2 -t'
 
+
 awkscript='
 BEGIN{
-	i=0;
-	dp=0;
-	sum=0;
+	j=0;
+	for(i=1; i <= NF; i++){
+		sum[i] = 0;
+	}
 }
 {
-	sum+=$1;
-	v[i]=$1;
-	i++;
+	for(i=1; i <= NF; i++){
+		sum[i] += $i;
+		v[j][i] = $i;
+	}
+	j++
 }
 END{
-	mean=sum/NR;
-	for(i=0;i<NR;i++)
-		dp+=(mean-v[i])*(mean-v[i]);
-	dp=dp/(NR-1);
-	dp=sqrt(dp);
-	print mean," ",1.96*(dp/sqrt(NR));
+	
+	for(j=1; j <= NF;j++){
+		mean=sum[j]/NR;
+		dp=0;
+		for(i=0;i<NR;i++)
+			dp+=(mean-v[i][j])*(mean-v[i][j]);
+		dp=dp/(NR-1);
+		dp=sqrt(dp);
+		printf "%.3lf %.3lf ", mean ,0.98*(dp/sqrt(NR));
+	}
+	print ""
+}'
+
+parseAbort='
+BEGIN{
+	M["K"] = 1000;
+	M["M"] = 1000*M["K"];
+	M["G"] = 1000*M["M"];
+	M["T"] = 1000*M["G"];
+}
+{
+	for(i=2; i <= NF;i++){
+		if(M[$(i+1)]){
+			printf "%ld " , $i*M[$(i+1)]
+			i++
+		}
+		else{
+			printf "%ld " , $i
+		}
+	}
+}
+END{
+	print ""
 }'
 
 function usage {
@@ -184,29 +216,42 @@ function execute {
 			else
 				NTHREADS=$NB_CORES
 			fi
+			if [ $build == "tsx-rtm" ]; then
+				PCM_FLAGS="-e RTM_RETIRED.ABORTED_MISC1 -e RTM_RETIRED.ABORTED_MISC2
+									 -e RTM_RETIRED.ABORTED_MISC3 -e RTM_RETIRED.ABORTED_MISC4"
+			elif [ $build == "tsx-hle" ]; then
+				PCM_FLAGS="-e HLE_RETIRED.ABORTED_MISC1 -e HLE_RETIRED.ABORTED_MISC2
+									 -e HLE_RETIRED.ABORTED_MISC3 -e HLE_RETIRED.ABORTED_MISC4"
+			fi
 			for sufix in $SUFIXES; do
 				appRunPath="stamp/$build/$app/$app-$sufix"
 				timeOutput="$output/$app-$sufix.time"
 				timeLog="$output/$app-$sufix.timelog"
+				abortOutput="$output/$app-$sufix.abort"
 				#energyOutput="$output/$app-$sufix.energy"
 				#energyLog="$output/$app-$sufix.energylog"
 				#rm -f $output/{$energyOutput,$timeOutput}
-				rm -f $output/$timeOutput
 				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeOutput
 				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeLog
 				for memalloc in $MEMALLOCS; do
 					timeTemp="$memalloc.time"
 					timeLogTemp="$memalloc.timelog"
-					for i in $NTHREADS;
-					do
+					abortTemp="$memalloc.abort"
+					for i in $NTHREADS; do
 						rm -f *.temp
 						for((j=0;j<${NEXEC};j++)); do
-							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"
-								LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i > data.temp
-								eval $GET_TIME >> time.temp
-								#eval $GET_ENERGY >> energy.temp
+							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"	
+							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
+								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
+							else
+								LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
+							fi
+							eval $GET_TIME >> time.temp
+							eval $GET_ABORT >> abort.temp
+							#eval $GET_ENERGY >> energy.temp
 						done # FOR EACH EXECUTION
 						echo "$(awk "$awkscript" time.temp)" >> $timeTemp
+						echo "$(awk "$awkscript" abort.temp)" >> $abortTemp
 						#echo "$(awk "$awkscript" energy.temp)" >> $energyTemp
 						#cat energy.temp >> $energyLogTemp
 						#echo >> $energyLogTemp
@@ -214,9 +259,10 @@ function execute {
 						echo >> $timeLogTemp
 					done # FOR EACH NUMBER OF THREADS
 				done # FOR EACH MEMORY ALLOCATOR
-				eval paste \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.time >> $timeOutput
-				eval paste \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.timelog >> $timeLog
-				eval rm \{$(echo $MEMALLOCS | sed "s/ /,/g")\}.\{time,timelog\}
+				eval paste "$(for m in $MEMALLOCS; do echo $m".time"; done | tr '\n' ' ')" >> $timeOutput
+				eval paste "$(for m in $MEMALLOCS; do echo $m".timelog"; done | tr '\n' ' ')" >> $timeLog
+				eval paste "$(for m in $MEMALLOCS; do echo $m".abort"; done | tr '\n' ' ')" >> $abortOutput
+				rm *.{time,timelog,abort}
 			done # FOR EACH SUFIX
 		done # FOR EACH BUILD
 	done # FOR EACH APPS
@@ -233,7 +279,7 @@ function clean {
 	test -e tinySTM/Makefile && rm tinySTM/Makefile
 	make -C tinySTM/ -f Makefile.template clean
 	make -C tsx/rtm clean
-	rm -rf stamp/{seq,tinystm,lock}
+	rm -rf stamp/{seq,tinystm,lock,tsx-rtm,tsx-hle}
 
 	echo 'cleanup finished.'
 	
@@ -268,6 +314,7 @@ function plotstats {
 function cleanup {
 	
 	rm -f *.temp
+	rm -f *.{time,timelog,abort}
 	test -d output-data && rm -f output-data/*.{dvfs,png,table}
 	exit
 }
@@ -280,7 +327,7 @@ if [ "$#" -eq "0" ]; then
 else
 	run_opt=$1
 	shift
-	while getopts ":d:m:a:b:t:n:p:g:M:" opt;
+	while getopts ":d:m:a:b:t:n:p:g:M:P:" opt;
 	do
 		case $opt in
 			d) STM_DESIGNS=$OPTARG ;;
@@ -292,6 +339,7 @@ else
 			p) PLOT=$OPTARG ;;
 			g) GOVS=$OPTARG ;;
 			M) MEM_ALLOCS=$OPTARG ;;
+			P) PCM_PATH=$OPTARG ;;
 			\?) echo $0" : error - invalid option -- $OPTARG"
 				exit 1
 		esac

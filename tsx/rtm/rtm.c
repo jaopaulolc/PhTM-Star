@@ -113,9 +113,9 @@ void _RTM_FORCE_INLINE TSX_FINISH(){
 		long unknownAborts  = 0;
 		long nthreads = __global_thread_tx[0].nthreads;
 		long i;
-		printf("Core totalAborts explicitAborts conflictAborts capacityAborts debugAborts nestedAborts unknownAborts\n");
+		printf("Core total explicit conflict capacity debug nested unknown\n");
 		for(i=0; i < nthreads; i++){
-			printf(" %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
+			printf(" %ld %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
 				__global_thread_tx[i].id,
 				__global_thread_tx[i].totalAborts,
 				__global_thread_tx[i].explicitAborts,
@@ -133,7 +133,8 @@ void _RTM_FORCE_INLINE TSX_FINISH(){
 			nestedAborts   += __global_thread_tx[i].nestedAborts;
 			unknownAborts  += __global_thread_tx[i].unknownAborts;
 		}
-		printf(" *\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
+		printf("----------------------------------------------------------\n");
+		printf(" * %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
 			totalAborts,explicitAborts,
 			conflictAborts,capacityAborts,
 			debugAborts,nestedAborts,unknownAborts);
