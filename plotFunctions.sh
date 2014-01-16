@@ -3,20 +3,22 @@
 gnuplot=/usr/bin/gnuplot
 
 function plot-STAMP-HLE-RTM-tinySTM {
-	rm -f {tsx-hle,tsx-rtm,tinySTM,seq}.speedup
+	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.speedup
 	for app in $APPS; do
 		eval $app=$(sed -n '2,$'p $output/$app-seq.time | cut -d' ' -f1)
 		sed -n '2,$'p $output/$app-tsx-hle.time | awk '{print '${!app}'/$1," ",$2}' >> tsx-hle.speedup
 		sed -n '2,$'p $output/$app-tsx-rtm.time | awk '{print '${!app}'/$1," ",$2}' >> tsx-rtm.speedup
 		sed -n '2,$'p $output/$app-ETL-SUICIDE.time | awk '{print '${!app}'/$1," ",$2}' >> tinySTM.speedup
+		sed -n '2,$'p $output/$app-lock.time | awk '{print '${!app}'/$1," ",$2}' >> lock.speedup
 		echo >> tsx-hle.speedup
 		echo >> tsx-rtm.speedup
 		echo >> tinySTM.speedup
+		echo >> lock.speedup
 	done
 	test -e $gnuplot && $gnuplot <<-EOF
 		set encoding utf8
-		set terminal postscript eps enhanced color size 9.60,2.80 font "Helvetic-Bold,16"
-		set output '$output/stamp-hle-rtm-tinySTM.eps'
+		set terminal postscript eps enhanced color size 9.60,2.80 font "NimbusSanL-Bold,16"
+		set output '$output/stamp-hle-rtm-tinySTM-lock.eps'
 	
 		# estilo das linhas
 		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "black"
@@ -37,14 +39,15 @@ function plot-STAMP-HLE-RTM-tinySTM {
 		set for[i=1:words(ncores)*words(apps)] label word(ncores,i%5 + 1) at i,-0.40 center
 		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.5,-0.75 center
 
-		plot "tsx-hle.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 2 t 'HLE', \
-				 "tsx-rtm.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 3 t 'RTM', \
-				 "tinySTM.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 4 t 'tinySTM'
+		plot "tsx-hle.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 1 t 'HLE'
+		     "tsx-rtm.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 2 t 'RTM', \
+				 "tinySTM.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 3 t 'tinySTM',\
+				 "lock.speedup"    u (column(0) + 1 + int(column(0)/4)):1 w lp ls 4 t 'LOCK'
 		
 		set terminal ""
 		set output
 	EOF
-	rm -f {tsx-hle,tsx-rtm,tinySTM,seq}.speedup
+	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.speedup
 }
 
 function plot-HLE-RTM-tinySTM {
