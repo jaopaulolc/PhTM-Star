@@ -1,3 +1,9 @@
+# ========= MSR =========
+MSR = ../../../msr
+
+CPPFLAGS += -I$(MSR)
+LDFLAGS  += -L$(MSR) -lmsr -lm
+
 # ======== Rules ========
 OBJDIR = ../../$(TMBUILD)/$(PROG)/
 

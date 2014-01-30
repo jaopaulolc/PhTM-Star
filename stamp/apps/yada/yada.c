@@ -81,6 +81,7 @@
 #include "timer.h"
 #include "tm.h"
 
+#include <msr.h>
 
 #define PARAM_DEFAULT_INPUTPREFIX ("inputs/ttimeu1000000.2")
 #define PARAM_DEFAULT_NUMTHREAD   (1L)
@@ -270,6 +271,10 @@ process (void *arg)
  */
 MAIN(argc, argv)
 {
+
+		unsigned int counterBefore,counterAfter;
+		msrInit();
+		
     GOTO_REAL();
 
     /*
@@ -301,6 +306,7 @@ MAIN(argc, argv)
      */
 
     TIMER_T start;
+		counterBefore = msrGetCounter();
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -314,6 +320,7 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T stop;
     TIMER_READ(stop);
+		counterAfter = msrGetCounter();
 
     puts(" done.");
     printf("Time                            = %0.3lf\n",
@@ -349,6 +356,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

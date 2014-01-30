@@ -83,6 +83,8 @@
 #include "tm.h"
 #include "vector.h"
 
+#include <msr.h>
+
 
 enum param_types {
     PARAM_GENE    = (unsigned char)'g',
@@ -185,6 +187,9 @@ MAIN (argc,argv)
     TIMER_T start;
     TIMER_T stop;
 
+		unsigned int counterBefore,counterAfter;
+		msrInit();
+
     GOTO_REAL();
 
     /* Initialization */
@@ -227,6 +232,7 @@ MAIN (argc,argv)
     /* Benchmark */
     printf("Sequencing gene... ");
     fflush(stdout);
+		counterBefore = msrGetCounter();
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -239,6 +245,7 @@ MAIN (argc,argv)
 #endif
     GOTO_REAL();
     TIMER_READ(stop);
+		counterAfter = msrGetCounter();
     puts("done.");
     printf("Time = %lf\n", TIMER_DIFF_SECONDS(start, stop));
     fflush(stdout);
@@ -273,6 +280,7 @@ MAIN (argc,argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(result);
 }
 

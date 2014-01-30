@@ -110,6 +110,8 @@
 #include "tm.h"
 #include "util.h"
 
+#include <msr.h>
+
 #define MAX_LINE_LENGTH 1000000 /* max input is 400000 one digit input + spaces */
 
 
@@ -160,6 +162,9 @@ MAIN(argc, argv)
     int     nthreads;
     float   threshold = 0.00001;
     int     opt;
+		
+		unsigned int counterBefore,counterAfter;
+		msrInit();
 
     GOTO_REAL();
 
@@ -284,6 +289,8 @@ MAIN(argc, argv)
      */
     cluster_assign = (int*)SEQ_MALLOC(numObjects * sizeof(int));
     assert(cluster_assign);
+		
+		counterBefore = msrGetCounter();
 
     nloops = 1;
     /* len = max_nclusters - min_nclusters + 1; */
@@ -309,6 +316,8 @@ MAIN(argc, argv)
                      cluster_assign);      /* return: [numObjects] cluster id for each object */
 
     }
+
+		counterAfter = msrGetCounter();
 
 #ifdef GNUPLOT_OUTPUT
     {
@@ -388,6 +397,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

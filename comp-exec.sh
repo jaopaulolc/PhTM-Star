@@ -19,7 +19,7 @@ SUICIDE='# DEFINES += -DCM=CM_SUICIDE'
 DELAY='# DEFINES += -DCM=CM_DELAY'
 BACKOFF='# DEFINES += -DCM=CM_BACKOFF'
 GET_TIME="grep -e '^Time[ ]\+= ' data.temp | awk '{print \$3}' "
-GET_ENERGY="grep -e 'Energy consumed:' data.temp | awk '{print \$3}' "
+GET_ENERGY="grep -e '^Energy[ ]\+=' data.temp | awk '{print \$3}' "
 GET_ABORT='grep -e "^[ ]\+\*" data.temp | awk "$parseAbort" '
 EXEC_FLAG_bayes='-v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t'
 EXEC_FLAG_genome='-g16384 -s64 -n16777216 -t'
@@ -130,19 +130,18 @@ function usage {
 
 	echo
 	echo '-n <nb executions>'
-	echo 'default = 10'
+	echo 'default = 20'
 }
 
 function compile {
 
-	#make -C energy-measure/ clean $MAKE_OPTIONS && make -C energy-measure/ $MAKE_OPTIONS
-	#make -C freqscaling/ clean $MAKE_OPTIONS && make -C freqscaling/ $MAKE_OPTIONS
+	make -C msr/ clean $MAKE_OPTIONS && make -C msr/ $MAKE_OPTIONS
 	
 	echo 'starting compilation...'
 
-	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
-	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
-	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
+	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
+	test ! -z "$STM_CMS"     && CMS=$STM_CMS
+	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 
 
 	for build in $BUILDS; do
@@ -191,12 +190,12 @@ function execute {
 	
 	echo 'starting execution...'
 	
-	test -z "$NEXEC" && NEXEC=10
-	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
-	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
-	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
-	test -z "$NB_CORES" && NB_CORES='1 2 4 8'
-	test -z "$MEM_ALLOCS" || MEMALLOCS=$MEM_ALLOCS
+	test -z "$NEXEC"         && NEXEC=20
+	test -z "$NB_CORES"      && NB_CORES='1 2 4 8'
+	test -z "$MEM_ALLOCS"    && MEMALLOCS='ptmalloc'
+	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
+	test ! -z "$STM_CMS"     && CMS=$STM_CMS
+	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 
 	for app in ${APPS}; do
 		eval exec_flags=\$EXEC_FLAG_$app
@@ -228,15 +227,18 @@ function execute {
 				timeOutput="$output/$app-$sufix.time"
 				timeLog="$output/$app-$sufix.timelog"
 				abortOutput="$output/$app-$sufix.abort"
-				#energyOutput="$output/$app-$sufix.energy"
-				#energyLog="$output/$app-$sufix.energylog"
-				#rm -f $output/{$energyOutput,$timeOutput}
+				energyOutput="$output/$app-$sufix.energy"
+				energyLog="$output/$app-$sufix.energylog"
 				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeOutput
 				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeLog
+				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $energyOutput
+				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $energyLog
 				for memalloc in $MEMALLOCS; do
 					timeTemp="$memalloc.time"
 					timeLogTemp="$memalloc.timelog"
 					abortTemp="$memalloc.abort"
+					energyTemp="$memalloc.energy"
+					energyLogTemp="$memalloc.energylog"
 					for i in $NTHREADS; do
 						rm -f *.temp
 						for((j=0;j<${NEXEC};j++)); do
@@ -244,25 +246,27 @@ function execute {
 							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
 								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
 							else
-								LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
+								sudo LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
 							fi
-							eval $GET_TIME >> time.temp
-							eval $GET_ABORT >> abort.temp
-							#eval $GET_ENERGY >> energy.temp
+							eval $GET_TIME   >> time.temp
+							eval $GET_ABORT  >> abort.temp
+							eval $GET_ENERGY >> energy.temp
 						done # FOR EACH EXECUTION
-						echo "$(awk "$awkscript" time.temp)" >> $timeTemp
-						echo "$(awk "$awkscript" abort.temp)" >> $abortTemp
-						#echo "$(awk "$awkscript" energy.temp)" >> $energyTemp
-						#cat energy.temp >> $energyLogTemp
-						#echo >> $energyLogTemp
+						echo "$(awk "$awkscript" time.temp)"   >> $timeTemp
+						echo "$(awk "$awkscript" abort.temp)"  >> $abortTemp
+						echo "$(awk "$awkscript" energy.temp)" >> $energyTemp
 						cat time.temp >> $timeLogTemp
 						echo >> $timeLogTemp
+						cat energy.temp >> $energyLogTemp
+						echo >> $energyLogTemp
 					done # FOR EACH NUMBER OF THREADS
 				done # FOR EACH MEMORY ALLOCATOR
-				eval paste "$(for m in $MEMALLOCS; do echo $m".time"; done | tr '\n' ' ')" >> $timeOutput
-				eval paste "$(for m in $MEMALLOCS; do echo $m".timelog"; done | tr '\n' ' ')" >> $timeLog
-				eval paste "$(for m in $MEMALLOCS; do echo $m".abort"; done | tr '\n' ' ')" >> $abortOutput
-				rm *.{time,timelog,abort}
+				eval paste "$(for m in $MEMALLOCS; do echo $m".time";      done | tr '\n' ' ')" >> $timeOutput
+				eval paste "$(for m in $MEMALLOCS; do echo $m".timelog";   done | tr '\n' ' ')" >> $timeLog
+				eval paste "$(for m in $MEMALLOCS; do echo $m".abort";     done | tr '\n' ' ')" >> $abortOutput
+				eval paste "$(for m in $MEMALLOCS; do echo $m".energy";    done | tr '\n' ' ')" >> $energyOutput
+				eval paste "$(for m in $MEMALLOCS; do echo $m".energylog"; done | tr '\n' ' ')" >> $energyLog
+				rm *.{time,timelog,abort,energy,energylog}
 			done # FOR EACH SUFIX
 		done # FOR EACH BUILD
 	done # FOR EACH APPS
@@ -275,10 +279,10 @@ function clean {
 	
 	echo 'starting cleanup...'
 	
-	#make -C energy-measure/ clean
 	test -e tinySTM/Makefile && rm tinySTM/Makefile
 	make -C tinySTM/ -f Makefile.template clean
 	make -C tsx/rtm clean
+	make -C msr/ clean
 	rm -rf stamp/{seq,tinystm,lock,tsx-rtm,tsx-hle}
 
 	echo 'cleanup finished.'
@@ -291,13 +295,10 @@ function plotstats {
 		
 	echo 'starting to plot...'
 
-	test "$STAMP_APP" != "ALL" -a "$STAMP_APP" != "" && APPS=$STAMP_APP
-	test "$STM_DESIGNS" != "ALL" -a "$STM_DESIGNS" != ""  && DESIGNS=$STM_DESIGNS
-	test "$STM_CMS" != "ALL" -a "$STM_CMS" != ""  && CMS=$STM_CMS
-	test -z "$NB_CORES" && NB_CORES='1 2 4 8'
-	
-	test "$GOVS" != "" && GOVERNORS=$GOVS
-	test "$GOVS" == "ALL" && GOVERNORS='powersave conservative ondemand performance'
+	test -z "$NB_CORES"      && NB_CORES='1 2 4 8'
+	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
+	test ! -z "$STM_CMS"     && CMS=$STM_CMS
+	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	
 	case $PLOT in
 		STAMP-HLE-RTM-tinySTM)

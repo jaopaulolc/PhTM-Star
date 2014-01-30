@@ -88,6 +88,8 @@
 #include "types.h"
 #include "utility.h"
 
+#include <msr.h>
+
 enum param_types {
     PARAM_CLIENTS      = (unsigned char)'t',
     PARAM_NUMBER       = (unsigned char)'n',
@@ -418,6 +420,9 @@ MAIN(argc, argv)
     client_t** clients;
     TIMER_T start;
     TIMER_T stop;
+		
+		unsigned int counterBefore,counterAfter;
+    msrInit();
 
     GOTO_REAL();
 
@@ -436,6 +441,7 @@ MAIN(argc, argv)
     /* Run transactions */
     printf("Running clients... ");
     fflush(stdout);
+		counterBefore = msrGetCounter();
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -448,6 +454,7 @@ MAIN(argc, argv)
 #endif
     GOTO_REAL();
     TIMER_READ(stop);
+		counterAfter = msrGetCounter();
     puts("done.");
     printf("Time = %0.6lf\n",
            TIMER_DIFF_SECONDS(start, stop));
@@ -472,6 +479,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

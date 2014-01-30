@@ -79,9 +79,13 @@
 #include "thread.h"
 #include "tm.h"
 
+#include <msr.h>
 
 MAIN(argc, argv)
 {
+		unsigned int counterBefore,counterAfter;
+		msrInit();
+
     GOTO_REAL();
 
     /*
@@ -212,6 +216,7 @@ MAIN(argc, argv)
     computeGraphArgs.GPtr       = G;
     computeGraphArgs.SDGdataPtr = SDGdata;
 
+		counterBefore = msrGetCounter();
     TIMER_READ(start);
 
     GOTO_SIM();
@@ -228,6 +233,7 @@ MAIN(argc, argv)
     TIMER_READ(stop);
 
     time = TIMER_DIFF_SECONDS(start, stop);
+		counterAfter = msrGetCounter();
     totalTime += time;
 
     printf("\n\tcomputeGraph() completed execution.\n");
@@ -571,6 +577,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

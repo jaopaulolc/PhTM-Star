@@ -80,6 +80,8 @@
 #include "timer.h"
 #include "types.h"
 
+#include <msr.h>
+
 enum param_types {
     PARAM_BENDCOST = (unsigned char)'b',
     PARAM_THREAD   = (unsigned char)'t',
@@ -194,6 +196,9 @@ MAIN(argc, argv)
     /*
      * Initialization
      */
+		unsigned int counterBefore,counterAfter;
+		msrInit();
+
     parseArgs(argc, (char** const)argv);
     long numThread = global_params[PARAM_THREAD];
     SIM_GET_NUM_CPU(numThread);
@@ -216,6 +221,7 @@ MAIN(argc, argv)
      */
     router_solve_arg_t routerArg = {routerPtr, mazePtr, pathVectorListPtr};
     TIMER_T startTime;
+		counterBefore = msrGetCounter();
     TIMER_READ(startTime);
     GOTO_SIM();
 #ifdef OTM
@@ -229,6 +235,7 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T stopTime;
     TIMER_READ(stopTime);
+		counterAfter = msrGetCounter();
 
     long numPathRouted = 0;
     list_iter_t it;
@@ -268,7 +275,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
-
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

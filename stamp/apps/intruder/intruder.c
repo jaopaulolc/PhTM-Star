@@ -82,6 +82,8 @@
 #include "timer.h"
 #include "tm.h"
 
+#include <msr.h>
+
 enum param_types {
     PARAM_ATTACK = (unsigned char)'a',
     PARAM_LENGTH = (unsigned char)'l',
@@ -258,6 +260,9 @@ MAIN(argc, argv)
     /*
      * Initialization
      */
+		unsigned int counterBefore,counterAfter;
+		msrInit();
+
     global_param_init();
     parseArgs(argc, (char** const)argv);
     long numThread = global_params[PARAM_THREAD];
@@ -308,6 +313,7 @@ MAIN(argc, argv)
      */
 
     TIMER_T startTime;
+		counterBefore = msrGetCounter();
     TIMER_READ(startTime);
     GOTO_SIM();
 #ifdef OTM
@@ -322,6 +328,7 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T stopTime;
     TIMER_READ(stopTime);
+		counterAfter = msrGetCounter();
     printf("Time            = %f\n", TIMER_DIFF_SECONDS(startTime, stopTime));
 
     /*
@@ -362,6 +369,7 @@ MAIN(argc, argv)
 
     thread_shutdown();
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 

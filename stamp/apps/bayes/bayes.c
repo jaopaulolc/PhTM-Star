@@ -79,6 +79,8 @@
 #include "tm.h"
 #include "types.h"
 
+#include <msr.h>
+
 enum param_types {
     PARAM_EDGE    = (unsigned char)'e',
     PARAM_INSERT  = (unsigned char)'i',
@@ -235,6 +237,8 @@ MAIN(argc, argv)
     /*
      * Initialization
      */
+		unsigned int counterBefore,counterAfter;
+		msrInit();
 
     parseArgs(argc, (char** const)argv);
     long numThread     = global_params[PARAM_THREAD];
@@ -320,6 +324,7 @@ MAIN(argc, argv)
     fflush(stdout);
 
     TIMER_T learnStartTime;
+		counterBefore = msrGetCounter();
     TIMER_READ(learnStartTime);
     GOTO_SIM();
 
@@ -328,6 +333,7 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T learnStopTime;
     TIMER_READ(learnStopTime);
+		counterAfter = msrGetCounter();
 
     puts("done.");
     fflush(stdout);
@@ -365,7 +371,8 @@ MAIN(argc, argv)
     GOTO_SIM();
 
     thread_shutdown();
-
+		
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
     MAIN_RETURN(0);
 }
 
