@@ -153,6 +153,8 @@ void _RTM_FORCE_INLINE _RTM_ABORT_STATS(){
 		}
 		else if(__tx_status & _XABORT_CAPACITY){
 			__thread_tx->capacityAborts++;
+			//transaction will not commit on future attempts
+			__tx_retries = RTM_MAX_RETRIES;
 		}
 		else if(__tx_status & _XABORT_DEBUG){
 			__thread_tx->debugAborts++;

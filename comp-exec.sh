@@ -301,8 +301,10 @@ function plotstats {
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	
 	case $PLOT in
-		STAMP-HLE-RTM-tinySTM)
-			plot-STAMP-HLE-RTM-tinySTM ;;
+		STAMP-speedup)
+			plot-STAMP-speedup ;;
+		STAMP-energy)
+			plot-STAMP-energy ;;
 		HLE-RTM-tinySTM)
 			plot-HLE-RTM-tinySTM ;;
 		*)

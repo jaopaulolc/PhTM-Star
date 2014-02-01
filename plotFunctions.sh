@@ -2,7 +2,7 @@
 
 gnuplot=/usr/bin/gnuplot
 
-function plot-STAMP-HLE-RTM-tinySTM {
+function plot-STAMP-speedup {
 	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.speedup
 	for app in $APPS; do
 		eval $app=$(sed -n '2,$'p $output/$app-seq.time | cut -d' ' -f1)
@@ -18,7 +18,7 @@ function plot-STAMP-HLE-RTM-tinySTM {
 	test -e $gnuplot && $gnuplot <<-EOF
 		set encoding utf8
 		set terminal postscript eps enhanced color size 9.60,2.80 font "NimbusSanL-Bold,16"
-		set output '$output/stamp-hle-rtm-tinySTM-lock.eps'
+		set output '$output/stamp-speedup.eps'
 	
 		# estilo das linhas
 		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "black"
@@ -39,7 +39,7 @@ function plot-STAMP-HLE-RTM-tinySTM {
 		set for[i=1:words(ncores)*words(apps)] label word(ncores,i%5 + 1) at i,-0.40 center
 		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.5,-0.75 center
 
-		plot "tsx-hle.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 1 t 'HLE'
+		plot "tsx-hle.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 1 t 'HLE', \
 		     "tsx-rtm.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 2 t 'RTM', \
 				 "tinySTM.speedup" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 3 t 'tinySTM',\
 				 "lock.speedup"    u (column(0) + 1 + int(column(0)/4)):1 w lp ls 4 t 'LOCK'
@@ -48,6 +48,58 @@ function plot-STAMP-HLE-RTM-tinySTM {
 		set output
 	EOF
 	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.speedup
+}
+
+function plot-STAMP-energy {
+	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.energy
+	for app in $APPS; do
+		#eval $app=$(sed -n '2,$'p $output/$app-seq.time | cut -d' ' -f1)
+		#sed -n '2,$'p $output/$app-tsx-hle.energy | awk '{print '${!app}'/$1," ",$2}' >> tsx-hle.energy
+		sed -n '2,$'p $output/$app-tsx-hle.energy     >> tsx-hle.energy
+		#sed -n '2,$'p $output/$app-tsx-rtm.energy | awk '{print '${!app}'/$1," ",$2}' >> tsx-rtm.energy
+		sed -n '2,$'p $output/$app-tsx-rtm.energy     >> tsx-rtm.energy
+		#sed -n '2,$'p $output/$app-ETL-SUICIDE.energy | awk '{print '${!app}'/$1," ",$2}' >> tinySTM.energy
+		sed -n '2,$'p $output/$app-ETL-SUICIDE.energy >> tinySTM.energy
+		#sed -n '2,$'p $output/$app-lock.energy | awk '{print '${!app}'/$1," ",$2}' >> lock.energy
+		sed -n '2,$'p $output/$app-lock.energy        >> lock.energy
+		echo >> tsx-hle.energy
+		echo >> tsx-rtm.energy
+		echo >> tinySTM.energy
+		echo >> lock.energy
+	done
+	test -e $gnuplot && $gnuplot <<-EOF
+		set encoding utf8
+		set terminal postscript eps enhanced color size 9.60,2.80 font "NimbusSanL-Bold,16"
+		set output '$output/stamp-energy.eps'
+	
+		# estilo das linhas
+		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "black"
+		set style line 2 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#8C1717" #scarlet
+		set style line 3 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#EE7621" #chocolate2
+		set style line 4 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#99CC32" #yellowgreen
+		
+		set xtics 0,5,10 nomirror format ""
+		set xtics add 5 out scale 6,2
+		set mxtics 5
+		set ytics out nomirror
+		set grid y
+	
+		set ylabel "Energy (Joules)" offset 1.8
+		
+		ncores = "| $NB_CORES"
+		apps = "$APPS"
+		set for[i=1:words(ncores)*words(apps)] label word(ncores,i%5 + 1) at i,-250.0 center
+		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.5,-475.0 center
+
+		plot "tsx-hle.energy" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 1 t 'HLE', \
+		     "tsx-rtm.energy" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 2 t 'RTM', \
+				 "tinySTM.energy" u (column(0) + 1 + int(column(0)/4)):1 w lp ls 3 t 'tinySTM',\
+				 "lock.energy"    u (column(0) + 1 + int(column(0)/4)):1 w lp ls 4 t 'LOCK'
+		
+		set terminal ""
+		set output
+	EOF
+	rm -f {tsx-hle,tsx-rtm,tinySTM,seq,lock}.energy
 }
 
 function plot-HLE-RTM-tinySTM {
