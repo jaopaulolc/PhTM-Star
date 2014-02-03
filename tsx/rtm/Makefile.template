@@ -2,7 +2,13 @@
 
 target = librtm.a
 
-override CFLAGS  += -DRTM_ABORT_DEBUG -O3 -Wall -I. -I../ -mrtm
+DEFINES += -DRTM_ABORT_DEBUG
+
+# DEFINES += -DRTM_CM_AUXLOCK
+
+# DEFINES += -DRTM_CM_BACKOFF
+
+CFLAGS += -O3 -Wall -I. -I../ -mrtm $(DEFINES)
 
 all: $(target)
 

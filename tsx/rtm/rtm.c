@@ -15,9 +15,15 @@ __thread tsx_tx_t *__thread_tx;
 __thread long __tx_status;  // _xbegin() return status
 __thread long __tx_retries; // number of retries
 
-#ifdef RTM_BACKOFF_ENABLED
+#ifdef RTM_CM_AUXLOCK
+light_lock_t __aux_lock = LIGHT_LOCK_INITIALIZER;
+__thread long __aux_lock_owner = 0;
+#endif /* RTM_CM_AUXLOCK */
+
+
+#ifdef RTM_CM_BACKOFF
 __thread unsigned short __thread_seed[3];
-#endif /* RTM_BACKOFF_ENABLED */
+#endif /* RTM_CM_BACKOFF */
 
 light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
 
@@ -44,19 +50,25 @@ void _RTM_FORCE_INLINE TX_START(){
 		else{
 			// execution flow continues here on transaction abort
 			_RTM_ABORT_STATS();
+		#ifdef RTM_CM_AUXLOCK
+			if(__aux_lock_owner == 0 && __tx_status & _XABORT_CONFLICT){
+				light_lock(&__aux_lock);
+				__aux_lock_owner = 1;
+			}
+		#endif /* RTM_CM_AUXLOCK */
 			if((__tx_status & _XABORT_RETRY)){
 				__tx_retries++;
 				if(__tx_retries >= RTM_MAX_RETRIES){
 					light_lock(&__rtm_global_lock);
 					return;
 				}
-		#ifdef RTM_BACKOFF_ENABLED
+		#ifdef RTM_CM_BACKOFF
 				else{
 					long a = nrand48(__thread_seed);
 					long b = __thread_tx.totalAborts >> 2;
 					usleep( (useconds_t)(a%b) );
 				}
-		#endif /* RTM_BACKOFF_ENABLED */
+		#endif /* RTM_CM_BACKOFF */
 			}
 			else {
 				__tx_retries = RTM_MAX_RETRIES;
@@ -74,6 +86,12 @@ void _RTM_FORCE_INLINE TX_END(){
 		__tx_retries = 0;
 	}
 	else _xend();
+#ifdef RTM_CM_AUXLOCK
+	if(__aux_lock_owner == 1){
+		light_unlock(&__aux_lock);
+		__aux_lock_owner = 0;
+	}
+#endif /* RTM_CM_AUXLOCK */
 }
 
 void _RTM_FORCE_INLINE TX_INIT(long id){
@@ -84,20 +102,18 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 		__thread_tx->nthreads        = __global_thread_tx[0].nthreads;
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
-		#ifdef RTM_BACKOFF_ENABLED
+		#ifdef RTM_CM_BACKOFF
 			__thread_seed[0] = (unsigned short)rand()%USHRT_MAX;
 			__thread_seed[1] = (unsigned short)rand()%USHRT_MAX;
 			__thread_seed[2] = (unsigned short)rand()%USHRT_MAX;
-		#endif /* RTM_BACKOFF_ENABLED */
-		#ifdef RTM_ABORT_DEBUG
-			__thread_tx->totalAborts     = 0;
-			__thread_tx->explicitAborts  = 0;
-			__thread_tx->conflictAborts  = 0;
-			__thread_tx->capacityAborts  = 0;
-			__thread_tx->debugAborts     = 0;
-			__thread_tx->nestedAborts    = 0;
-			__thread_tx->unknownAborts   = 0;
-		#endif /* RTM_ABORT_DEBUG */
+		#endif /* RTM_CM_BACKOFF */
+		__thread_tx->totalAborts     = 0;
+		__thread_tx->explicitAborts  = 0;
+		__thread_tx->conflictAborts  = 0;
+		__thread_tx->capacityAborts  = 0;
+		__thread_tx->debugAborts     = 0;
+		__thread_tx->nestedAborts    = 0;
+		__thread_tx->unknownAborts   = 0;
 	}
 }
 
@@ -144,27 +160,29 @@ void _RTM_FORCE_INLINE TSX_FINISH(){
 
 void _RTM_FORCE_INLINE _RTM_ABORT_STATS(){
 	__thread_tx->totalAborts++;
-	#ifdef RTM_ABORT_DEBUG
-		if(__tx_status & _XABORT_EXPLICIT){
-			__thread_tx->explicitAborts++;
-		}
-		else if(__tx_status & _XABORT_CONFLICT){
-			__thread_tx->conflictAborts++;
-		}
-		else if(__tx_status & _XABORT_CAPACITY){
-			__thread_tx->capacityAborts++;
-			//transaction will not commit on future attempts
-			__tx_retries = RTM_MAX_RETRIES;
-		}
-		else if(__tx_status & _XABORT_DEBUG){
-			__thread_tx->debugAborts++;
-		}
-		else if(__tx_status & _XABORT_NESTED){
-			__thread_tx->nestedAborts++;
-		}
-		else {
-			__thread_tx->unknownAborts++;
-		}
-	#endif /* _RTM_ABORT_DEBUG */
+	if(__tx_status & _XABORT_EXPLICIT){
+		__thread_tx->explicitAborts++;
+	}
+	else if(__tx_status & _XABORT_CONFLICT){
+		__thread_tx->conflictAborts++;
+	}
+	else if(__tx_status & _XABORT_CAPACITY){
+		__thread_tx->capacityAborts++;
+		//transaction will not commit on future attempts
+		__tx_retries = RTM_MAX_RETRIES;
+	}
+	else if(__tx_status & _XABORT_DEBUG){
+		__thread_tx->debugAborts++;
+		//transaction will not commit on future attempts
+		__tx_retries = RTM_MAX_RETRIES;
+	}
+	else if(__tx_status & _XABORT_NESTED){
+		__thread_tx->nestedAborts++;
+		//transaction will not commit on future attempts
+		__tx_retries = RTM_MAX_RETRIES;
+	}
+	else {
+		__thread_tx->unknownAborts++;
+	}
 }
 

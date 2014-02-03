@@ -5,6 +5,7 @@ MAKE_OPTIONS='--quiet --no-keep-going'
 APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
 DESIGNS='ETL CTL WT'
 CMS='SUICIDE DELAY BACKOFF'
+RTMCMS='simplelock auxlock backoff'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
 MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
 ALLOCS_DIR='allocators'
@@ -12,6 +13,9 @@ ptmalloc=''
 tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
 hoard="$ALLOCS_DIR/libhoard.so"
 tbbmalloc="$ALLOCS_DIR/libtbbmalloc.so.2"
+simplelock='dummy'
+auxlock='# DEFINES += -DRTM_CM_AUXLOCK'
+backoff='# DEFINES += -DRTM_CM_BACKOFF'
 ETL='# DEFINES += -DDESIGN=WRITE_BACK_ETL'
 CTL='# DEFINES += -DDESIGN=WRITE_BACK_CTL'
 WT='# DEFINES += -DDESIGN=WRITE_THROUGH'
@@ -29,7 +33,9 @@ EXEC_FLAG_labyrinth='-i stamp/data/labyrinth/inputs/random-x512-y512-z7-n512.txt
 EXEC_FLAG_ssca2='-s20 -i1.0 -u1.0 -l3 -p3 -t'
 EXEC_FLAG_vacation='-n4 -q60 -u90 -r1048576 -T4194304 -t'
 EXEC_FLAG_yada='-a15 -i stamp/data/yada/inputs/ttimeu1000000.2 -t'
-
+_AUX='$(echo ${build/tsx-/} | tr "[:lower:]" "[:upper:]")'
+PCM_FLAGS='-e ${_AUX}_RETIRED.ABORTED_MISC1 -e ${_AUX}_RETIRED.ABORTED_MISC2
+					 -e ${_AUX}_RETIRED.ABORTED_MISC3 -e ${_AUX}_RETIRED.ABORTED_MISC4'
 
 awkscript='
 BEGIN{
@@ -102,6 +108,11 @@ function usage {
 	echo '-m <tinySTM CM>'
 	echo 'ALL | SUICIDE | BACKOFF | DELAY'
 	echo 'default = ALL'
+	
+	echo
+	echo '-D <RTM CM>'
+	echo 'ALL | simplelock | auxlock | backoff'
+	echo 'default = ALL'
 
 	echo
 	echo '-a <stamp app>'
@@ -142,7 +153,7 @@ function compile {
 	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
-
+	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
 
 	for build in $BUILDS; do
 		if [ $build == "tinystm" ]; then
@@ -167,17 +178,31 @@ function compile {
 			done # FOR EACH DESIGN
 		else
 			if [ $build == "tsx-rtm" ]; then
-				make -C tsx/rtm clean ${MAKE_OPTIONS}
-				make -C tsx/rtm ${MAKE_OPTIONS}
+				for cm in ${RTMCMS}; do
+					sed "/${!cm}/s|# ||" tsx/rtm/Makefile.template > tsx/rtm/Makefile
+					touch tsx/rtm/Makefile
+					make -C tsx/rtm clean ${MAKE_OPTIONS}
+					make -C tsx/rtm ${MAKE_OPTIONS}
+					for app in ${APPS}; do
+						SRC_APP_PATH=stamp/apps/$app
+						BIN_APP_PATH=stamp/$build/$app
+						make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+						make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+						mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${cm}
+						echo "## ${app}-$build-$cm compiled"
+					done # FOR EACH APP
+					rm -f tsx/rtm/Makefile
+				done
+			else
+				for app in ${APPS}; do
+					SRC_APP_PATH=stamp/apps/$app
+					BIN_APP_PATH=stamp/$build/$app
+					make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+					make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+					mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+					echo "## ${app}-$build compiled"
+				done # FOR EACH APP
 			fi
-			for app in ${APPS}; do
-				SRC_APP_PATH=stamp/apps/$app
-				BIN_APP_PATH=stamp/$build/$app
-				make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-				make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
-				echo "## ${app}-$build compiled"
-			done # FOR EACH APP
 		fi
 	done
 	
@@ -196,32 +221,16 @@ function execute {
 	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
+	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
 
 	for app in ${APPS}; do
 		eval exec_flags=\$EXEC_FLAG_$app
 		for build in $BUILDS; do
-			if [ $build  == 'tinystm' ]; then
-				SUFIXES=""
-				for design in $DESIGNS; do
-					for cm in $CMS; do
-						SUFIXES+="$design-$cm "
-					done
-				done
-			else
-				SUFIXES=$build
-			fi
-			if [ $build == "seq" ]; then
-				NTHREADS="1"
-			else
-				NTHREADS=$NB_CORES
-			fi
-			if [ $build == "tsx-rtm" ]; then
-				PCM_FLAGS="-e RTM_RETIRED.ABORTED_MISC1 -e RTM_RETIRED.ABORTED_MISC2
-									 -e RTM_RETIRED.ABORTED_MISC3 -e RTM_RETIRED.ABORTED_MISC4"
-			elif [ $build == "tsx-hle" ]; then
-				PCM_FLAGS="-e HLE_RETIRED.ABORTED_MISC1 -e HLE_RETIRED.ABORTED_MISC2
-									 -e HLE_RETIRED.ABORTED_MISC3 -e HLE_RETIRED.ABORTED_MISC4"
-			fi
+			test $build == 'tinystm' && SUFIXES=$(eval echo {${DESIGNS// /,}}-{${CMS// /,}} | sed 's|{||g;s|}||g')
+			test $build == 'tsx-rtm' && SUFIXES=$(eval echo $build-{${RTMCMS// /,}} | sed 's|{||g;s|}||g')
+			test $build == 'tsx-hle' && SUFIXES=$build
+			NTHREADS=$NB_CORES
+			test $build == "seq" && NTHREADS='1'; SUFIXES=$build
 			for sufix in $SUFIXES; do
 				appRunPath="stamp/$build/$app/$app-$sufix"
 				timeOutput="$output/$app-$sufix.time"
@@ -244,7 +253,7 @@ function execute {
 						for((j=0;j<${NEXEC};j++)); do
 							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"	
 							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
-								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
+								eval eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
 							else
 								sudo LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
 							fi
@@ -317,8 +326,8 @@ function plotstats {
 function cleanup {
 	
 	rm -f *.temp
-	rm -f *.{time,timelog,abort}
-	test -d output-data && rm -f output-data/*.{dvfs,png,table}
+	rm -f *.{time,timelog,abort,energy,energylog}
+	test -d output-data && rm -f output-data/*.{png,eps,table}
 	exit
 }
 
@@ -330,11 +339,12 @@ if [ "$#" -eq "0" ]; then
 else
 	run_opt=$1
 	shift
-	while getopts ":d:m:a:b:t:n:p:g:M:P:" opt;
+	while getopts ":d:D:m:a:b:t:n:p:g:M:P:" opt;
 	do
 		case $opt in
 			d) STM_DESIGNS=$OPTARG ;;
 			m) STM_CMS=$OPTARG ;;
+			D) RTM_CMS=$OPTARG ;;
 			a) STAMP_APP=$OPTARG ;;
 			b) BUILDS=$OPTARG ;;
 			t) NB_CORES=$OPTARG ;;
