@@ -24,7 +24,7 @@ __thread long __aux_lock_owner = 0;
 #ifdef RTM_CM_BACKOFF
 #define MIN_BACKOFF (1UL << 2)
 #define MAX_BACKOFF (1UL << 31)
-__thread unsigned long __thread_backoff /* Maximum backoff duration */
+__thread unsigned long __thread_backoff; /* Maximum backoff duration */
 __thread unsigned long __thread_seed; /* Random generated seed */
 #endif /* RTM_CM_BACKOFF */
 
