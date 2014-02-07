@@ -22,7 +22,10 @@ __thread long __aux_lock_owner = 0;
 
 
 #ifdef RTM_CM_BACKOFF
-__thread unsigned short __thread_seed[3];
+#define MIN_BACKOFF (1UL << 2)
+#define MAX_BACKOFF (1UL << 31)
+__thread unsigned long __thread_backoff /* Maximum backoff duration */
+__thread unsigned long __thread_seed; /* Random generated seed */
 #endif /* RTM_CM_BACKOFF */
 
 light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
@@ -64,8 +67,15 @@ void _RTM_FORCE_INLINE TX_START(){
 				}
 		#ifdef RTM_CM_BACKOFF
 				else{
-					long a = nrand48(__thread_seed);
-					usleep( (useconds_t)(a%10) );
+					__thread_seed ^= (__thread_seed << 17);
+					__thread_seed ^= (__thread_seed >> 13);
+					__thread_seed ^= (__thread_seed << 5);
+					unsigned long j, wait = __thread_seed % tx->backoff;
+					for (j = 0; j < wait; j++) {
+						/* Do nothing */
+					}
+					if (__thread_backoff < MAX_BACKOFF)
+						__thread_backoff <<= 1;									 
 				}
 		#endif /* RTM_CM_BACKOFF */
 			}
@@ -102,9 +112,12 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
 		#ifdef RTM_CM_BACKOFF
-			__thread_seed[0] = (unsigned short)rand()%USHRT_MAX;
-			__thread_seed[1] = (unsigned short)rand()%USHRT_MAX;
-			__thread_seed[2] = (unsigned short)rand()%USHRT_MAX;
+			unsigned short seed[3];
+			seed[0] = (unsigned short)rand()%USHRT_MAX;
+			seed[1] = (unsigned short)rand()%USHRT_MAX;
+			seed[2] = (unsigned short)rand()%USHRT_MAX;
+			__thread_seed = nrand48(seed);
+			__thread_backoff = MIN_BACKOFF
 		#endif /* RTM_CM_BACKOFF */
 		__thread_tx->totalAborts     = 0;
 		__thread_tx->explicitAborts  = 0;
