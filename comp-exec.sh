@@ -226,11 +226,11 @@ function execute {
 	for app in ${APPS}; do
 		eval exec_flags=\$EXEC_FLAG_$app
 		for build in $BUILDS; do
-			test $build == 'tinystm' && SUFIXES=$(eval echo {${DESIGNS// /,}}-{${CMS// /,}} | sed 's|{||g;s|}||g')
-			test $build == 'tsx-rtm' && SUFIXES=$(eval echo $build-{${RTMCMS// /,}} | sed 's|{||g;s|}||g')
+			test $build == 'tinystm' && SUFIXES="$(eval echo -n {${DESIGNS// /,}}-{${CMS// /,}} | sed 's|{||g;s|}||g')"
+			test $build == 'tsx-rtm' && SUFIXES="$(eval echo -n $build-{${RTMCMS// /,}} | sed 's|{||g;s|}||g')"
 			test $build == 'tsx-hle' && SUFIXES=$build
 			NTHREADS=$NB_CORES
-			test $build == "seq" && NTHREADS='1'; SUFIXES=$build
+			test $build == "seq" && NTHREADS='1' && SUFIXES=$build
 			for sufix in $SUFIXES; do
 				appRunPath="stamp/$build/$app/$app-$sufix"
 				timeOutput="$output/$app-$sufix.time"
@@ -253,7 +253,8 @@ function execute {
 						for((j=0;j<${NEXEC};j++)); do
 							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"	
 							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
-								eval eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
+								PCM_FLAGS=$(eval eval echo -n $PCM_FLAGS)
+								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
 							else
 								sudo LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
 							fi

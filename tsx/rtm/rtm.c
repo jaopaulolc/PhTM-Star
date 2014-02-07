@@ -65,8 +65,7 @@ void _RTM_FORCE_INLINE TX_START(){
 		#ifdef RTM_CM_BACKOFF
 				else{
 					long a = nrand48(__thread_seed);
-					long b = __thread_tx.totalAborts >> 2;
-					usleep( (useconds_t)(a%b) );
+					usleep( (useconds_t)(a%10) );
 				}
 		#endif /* RTM_CM_BACKOFF */
 			}
