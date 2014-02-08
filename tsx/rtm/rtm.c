@@ -31,7 +31,7 @@ __thread unsigned long __thread_seed; /* Random generated seed */
 light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
 
 #define _XABORT_LOCKED 0xff
-#define RTM_MAX_RETRIES 10
+#define RTM_MAX_RETRIES 5
 
 void _RTM_FORCE_INLINE _RTM_ABORT_STATS();
 
@@ -59,28 +59,19 @@ void _RTM_FORCE_INLINE TX_START(){
 				__aux_lock_owner = 1;
 			}
 		#endif /* RTM_CM_AUXLOCK */
-			if((__tx_status & _XABORT_RETRY)){
-				__tx_retries++;
-				if(__tx_retries >= RTM_MAX_RETRIES){
-					light_lock(&__rtm_global_lock);
-					return;
-				}
 		#ifdef RTM_CM_BACKOFF
-				else{
-					__thread_seed ^= (__thread_seed << 17);
-					__thread_seed ^= (__thread_seed >> 13);
-					__thread_seed ^= (__thread_seed << 5);
-					unsigned long j, wait = __thread_seed % tx->backoff;
-					for (j = 0; j < wait; j++) {
-						/* Do nothing */
-					}
-					if (__thread_backoff < MAX_BACKOFF)
-						__thread_backoff <<= 1;									 
-				}
-		#endif /* RTM_CM_BACKOFF */
+			__thread_seed ^= (__thread_seed << 17);
+			__thread_seed ^= (__thread_seed >> 13);
+			__thread_seed ^= (__thread_seed << 5);
+			unsigned long j, wait = __thread_seed % __thread_backoff;
+			for (j = 0; j < wait; j++) {
+				/* Do nothing */
 			}
-			else {
-				__tx_retries = RTM_MAX_RETRIES;
+			if (__thread_backoff < MAX_BACKOFF)
+				__thread_backoff <<= 1;
+		#endif /* RTM_CM_BACKOFF */
+			__tx_retries++;
+			if(__tx_retries >= RTM_MAX_RETRIES){
 				light_lock(&__rtm_global_lock);
 				return;
 			}
@@ -117,7 +108,7 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 			seed[1] = (unsigned short)rand()%USHRT_MAX;
 			seed[2] = (unsigned short)rand()%USHRT_MAX;
 			__thread_seed = nrand48(seed);
-			__thread_backoff = MIN_BACKOFF
+			__thread_backoff = MIN_BACKOFF;
 		#endif /* RTM_CM_BACKOFF */
 		__thread_tx->totalAborts     = 0;
 		__thread_tx->explicitAborts  = 0;
