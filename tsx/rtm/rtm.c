@@ -21,6 +21,7 @@ __thread long __aux_lock_owner = 0;
 #endif /* RTM_CM_AUXLOCK */
 
 #ifdef RTM_CM_TRYLOCK
+#include <signal.h>
 __thread sigset_t __tx_sigset; //transaction's signal set
 #endif /* RTM_CM_TRYLOCK */
 
