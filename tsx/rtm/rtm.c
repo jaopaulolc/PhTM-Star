@@ -16,10 +16,13 @@ __thread long __tx_status;  // _xbegin() return status
 __thread long __tx_retries; // number of retries
 
 #ifdef RTM_CM_AUXLOCK
-light_lock_t __aux_lock = LIGHT_LOCK_INITIALIZER;
+lock_t __aux_lock = LOCK_INITIALIZER;
 __thread long __aux_lock_owner = 0;
 #endif /* RTM_CM_AUXLOCK */
 
+#ifdef RTM_CM_TRYLOCK
+__thread sigset_t __tx_sigset; //transaction's signal set
+#endif /* RTM_CM_TRYLOCK */
 
 #ifdef RTM_CM_BACKOFF
 #define MIN_BACKOFF (1UL << 2)
@@ -28,7 +31,7 @@ __thread unsigned long __thread_backoff; /* Maximum backoff duration */
 __thread unsigned long __thread_seed; /* Random generated seed */
 #endif /* RTM_CM_BACKOFF */
 
-light_lock_t __rtm_global_lock = LIGHT_LOCK_INITIALIZER;
+lock_t __rtm_global_lock = LOCK_INITIALIZER;
 
 #define _XABORT_LOCKED 0xff
 #define RTM_MAX_RETRIES 5
@@ -55,7 +58,7 @@ void _RTM_FORCE_INLINE TX_START(){
 			_RTM_ABORT_STATS();
 		#ifdef RTM_CM_AUXLOCK
 			if(__aux_lock_owner == 0 && __tx_status & _XABORT_CONFLICT){
-				light_lock(&__aux_lock);
+				lock(&__aux_lock);
 				__aux_lock_owner = 1;
 			}
 		#endif /* RTM_CM_AUXLOCK */
@@ -72,8 +75,21 @@ void _RTM_FORCE_INLINE TX_START(){
 		#endif /* RTM_CM_BACKOFF */
 			__tx_retries++;
 			if(__tx_retries >= RTM_MAX_RETRIES){
-				light_lock(&__rtm_global_lock);
+			#ifdef RTM_CM_SPINLOCK
+				lock(&__rtm_global_lock);
 				return;
+			#endif /* RTM_CM_SPINLOCK */
+			#ifdef RTM_CM_TRYLOCK
+				while(trylock(&__rtm_global_lock)){
+					//failure, lock not acquired!
+					//yield and wait for signal
+					int signum;
+					sigwait(&__tx_sigset,&signum);
+				}
+				//success, lock acquired!
+				//return and execute critical section.
+				return;
+			#endif /* RTM_CM_TRYLOCK */
 			}
 		}
 	} while(1);
@@ -82,13 +98,17 @@ void _RTM_FORCE_INLINE TX_START(){
 void _RTM_FORCE_INLINE TX_END(){
 	
 	if(__tx_retries >= RTM_MAX_RETRIES){
-		light_unlock(&__rtm_global_lock);
+		unlock(&__rtm_global_lock);
+	#ifdef RTM_CM_TRYLOCK
+		//signal waiting threads
+		raise(SIGUSR1);
+	#endif /* RTM_CM_TRYLOCK */
 		__tx_retries = 0;
 	}
 	else _xend();
 #ifdef RTM_CM_AUXLOCK
 	if(__aux_lock_owner == 1){
-		light_unlock(&__aux_lock);
+		unlock(&__aux_lock);
 		__aux_lock_owner = 0;
 	}
 #endif /* RTM_CM_AUXLOCK */
@@ -102,6 +122,12 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 		__thread_tx->nthreads        = __global_thread_tx[0].nthreads;
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
+		#ifdef RTM_CM_TRYLOCK
+			//initialize transaction's signal set
+			//with only SIGUSR1 signal set
+			sigemptyset(&__tx_sigset);
+			sigaddset(&__tx_sigset,SIGUSR1);
+		#endif /* RTM_CM_TRYLOCK */
 		#ifdef RTM_CM_BACKOFF
 			unsigned short seed[3];
 			seed[0] = (unsigned short)rand()%USHRT_MAX;

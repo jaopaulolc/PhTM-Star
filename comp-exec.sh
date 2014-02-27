@@ -5,7 +5,7 @@ MAKE_OPTIONS='--quiet --no-keep-going'
 APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
 DESIGNS='ETL CTL WT'
 CMS='SUICIDE DELAY BACKOFF'
-RTMCMS='simplelock auxlock backoff'
+RTMCMS='spinlock auxlock backoff trylock'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
 MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
 ALLOCS_DIR='allocators'
@@ -13,9 +13,10 @@ ptmalloc=''
 tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
 hoard="$ALLOCS_DIR/libhoard.so"
 tbbmalloc="$ALLOCS_DIR/libtbbmalloc.so.2"
-simplelock='dummy'
+spinlock='# DEFINES += -DRTM_CM_SPINLOCK'
 auxlock='# DEFINES += -DRTM_CM_AUXLOCK'
 backoff='# DEFINES += -DRTM_CM_BACKOFF'
+trylock='# DEFINES += -DRTM_CM_TRYLOCK'
 ETL='# DEFINES += -DDESIGN=WRITE_BACK_ETL'
 CTL='# DEFINES += -DDESIGN=WRITE_BACK_CTL'
 WT='# DEFINES += -DDESIGN=WRITE_THROUGH'
@@ -315,6 +316,10 @@ function plotstats {
 			plot-STAMP-speedup ;;
 		STAMP-energy)
 			plot-STAMP-energy ;;
+		STAMP-rtm)
+			plot-STAMP-rtm ;;
+		STAMP-edp)
+			plot-STAMP-edp ;;
 		HLE-RTM-tinySTM)
 			plot-HLE-RTM-tinySTM ;;
 		*)
