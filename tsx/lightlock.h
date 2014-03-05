@@ -8,11 +8,10 @@
 #define lock_init(a) ((*a) = 0)
 
 #define lock(l) \
-	while (__atomic_exchange_n(l, 1, __ATOMIC_ACQUIRE)) \
-			_mm_pause()
+	while (__atomic_exchange_n(l,1,__ATOMIC_RELEASE)) _mm_pause()
 
 #define trylock(l) \
-	(__atomic_exchange_n(l,1,__ATOMIC_ACQUIRE) == 0)
+	__atomic_exchange_n(l,1,__ATOMIC_RELEASE)
 
 #define unlock(l) \
 	__atomic_store_n(l, 0, __ATOMIC_RELEASE)

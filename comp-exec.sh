@@ -292,7 +292,7 @@ function clean {
 	
 	test -e tinySTM/Makefile && rm tinySTM/Makefile
 	make -C tinySTM/ -f Makefile.template clean
-	make -C tsx/rtm clean
+	make -C tsx/rtm -f Makefile.template clean
 	make -C msr/ clean
 	rm -rf stamp/{seq,tinystm,lock,tsx-rtm,tsx-hle}
 

@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <rtm.h>
 #include <lightlock.h>
+#include <hle.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,8 +22,7 @@ __thread long __aux_lock_owner = 0;
 #endif /* RTM_CM_AUXLOCK */
 
 #ifdef RTM_CM_TRYLOCK
-#include <signal.h>
-__thread sigset_t __tx_sigset; //transaction's signal set
+__thread struct timespec __tx_timespec; //transaction's sleep time specification
 #endif /* RTM_CM_TRYLOCK */
 
 #ifdef RTM_CM_BACKOFF
@@ -49,7 +49,7 @@ void _RTM_FORCE_INLINE TX_START(){
 
 	do{
 		if((__tx_status = _xbegin()) == _XBEGIN_STARTED){
-			if(__rtm_global_lock == 1){
+			if( __atomic_load_n(&__rtm_global_lock,__ATOMIC_ACQUIRE)  == 1){
 				_xabort(_XABORT_LOCKED);
 			}
 			return;
@@ -77,15 +77,14 @@ void _RTM_FORCE_INLINE TX_START(){
 			__tx_retries++;
 			if(__tx_retries >= RTM_MAX_RETRIES){
 			#ifdef RTM_CM_SPINLOCK
-				lock(&__rtm_global_lock);
+				hle_lock(&__rtm_global_lock);
 				return;
 			#endif /* RTM_CM_SPINLOCK */
 			#ifdef RTM_CM_TRYLOCK
 				while(trylock(&__rtm_global_lock)){
 					//failure, lock not acquired!
-					//yield and wait for signal
-					int signum;
-					sigwait(&__tx_sigset,&signum);
+					//yeild and sleep
+					nanosleep(&__tx_timespec,NULL);
 				}
 				//success, lock acquired!
 				//return and execute critical section.
@@ -99,11 +98,7 @@ void _RTM_FORCE_INLINE TX_START(){
 void _RTM_FORCE_INLINE TX_END(){
 	
 	if(__tx_retries >= RTM_MAX_RETRIES){
-		unlock(&__rtm_global_lock);
-	#ifdef RTM_CM_TRYLOCK
-		//signal waiting threads
-		raise(SIGUSR1);
-	#endif /* RTM_CM_TRYLOCK */
+		hle_unlock(&__rtm_global_lock);
 		__tx_retries = 0;
 	}
 	else _xend();
@@ -124,10 +119,10 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
 		#ifdef RTM_CM_TRYLOCK
-			//initialize transaction's signal set
-			//with only SIGUSR1 signal set
-			sigemptyset(&__tx_sigset);
-			sigaddset(&__tx_sigset,SIGUSR1);
+			//set transaction's sleep time to 20 nanoseconds
+			//(10.2 cycles - 3.4 GHz)
+			__tx_timespec.tv_sec = 0;
+			__tx_timespec.tv_nsec = 3;
 		#endif /* RTM_CM_TRYLOCK */
 		#ifdef RTM_CM_BACKOFF
 			unsigned short seed[3];
