@@ -76,10 +76,14 @@ void _RTM_FORCE_INLINE TX_START(){
 		#endif /* RTM_CM_BACKOFF */
 			__tx_retries++;
 			if(__tx_retries >= RTM_MAX_RETRIES){
-			#ifdef RTM_CM_SPINLOCK
+			#ifdef RTM_CM_SPINLOCK1
+				lock(&__rtm_global_lock);
+				return;
+			#endif /* RTM_CM_SPINLOCK1 */
+			#ifdef RTM_CM_SPINLOCK2
 				hle_lock(&__rtm_global_lock);
 				return;
-			#endif /* RTM_CM_SPINLOCK */
+			#endif /* RTM_CM_SPINLOCK2 */
 			#ifdef RTM_CM_TRYLOCK
 				while(trylock(&__rtm_global_lock)){
 					//failure, lock not acquired!
@@ -98,7 +102,12 @@ void _RTM_FORCE_INLINE TX_START(){
 void _RTM_FORCE_INLINE TX_END(){
 	
 	if(__tx_retries >= RTM_MAX_RETRIES){
+	#ifdef RTM_CM_SPINLOCK1
+		unlock(&__rtm_global_lock);
+	#endif /* RTM_CM_SPINLOCK1 */
+	#ifdef RTM_CM_SPINLOCK2
 		hle_unlock(&__rtm_global_lock);
+	#endif /* RTM_CM_SPINLOCK2 */
 		__tx_retries = 0;
 	}
 	else _xend();

@@ -5,7 +5,7 @@ MAKE_OPTIONS='--quiet --no-keep-going'
 APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
 DESIGNS='ETL CTL WT'
 CMS='SUICIDE DELAY BACKOFF'
-RTMCMS='spinlock auxlock backoff trylock'
+RTMCMS='spinlock1 spinlock2 auxlock backoff trylock'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
 MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
 ALLOCS_DIR='allocators'
@@ -13,7 +13,8 @@ ptmalloc=''
 tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
 hoard="$ALLOCS_DIR/libhoard.so"
 tbbmalloc="$ALLOCS_DIR/libtbbmalloc.so.2"
-spinlock='# DEFINES += -DRTM_CM_SPINLOCK'
+spinlock1='# DEFINES += -DRTM_CM_SPINLOCK1'
+spinlock2='# DEFINES += -DRTM_CM_SPINLOCK2'
 auxlock='# DEFINES += -DRTM_CM_AUXLOCK'
 backoff='# DEFINES += -DRTM_CM_BACKOFF'
 trylock='# DEFINES += -DRTM_CM_TRYLOCK'
