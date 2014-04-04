@@ -8,6 +8,8 @@ CMS='SUICIDE DELAY BACKOFF'
 RTMCMS='spinlock1 spinlock2 auxlock backoff trylock'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
 MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
+GOVERNORS='powersave conservative ondemand userspace performance'
+userspace="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies | awk '{print $((NF+1)/2)}')"
 ALLOCS_DIR='allocators'
 ptmalloc=''
 tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
@@ -92,7 +94,7 @@ END{
 function usage {
 	
 	echo $0' (comp | exec | plot | clean | help) [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>]'
-	echo -e '\t[-t <nb cores>] [-n <nb executions>] [-b <build>] [-p <PLOT>] [-M <memalloc>]'
+	echo -e '\t[-t <nb cores>] [-n <nb executions>] [-b <build>] [-p <PLOT>] [-M <memalloc>] [-g <governor>]'
 
 	echo
 	echo 'comp: compile.'
@@ -108,30 +110,35 @@ function usage {
 
 	echo
 	echo '-m <tinySTM CM>'
-	echo 'ALL | SUICIDE | BACKOFF | DELAY'
+	echo 'SUICIDE | BACKOFF | DELAY'
 	echo 'default = ALL'
 	
 	echo
 	echo '-D <RTM CM>'
-	echo 'ALL | simplelock | auxlock | backoff'
+	echo 'spinlock1 | spinlock2 | auxlock | backoff | trylock'
 	echo 'default = ALL'
 
 	echo
 	echo '-a <stamp app>'
-	echo 'ALL | bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
 	echo 'default = ALL'
 
 	echo
 	echo '-b <build>'
 	echo 'tinystm | seq | lock | tsx-hle | tsx-rtm'
 	echo 'default = ALL'
+	
 	echo
-
 	echo '-M <memalloc>'
 	echo 'ptmalloc | tcmalloc | hoard | tbbmalloc'
 	echo 'default = ptmalloc'
+	
 	echo
-
+	echo '-g <governor>'
+	echo 'powersave | conservative | ondemand | userspace | performance'
+	echo 'default = ondemand'
+	
+	echo
 	echo '-p <PLOT>'
 	echo 'selects which plot to performe'
 	echo 'default = (none)'
@@ -211,30 +218,63 @@ function compile {
 	echo 'compilation finished.'
 }
 
+function setGovernor {
+	
+	governor=$1
+	for processor in $(cat /proc/cpuinfo | grep processor | awk '{print $3}');
+	do
+		sudo cpufreq-set -c $processor -g $governor
+		test $governor == 'userspace' && sudo cpufreq-set -c $processor -f ${!governor}
+	done
+}
+
+function restoreGovernor {
+
+	governor='ondemand'
+	for processor in $(cat /proc/cpuinfo | grep processor | awk '{print $3}');
+	do
+		sudo cpufreq-set -c $processor -g $governor
+	done
+}
+
 function execute {
 
 	test -e $output || mkdir $output
 	
-	echo 'starting execution...'
 	
 	test -z "$NEXEC"         && NEXEC=20
 	test -z "$NB_CORES"      && NB_CORES='1 2 4 8'
 	test -z "$MEM_ALLOCS"    && MEMALLOCS='ptmalloc'
+	test ! -z "$MEM_ALLOCS"  && MEMALLOCS=$MEM_ALLOCS
+	test -z "$GOVS"          && GOVERNORS='ondemand'
+	test ! -z "$GOVS"        && GOVERNORS=$GOVS
 	test ! -z "$STM_DESIGNS" && DESIGNS=$STM_DESIGNS
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
+	test -z "$PCM_PATH"      && PCM_PATH=../intelPCM-2.6/
+
+	echo
+	echo -n "compiling intel PCM..."
+	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
+	echo "done."
+	
+	echo
+	echo 'starting execution...'
 
 	for app in ${APPS}; do
 		eval exec_flags=\$EXEC_FLAG_$app
 		for build in $BUILDS; do
+			SUFIXES=$build
 			test $build == 'tinystm' && SUFIXES="$(eval echo -n {${DESIGNS// /,}}-{${CMS// /,}} | sed 's|{||g;s|}||g')"
 			test $build == 'tsx-rtm' && SUFIXES="$(eval echo -n $build-{${RTMCMS// /,}} | sed 's|{||g;s|}||g')"
-			test $build == 'tsx-hle' && SUFIXES=$build
 			NTHREADS=$NB_CORES
-			test $build == "seq" && NTHREADS='1' && SUFIXES=$build
+			test $build == "seq" && NTHREADS='1'
+			SUFIXES="$(eval echo -n {${SUFIXES// /,}}-{${GOVERNORS// /,}} | sed 's|{||g;s|}||g')"
 			for sufix in $SUFIXES; do
-				appRunPath="stamp/$build/$app/$app-$sufix"
+				regex='-([a-z]+)$' # regular expression to get governor from sufix variable
+				[[ $sufix =~ $regex ]] && governor=${BASH_REMATCH[1]} && setGovernor $governor
+				appRunPath="stamp/$build/$app/$app-$(sed 's/-[a-z]\+$//' <<< $sufix)" # remove governor from sufix
 				timeOutput="$output/$app-$sufix.time"
 				timeLog="$output/$app-$sufix.timelog"
 				abortOutput="$output/$app-$sufix.abort"
@@ -253,7 +293,7 @@ function execute {
 					for i in $NTHREADS; do
 						rm -f *.temp
 						for((j=0;j<${NEXEC};j++)); do
-							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc)"	
+							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc) ($governor)"	
 							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
 								PCM_FLAGS=$(eval eval echo -n $PCM_FLAGS)
 								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
@@ -279,6 +319,7 @@ function execute {
 				eval paste "$(for m in $MEMALLOCS; do echo $m".energy";    done | tr '\n' ' ')" >> $energyOutput
 				eval paste "$(for m in $MEMALLOCS; do echo $m".energylog"; done | tr '\n' ' ')" >> $energyLog
 				rm *.{time,timelog,abort,energy,energylog}
+				restoreGovernor # reset system governor to ondemand
 			done # FOR EACH SUFIX
 		done # FOR EACH BUILD
 	done # FOR EACH APPS
@@ -335,6 +376,7 @@ function cleanup {
 	rm -f *.temp
 	rm -f *.{time,timelog,abort,energy,energylog}
 	test -d output-data && rm -f output-data/*.{png,eps,table}
+	restoreGovernor
 	exit
 }
 
