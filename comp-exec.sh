@@ -37,6 +37,7 @@ EXEC_FLAG_labyrinth='-i stamp/data/labyrinth/inputs/random-x512-y512-z7-n512.txt
 EXEC_FLAG_ssca2='-s20 -i1.0 -u1.0 -l3 -p3 -t'
 EXEC_FLAG_vacation='-n4 -q60 -u90 -r1048576 -T4194304 -t'
 EXEC_FLAG_yada='-a15 -i stamp/data/yada/inputs/ttimeu1000000.2 -t'
+PCM_PATH=IntelPCM/
 _AUX='$(echo ${build/tsx-/} | tr "[:lower:]" "[:upper:]")'
 PCM_FLAGS='-e ${_AUX}_RETIRED.ABORTED_MISC1 -e ${_AUX}_RETIRED.ABORTED_MISC2
 					 -e ${_AUX}_RETIRED.ABORTED_MISC3 -e ${_AUX}_RETIRED.ABORTED_MISC4'
@@ -164,6 +165,11 @@ function compile {
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
 
+	echo
+	echo -n "compiling intel PCM..."
+	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
+	echo "done."
+
 	for build in $BUILDS; do
 		if [ $build == "tinystm" ]; then
 			for design in ${DESIGNS}; do
@@ -252,12 +258,6 @@ function execute {
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
-	test -z "$PCM_PATH"      && PCM_PATH=../intelPCM-2.6/
-
-	echo
-	echo -n "compiling intel PCM..."
-	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
-	echo "done."
 	
 	echo
 	echo 'starting execution...'
@@ -337,6 +337,7 @@ function clean {
 	make -C tsx/rtm -f Makefile.template clean
 	make -C msr/ clean
 	rm -rf stamp/{seq,tinystm,lock,tsx-rtm,tsx-hle}
+	make -C IntelPCM clean
 
 	echo 'cleanup finished.'
 	

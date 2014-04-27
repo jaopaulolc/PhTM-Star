@@ -1,4 +1,6 @@
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+	#define _GNU_SOURCE
+#endif
 #include <rtm.h>
 #include <lightlock.h>
 #include <hle.h>
@@ -9,43 +11,46 @@
 #include <limits.h>
 #include <math.h>
 
-tsx_tx_t *__global_thread_tx;
+static tsx_tx_t *__global_thread_tx;
 
-__thread tsx_tx_t *__thread_tx;
+static __thread tsx_tx_t *__thread_tx;
 
-__thread long __tx_status;  // _xbegin() return status
-__thread long __tx_retries; // number of retries
+static __thread long __tx_status;  // _xbegin() return status
+#define RTM_MAX_RETRIES 5
+static __thread long __tx_retries; // current number of retries
 
 #ifdef RTM_CM_AUXLOCK
-lock_t __aux_lock = LOCK_INITIALIZER;
-__thread long __aux_lock_owner = 0;
+static lock_t __aux_lock = LOCK_INITIALIZER;
+static __thread long __aux_lock_owner = 0;
 #endif /* RTM_CM_AUXLOCK */
 
 #ifdef RTM_CM_TRYLOCK
-__thread struct timespec __tx_timespec; //transaction's sleep time specification
+static __thread struct timespec __tx_timespec; //transaction's sleep time specification
 #endif /* RTM_CM_TRYLOCK */
 
 #ifdef RTM_CM_BACKOFF
 #define MIN_BACKOFF (1UL << 2)
 #define MAX_BACKOFF (1UL << 31)
-__thread unsigned long __thread_backoff; /* Maximum backoff duration */
-__thread unsigned long __thread_seed; /* Random generated seed */
+static __thread unsigned long __thread_backoff; /* Maximum backoff duration */
+static __thread unsigned long __thread_seed; /* Random generated seed */
 #endif /* RTM_CM_BACKOFF */
 
-lock_t __rtm_global_lock = LOCK_INITIALIZER;
+static lock_t __rtm_global_lock = LOCK_INITIALIZER;
 
 #define _XABORT_LOCKED 0xff
-#define RTM_MAX_RETRIES 5
 
-void _RTM_FORCE_INLINE _RTM_ABORT_STATS();
+static void __rtm_update_abort_stats(long status,long *retries,tsx_tx_t *tx);
 
-void _RTM_FORCE_INLINE TSX_START(long nthreads){
+void TSX_START(long nthreads){
 
 	__global_thread_tx = (tsx_tx_t*)calloc(nthreads,sizeof(tsx_tx_t));
-	__global_thread_tx[0].nthreads = nthreads;
+	int i;
+	for(i=0; i < nthreads; i++){
+		__global_thread_tx[i].nthreads = nthreads;
+	}
 }
 
-void _RTM_FORCE_INLINE TX_START(){
+void TX_START(){
 
 	do{
 		if((__tx_status = _xbegin()) == _XBEGIN_STARTED){
@@ -56,7 +61,8 @@ void _RTM_FORCE_INLINE TX_START(){
 		}
 		else{
 			// execution flow continues here on transaction abort
-			_RTM_ABORT_STATS();
+			__tx_retries++;
+			__rtm_update_abort_stats(__tx_status,&__tx_retries,__thread_tx);
 		#ifdef RTM_CM_AUXLOCK
 			if(__aux_lock_owner == 0 && __tx_status & _XABORT_CONFLICT){
 				lock(&__aux_lock);
@@ -74,17 +80,16 @@ void _RTM_FORCE_INLINE TX_START(){
 			if (__thread_backoff < MAX_BACKOFF)
 				__thread_backoff <<= 1;
 		#endif /* RTM_CM_BACKOFF */
-			__tx_retries++;
 			if(__tx_retries >= RTM_MAX_RETRIES){
-			#ifdef RTM_CM_SPINLOCK1
+		#ifdef RTM_CM_SPINLOCK1
 				lock(&__rtm_global_lock);
 				return;
-			#endif /* RTM_CM_SPINLOCK1 */
-			#ifdef RTM_CM_SPINLOCK2
+		#endif /* RTM_CM_SPINLOCK1 */
+		#ifdef RTM_CM_SPINLOCK2
 				hle_lock(&__rtm_global_lock);
 				return;
-			#endif /* RTM_CM_SPINLOCK2 */
-			#ifdef RTM_CM_TRYLOCK
+		#endif /* RTM_CM_SPINLOCK2 */
+		#ifdef RTM_CM_TRYLOCK
 				while(trylock(&__rtm_global_lock)){
 					//failure, lock not acquired!
 					//yeild and sleep
@@ -93,13 +98,13 @@ void _RTM_FORCE_INLINE TX_START(){
 				//success, lock acquired!
 				//return and execute critical section.
 				return;
-			#endif /* RTM_CM_TRYLOCK */
+		#endif /* RTM_CM_TRYLOCK */
 			}
 		}
 	} while(1);
 }
 
-void _RTM_FORCE_INLINE TX_END(){
+void TX_END(){
 	
 	if(__tx_retries >= RTM_MAX_RETRIES){
 	#ifdef RTM_CM_SPINLOCK1
@@ -119,17 +124,15 @@ void _RTM_FORCE_INLINE TX_END(){
 #endif /* RTM_CM_AUXLOCK */
 }
 
-void _RTM_FORCE_INLINE TX_INIT(long id){
+void TX_INIT(long id){
 
 	if(__global_thread_tx != NULL){
 		__thread_tx = &__global_thread_tx[id];
 		__thread_tx->id              = id;
-		__thread_tx->nthreads        = __global_thread_tx[0].nthreads;
 		__tx_status									 = 0;
 		__tx_retries								 = 0;
 		#ifdef RTM_CM_TRYLOCK
-			//set transaction's sleep time to 20 nanoseconds
-			//(10.2 cycles - 3.4 GHz)
+			//set transaction's sleep time to 3 nanoseconds
 			__tx_timespec.tv_sec = 0;
 			__tx_timespec.tv_nsec = 3;
 		#endif /* RTM_CM_TRYLOCK */
@@ -151,7 +154,7 @@ void _RTM_FORCE_INLINE TX_INIT(long id){
 	}
 }
 
-void _RTM_FORCE_INLINE TSX_FINISH(){
+void TSX_FINISH(){
 
 	#ifdef RTM_ABORT_DEBUG
 		long totalAborts    = 0;
@@ -165,23 +168,20 @@ void _RTM_FORCE_INLINE TSX_FINISH(){
 		long i;
 		printf("Core total explicit conflict capacity debug nested unknown\n");
 		for(i=0; i < nthreads; i++){
+			tsx_tx_t *tx = __global_thread_tx;
 			printf(" %ld %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
-				__global_thread_tx[i].id,
-				__global_thread_tx[i].totalAborts,
-				__global_thread_tx[i].explicitAborts,
-				__global_thread_tx[i].conflictAborts,
-				__global_thread_tx[i].capacityAborts,
-				__global_thread_tx[i].debugAborts,
-				__global_thread_tx[i].nestedAborts,
-				__global_thread_tx[i].unknownAborts);
+				tx[i].id,tx[i].totalAborts,
+				tx[i].explicitAborts,tx[i].conflictAborts,
+				tx[i].capacityAborts,tx[i].debugAborts,
+				tx[i].nestedAborts,tx[i].unknownAborts);
 			
-			totalAborts    += __global_thread_tx[i].totalAborts;
-			explicitAborts += __global_thread_tx[i].explicitAborts;
-			conflictAborts += __global_thread_tx[i].conflictAborts;
-			capacityAborts += __global_thread_tx[i].capacityAborts;
-			debugAborts    += __global_thread_tx[i].debugAborts;
-			nestedAborts   += __global_thread_tx[i].nestedAborts;
-			unknownAborts  += __global_thread_tx[i].unknownAborts;
+			totalAborts    += tx[i].totalAborts;
+			explicitAborts += tx[i].explicitAborts;
+			conflictAborts += tx[i].conflictAborts;
+			capacityAborts += tx[i].capacityAborts;
+			debugAborts    += tx[i].debugAborts;
+			nestedAborts   += tx[i].nestedAborts;
+			unknownAborts  += tx[i].unknownAborts;
 		}
 		printf("----------------------------------------------------------\n");
 		printf(" * %ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n",
@@ -192,31 +192,29 @@ void _RTM_FORCE_INLINE TSX_FINISH(){
 	#endif /* RTM_ABORT_DEBUG */
 }
 
-void _RTM_FORCE_INLINE _RTM_ABORT_STATS(){
-	__thread_tx->totalAborts++;
-	if(__tx_status & _XABORT_EXPLICIT){
-		__thread_tx->explicitAborts++;
+static void __rtm_update_abort_stats(long status,long *retries,tsx_tx_t *tx){
+	
+	tx->totalAborts++;
+	switch(status & 0xFF000000){
+		case _XABORT_EXPLICIT:
+			tx->explicitAborts++;
+			return;
+		case _XABORT_CONFLICT:
+			tx->conflictAborts++;
+			return;
+		case _XABORT_CAPACITY: /* ++ */
+			tx->capacityAborts++;
+			break;
+		case _XABORT_DEBUG:    /* ++ */
+			tx->debugAborts++;
+			break;
+		case _XABORT_NESTED:   /* ++ */
+			tx->nestedAborts++;
+			break;
+		default:
+			tx->unknownAborts++;
+			return;
 	}
-	else if(__tx_status & _XABORT_CONFLICT){
-		__thread_tx->conflictAborts++;
-	}
-	else if(__tx_status & _XABORT_CAPACITY){
-		__thread_tx->capacityAborts++;
-		//transaction will not commit on future attempts
-		__tx_retries = RTM_MAX_RETRIES;
-	}
-	else if(__tx_status & _XABORT_DEBUG){
-		__thread_tx->debugAborts++;
-		//transaction will not commit on future attempts
-		__tx_retries = RTM_MAX_RETRIES;
-	}
-	else if(__tx_status & _XABORT_NESTED){
-		__thread_tx->nestedAborts++;
-		//transaction will not commit on future attempts
-		__tx_retries = RTM_MAX_RETRIES;
-	}
-	else {
-		__thread_tx->unknownAborts++;
-	}
+	//++ transaction will not commit on future attempts
+	(*retries) = RTM_MAX_RETRIES;
 }
-

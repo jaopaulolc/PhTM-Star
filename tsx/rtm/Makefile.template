@@ -14,7 +14,7 @@ DEFINES += -DRTM_ABORT_DEBUG
 
 # DEFINES += -DRTM_CM_BACKOFF -DRTM_CM_SPINLOCK1
 
-CFLAGS += -O3 -Wall -I. -I../ -I../hle -mrtm $(DEFINES)
+CFLAGS += -O3 -Wall -flto -I. -I../ -I../hle -mrtm $(DEFINES)
 
 all: $(target)
 

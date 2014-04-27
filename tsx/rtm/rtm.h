@@ -20,8 +20,6 @@ typedef struct _tsx_tx_t{
 #endif  /* RTM_ABORT_DEBUG */
 }tsx_tx_t;
 
-#define _RTM_FORCE_INLINE __attribute__((__always_inline__)) inline
-
 void TX_START(); 
 void TX_END(); 
 void TX_INIT(long id); 
