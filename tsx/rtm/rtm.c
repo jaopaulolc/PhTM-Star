@@ -51,6 +51,8 @@ void TSX_START(long nthreads){
 }
 
 void TX_START(){
+	
+	__tx_retries = 0;
 
 	do{
 		if((__tx_status = _xbegin()) == _XBEGIN_STARTED){
@@ -113,7 +115,6 @@ void TX_END(){
 	#ifdef RTM_CM_SPINLOCK2
 		hle_unlock(&__rtm_global_lock);
 	#endif /* RTM_CM_SPINLOCK2 */
-		__tx_retries = 0;
 	}
 	else _xend();
 #ifdef RTM_CM_AUXLOCK
@@ -122,6 +123,7 @@ void TX_END(){
 		__aux_lock_owner = 0;
 	}
 #endif /* RTM_CM_AUXLOCK */
+	__tx_retries = 0;
 }
 
 void TX_INIT(long id){

@@ -1,3 +1,4 @@
 #tell git to ignore .a and .o files
 *.[ao]
 output-data
+*.tgz
