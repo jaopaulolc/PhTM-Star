@@ -62,6 +62,7 @@ void TX_START(){
 			return;
 		}
 		else{
+			__tx_status = _XABORT_CODE(__tx_status);
 			// execution flow continues here on transaction abort
 			__tx_retries++;
 			__rtm_update_abort_stats(__tx_status,&__tx_retries,__thread_tx);
