@@ -36,6 +36,7 @@ static lock_t __rtm_global_lock = LOCK_INITIALIZER;
 
 #define _XABORT_LOCKED 0xff
 
+static void set_affinity(long id);
 static void __rtm_abort_update_retries(long status,long *retries);
 
 void TX_START(){
@@ -50,7 +51,7 @@ void TX_START(){
 			return;
 		}
 		else{
-			__tx_status = _XABORT_CODE(__tx_status);
+			__tx_status = __tx_status & 0x0000003F;
 			// execution flow continues here on transaction abort
 			__rtm_abort_update_retries(__tx_status,&__tx_retries);
 		#ifdef RTM_CM_AUXLOCK
@@ -116,6 +117,8 @@ void TX_END(){
 
 void TX_INIT(long id){
 
+	set_affinity(id);
+
 	__tx_id      = id;
 	__tx_status  = 0;
 	__tx_retries = 0;
@@ -148,5 +151,30 @@ static void __rtm_abort_update_retries(long status, long *retries){
 		//++ transaction will not commit on future attempts
 			(*retries) = RTM_MAX_RETRIES;
 			break;
+	}
+}
+
+static void set_affinity(long id){
+	int num_cores = sysconf(_SC_NPROCESSORS_ONLN)/2; // 2 threads per core
+	if (id < 0 || id >= num_cores){
+		fprintf(stderr,"error: invalid number of threads (nthreads > ncores)!\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	/* swthread | hwthread | core
+	 *    0     |  0 ou 1  |  0
+	 *    1     |  2 ou 3  |  1
+	 *    2     |  4 ou 5  |  2
+	 *    3     |  6 ou 7  |  3 */
+	int map[] = {1, 3, 5, 7};
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(map[id]-1, &cpuset);
+	CPU_SET(map[id], &cpuset);
+
+	pthread_t current_thread = pthread_self();
+	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){
+		perror("pthread_setaffinity_np");
+		exit(EXIT_FAILURE);
 	}
 }
