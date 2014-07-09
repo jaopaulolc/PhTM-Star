@@ -2,8 +2,6 @@
 
 target = librtm.a
 
-DEFINES += -DRTM_ABORT_DEBUG
-
 # DEFINES += -DRTM_CM_SPINLOCK1
 
 # DEFINES += -DRTM_CM_SPINLOCK2
