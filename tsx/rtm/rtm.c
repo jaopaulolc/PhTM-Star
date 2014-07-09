@@ -67,7 +67,7 @@ void TX_START(){
 			__tx_retries++;
 			__rtm_update_abort_stats(__tx_status,&__tx_retries,__thread_tx);
 		#ifdef RTM_CM_AUXLOCK
-			if(__aux_lock_owner == 0 && __tx_status & _XABORT_CONFLICT){
+			if(__aux_lock_owner == 0 && __tx_status == _XABORT_CONFLICT){
 				lock(&__aux_lock);
 				__aux_lock_owner = 1;
 			}
@@ -198,7 +198,7 @@ void TSX_FINISH(){
 static void __rtm_update_abort_stats(long status,long *retries,tsx_tx_t *tx){
 	
 	tx->totalAborts++;
-	switch(status & 0xFF000000){
+	switch(status){
 		case _XABORT_EXPLICIT:
 			tx->explicitAborts++;
 			return;
