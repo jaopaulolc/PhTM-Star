@@ -161,16 +161,15 @@ static void set_affinity(long id){
 		exit(EXIT_FAILURE);
 	}
 	
-	/* swthread | hwthread | core
-	 *    0     |  0 ou 1  |  0
-	 *    1     |  2 ou 3  |  1
-	 *    2     |  4 ou 5  |  2
-	 *    3     |  6 ou 7  |  3 */
-	int map[] = {1, 3, 5, 7};
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(map[id]-1, &cpuset);
-	CPU_SET(map[id], &cpuset);
+	/* Haswell's HWthread mapping
+	 * swthread | hwthread | core
+	 *    0     |  0 ou 4  |  0
+	 *    1     |  1 ou 5  |  1
+	 *    2     |  2 ou 6  |  2
+	 *    3     |  3 ou 7  |  3 */
+	CPU_SET(id, &cpuset);
 
 	pthread_t current_thread = pthread_self();
 	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){
