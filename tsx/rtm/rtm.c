@@ -71,6 +71,10 @@ void TX_START(){
 			if (__thread_backoff < MAX_BACKOFF)
 				__thread_backoff <<= 1;
 		#endif /* RTM_CM_BACKOFF */
+	#if RTM_CM_SPINLOCK1 || RTM_CM_SPINLOCK2
+			/* Avoid Lemming effect by delaying tx retry till lock is free. */
+			while( __atomic_load_n(&__rtm_global_lock,__ATOMIC_ACQUIRE)  == 1);
+	#endif /* RTM_CM_SPINLOCK{1,2} */
 			if(__tx_retries >= RTM_MAX_RETRIES){
 		#ifdef RTM_CM_SPINLOCK1
 				lock(&__rtm_global_lock);
