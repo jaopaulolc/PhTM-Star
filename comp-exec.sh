@@ -52,7 +52,7 @@ BEGIN{
 {
 	for(i=1; i <= NF; i++){
 		sum[i] += $i;
-		v[j][i] = $i;
+		v[j,i] = $i;
 	}
 	j++
 }
@@ -62,7 +62,7 @@ END{
 		mean=sum[j]/NR;
 		dp=0;
 		for(i=0;i<NR;i++)
-			dp+=(mean-v[i][j])*(mean-v[i][j]);
+			dp+=(mean-v[i,j])*(mean-v[i,j]);
 		dp=dp/(NR-1);
 		dp=sqrt(dp);
 		printf "%.3lf %.3lf ", mean ,0.98*(dp/sqrt(NR));
@@ -167,7 +167,7 @@ function compile {
 
 	echo
 	echo -n "compiling intel PCM..."
-	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
+	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH pcm-tsx.x ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
 	echo "done."
 
 	for build in $BUILDS; do
