@@ -13,6 +13,7 @@
 
 static __thread long __tx_status;  // _xbegin() return status
 static __thread long __tx_id;  // tx thread id
+static long __statcounter[MAX_NUM_THREADS][MAX_NUM_COUNTERS];  // stats counter :: statcounter[THREAD_ID][COUNTER_ID]
 #define RTM_MAX_RETRIES 5
 static __thread long __tx_retries; // current number of retries
 
@@ -44,6 +45,7 @@ void TX_START(){
 	__tx_retries = 0;
 
 	do{
+		__statcounter[__tx_id][_RTM_TX_STARTED]++;
 		if((__tx_status = _xbegin()) == _XBEGIN_STARTED){
 			if( __atomic_load_n(&__rtm_global_lock,__ATOMIC_ACQUIRE)  == 1){
 				_xabort(_XABORT_LOCKED);
@@ -76,6 +78,7 @@ void TX_START(){
 			while( __atomic_load_n(&__rtm_global_lock,__ATOMIC_ACQUIRE)  == 1);
 	#endif /* RTM_CM_SPINLOCK{1,2} */
 			if(__tx_retries >= RTM_MAX_RETRIES){
+				__statcounter[__tx_id][_LOCK_TX_STARTED]++;
 		#ifdef RTM_CM_SPINLOCK1
 				lock(&__rtm_global_lock);
 				return;
@@ -109,7 +112,10 @@ void TX_END(){
 		hle_unlock(&__rtm_global_lock);
 	#endif /* RTM_CM_SPINLOCK2 */
 	}
-	else _xend();
+	else{
+		_xend();
+		__statcounter[__tx_id][_RTM_TX_COMMITED]++;
+	}
 #ifdef RTM_CM_AUXLOCK
 	if(__aux_lock_owner == 1){
 		unlock(&__aux_lock);
@@ -117,6 +123,25 @@ void TX_END(){
 	}
 #endif /* RTM_CM_AUXLOCK */
 	__tx_retries = 0;
+}
+
+static long __nthreads;
+
+void TSX_STARTUP(long numThreads){
+	__nthreads = numThreads;
+}
+
+void TSX_SHUTDOWN(){
+	
+	int i;
+	for(i=1; i < __nthreads; i++){
+		__statcounter[0][_RTM_TX_STARTED]  += __statcounter[i][_RTM_TX_STARTED];
+		__statcounter[0][_RTM_TX_COMMITED] += __statcounter[i][_RTM_TX_COMMITED];
+		__statcounter[0][_LOCK_TX_STARTED] += __statcounter[i][_LOCK_TX_STARTED];
+	}
+	printf("_RTM_TX_STARTED  = %ld\n", __statcounter[0][_RTM_TX_STARTED]);
+	printf("_RTM_TX_COMMITED = %ld\n", __statcounter[0][_RTM_TX_COMMITED]);
+	printf("_LOCK_TX_STARTED = %ld\n", __statcounter[0][_LOCK_TX_STARTED]);
 }
 
 void TX_INIT(long id){
