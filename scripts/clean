@@ -1,0 +1,56 @@
+#!/bin/bash
+
+source $PWD/scripts/scripts.cfg
+
+function usage {
+	
+	echo $0' [-b <build>]'
+
+	echo
+	echo '-b <build>'
+	echo 'tinystm | seq | lock | hle | rtm'
+	echo 'default = ALL'
+}
+
+function clean {
+	
+	echo 'starting cleanup...'
+	
+	make -C $MSRDIR clean
+
+	test -z "$_BUILDS" && _BUILDS=$BUILDS
+
+	for build in ${_BUILDS}; do
+		case $build in
+			seq) ;;
+			tinystm)
+				test -e $tinySTM/Makefile && rm $tinySTM/Makefile
+				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean $MAKE_OPTIONS
+				;;
+			rtm)
+				test -e $TSX_RTM/Makefile && rm $TSX_RTM/Makefile
+				make -C $TSX_RTM -f Makefile.template clean
+				;;
+			hle) ;;
+			lock) ;;
+			\?) echo $0" : error - unknown build '$build'"
+				exit 1
+		esac
+		echo -n "cleaning $STAMP/$build ..."
+		rm -rf $STAMP/$build
+		echo "done."
+	done
+
+	echo 'cleanup finished.'
+}
+
+while getopts "b:" opt;
+do
+	case $opt in
+		b) _BUILDS=$OPTARG ;;
+		\?) echo $0" : error - invalid option -- $OPTARG"
+			exit 1
+	esac
+done
+
+clean

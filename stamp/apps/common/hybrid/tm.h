@@ -13,6 +13,7 @@
 #define P_MEMORY_STARTUP(numThread) /* nothing */
 #define P_MEMORY_SHUTDOWN()         /* nothing */
 
+#include <rtm.h>
 #include <stm.h>
 #include <mod_mem.h>
 #include <mod_stats.h>
@@ -35,7 +36,6 @@
 /* Note that we only lock the first word and not the complete object */
 #define TM_FREE(ptr)                stm_free(ptr, sizeof(stm_word_t))
 
-
 #if STM_VERSION_NB <= 103
 # define TM_START(ro, tx_count)     do { \
                                       sigjmp_buf *_e; \
@@ -57,83 +57,65 @@
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
 																		coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
 																		coreSTM_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
+																		TSX_STARTUP(numThread); \
 																		stm_init(); \
                                     mod_mem_init(0);
-extern unsigned int **coreSTM_commits;
-extern unsigned int **coreSTM_aborts;
-#define TM_SHUTDOWN()								setlocale(LC_ALL, ""); \
-		int __numThreads__  = thread_getNumThread(); \
-		int nfixedCounters  = pmuNumberOfFixedCounters(); \
-		int ncustomCounters = pmuNumberOfCustomCounters(); \
-		int ntotalCounters  = nfixedCounters + ncustomCounters; \
-		int nmeasurements = pmuNumberOfMeasurements(); \
-		int ii; \
-		printf("\nTx #  | %10s | %19s | %24s | %24s | %24s", \
-		"STM START", "STM COMMIT", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
-		for(ii=0; ii < __numThreads__; ii++){ \
-			uint64_t **measurements = pmuGetMeasurements(ii); \
-			printf("\nThread %d\n",ii); \
-			int i, j; \
-			uint64_t total[3] = {0,0,0}; \
-			for(j=ncustomCounters; j < ntotalCounters; j++) \
-				for(i=0; i < nmeasurements; i++) \
-					total[j-ncustomCounters] += measurements[i][j]; \
-			for(i=0; i < nmeasurements; i++){ \
-				printf("Tx %2d",i); \
-				uint64_t start = coreSTM_commits[ii][i] + coreSTM_aborts[ii][i]; \
-				uint64_t commit = coreSTM_commits[ii][i]; \
-				printf(" | %'10lu | %'10lu (%'6.2lf)", start, commit, 100.0*((double)commit/(double)start)); \
-				for(j=ncustomCounters; j < ntotalCounters; j++){ \
-					printf(" | %'15lu ",measurements[i][j]); \
-					printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)total[j-ncustomCounters])); \
-				} \
-				printf("\n"); \
-			} \
-		} \
-		printf("\n|===============%38s%s%38s===============|\n","", "END OF REPORT", " "); \
-																		stm_exit(); \
+#define TM_SHUTDOWN()               TSX_SHUTDOWN(); \
+                                    stm_exit(); \
 																		pmuShutdown(); \
 																		msrTerminate()
+#else /* NO PROFILING */
+#define TM_STARTUP(numThread)       msrInitialize(); \
+																		TSX_STARTUP(numThread); \
+																		stm_init(); \
+                                    mod_mem_init(0);
+#define TM_SHUTDOWN()               TSX_SHUTDOWN(); \
+                                    stm_exit(); \
+																		msrTerminate()
+#endif /* NO PROFILING */
 
 #define TM_THREAD_ENTER()           long __threadId__ = thread_getId(); \
 																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
+																		TX_INIT(__threadId__); \
 																		set_affinity(__threadId__)
 
-#define TM_THREAD_EXIT()            if(stm_get_stats("nb_commits",&coreSTM_commits[__threadId__]) == 0){ \
+#ifdef PROFILING
+extern unsigned int **coreSTM_commits;
+extern unsigned int **coreSTM_aborts;
+#define TM_THREAD_EXIT()						if(stm_get_stats("nb_commits",&coreSTM_commits[__threadId__]) == 0){ \
 																			fprintf(stderr,"error: get nb_commits failed!\n"); \
 																		} \
 																		if(stm_get_stats("nb_aborts",&coreSTM_aborts[__threadId__]) == 0){ \
 																			fprintf(stderr,"error: get nb_aborts failed!\n"); \
 																		} \
 																		stm_exit_thread()
-
 int __TX_COUNT__;
 
-#define TM_BEGIN()									__TX_COUNT__ = __COUNTER__; \
+#define STM_BEGIN()									__TX_COUNT__ = __COUNTER__; \
 																		pmuStartCounting(__threadId__, __TX_COUNT__); \
 																		TM_START(0, __TX_COUNT__)
-#define TM_BEGIN_RO()               __TX_COUNT__ = __COUNTER__; \
+#define STM_BEGIN_RO()              __TX_COUNT__ = __COUNTER__; \
 																		pmuStartCounting(__threadId__, __TX_COUNT__); \
 																		TM_START(1, __TX_COUNT__)
-#define TM_END()                    stm_commit(); \
+#define STM_END()                   stm_commit(); \
+																		pmuStopCounting(__threadId__)
+
+#define RTM_BEGIN()									pmuStartCounting(__threadId__, __COUNTER__); \
+																		TX_START()
+#define RTM_BEGIN_RO()							pmuStartCounting(__threadId__, __COUNTER__); \
+																		TX_START()
+#define RTM_END()                   TX_END(); \
 																		pmuStopCounting(__threadId__)
 #else /* NO PROFILING */
-#define TM_STARTUP(numThread)       msrInitialize(); \
-																		stm_init(); \
-                                    mod_mem_init(0)
-#define TM_SHUTDOWN()               stm_exit(); \
-																		msrTerminate()
+#define TM_THREAD_EXIT()						stm_exit_thread()
 
-#define TM_THREAD_ENTER()           long __threadId__ = thread_getId(); \
-																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
-																		set_affinity(__threadId__)
+#define STM_BEGIN()									TM_START(0,__COUNTER__)
+#define STM_BEGIN_RO()              TM_START(1,__COUNTER__)
+#define STM_END()                   stm_commit()
 
-#define TM_THREAD_EXIT()            stm_exit_thread()
-
-
-#define TM_BEGIN()									TM_START(0, __COUNTER__)
-#define TM_BEGIN_RO()               TM_START(1, __COUNTER__)
-#define TM_END()                    stm_commit()
+#define RTM_BEGIN()									TX_START()
+#define RTM_BEGIN_RO()							TX_START()
+#define RTM_END()                   TX_END()
 #endif /* NO PROFILING */
 
 #define TM_RESTART()                stm_abort(0)

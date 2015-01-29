@@ -1,8 +1,9 @@
 #!/usr/bin/make
 
-libmsr.a:	msr.c
-	gcc -c -o msr.o msr.c
-	$(AR) cr libmsr.a msr.o
+CFLAGS = -O3 -Wall -I. -flto
+
+libmsr.a:	msr.o pmu.o
+	$(AR) cr $@ $^
 
 clean:
 	$(RM) *.o *.a

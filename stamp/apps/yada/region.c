@@ -439,6 +439,43 @@ TMregion_transferBad (TM_ARGDECL  region_t* regionPtr, heap_t* workHeapPtr)
 
 
 /* =============================================================================
+ * region_transferBad
+ * =============================================================================
+ */
+void
+region_transferBad (region_t* regionPtr, heap_t* workHeapPtr)
+{
+    vector_t* badVectorPtr = regionPtr->badVectorPtr;
+    long numBad = PVECTOR_GETSIZE(badVectorPtr);
+    long i;
+
+    for (i = 0; i < numBad; i++) {
+        element_t* badElementPtr = (element_t*)vector_at(badVectorPtr, i);
+        if (element_isGarbage(badElementPtr)) {
+            //element_free(badElementPtr);
+        } else {
+            bool_t status = heap_insert(workHeapPtr, (void*)badElementPtr);
+            assert(status);
+        }
+    }
+}
+
+void TMfree_bad(region_t* regionPtr)
+{
+    vector_t* badVectorPtr = regionPtr->badVectorPtr;
+    long numBad = PVECTOR_GETSIZE(badVectorPtr);
+    long i;
+
+    for (i = 0; i < numBad; i++) {
+        element_t* badElementPtr = (element_t*)vector_at(badVectorPtr, i);
+        if (TMELEMENT_ISGARBAGE(badElementPtr)) {
+            TMELEMENT_FREE(badElementPtr);
+				}
+		}
+}
+
+
+/* =============================================================================
  *
  * End of region.c
  *

@@ -313,9 +313,9 @@ stm_exit(void)
  * Called by the CURRENT thread to initialize thread-local STM data.
  */
 _CALLCONV stm_tx_t *
-stm_init_thread(void)
+stm_init_thread(int ntransactions)
 {
-  return int_stm_init_thread();
+  return int_stm_init_thread(ntransactions);
 }
 
 /*
@@ -338,16 +338,16 @@ stm_exit_thread_tx(stm_tx_t *tx)
  * Called by the CURRENT thread to start a transaction.
  */
 _CALLCONV sigjmp_buf *
-stm_start(stm_tx_attr_t attr)
+stm_start(stm_tx_attr_t attr, int tx_count)
 {
   TX_GET;
-  return int_stm_start(tx, attr);
+  return int_stm_start(tx, attr, tx_count);
 }
 
 _CALLCONV sigjmp_buf *
-stm_start_tx(stm_tx_t *tx, stm_tx_attr_t attr)
+stm_start_tx(stm_tx_t *tx, stm_tx_attr_t attr, int tx_count)
 {
-  return int_stm_start(tx, attr);
+  return int_stm_start(tx, attr, tx_count);
 }
 
 /*

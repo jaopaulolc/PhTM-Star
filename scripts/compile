@@ -1,0 +1,197 @@
+#!/bin/bash
+
+source $PWD/scripts/scripts.cfg
+
+function usage {
+	
+	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>] [-b <build>]'
+	echo -e '\t[-D <RTM CM>]  [-l <TSX lock>]'
+
+	echo
+	echo '-d <tinySTM DESIGN>'
+	echo 'ETL | CTL | WT'
+	echo 'default = ALL'
+
+	echo
+	echo '-m <tinySTM CM>'
+	echo 'SUICIDE | BACKOFF | DELAY'
+	echo 'default = ALL'
+	
+	echo
+	echo '-D <RTM CM>'
+	echo 'glock | auxlock | backoff | diegues'
+	echo 'default = ALL'
+	
+	echo
+	echo '-l <TSX lock>'
+	echo 'simple_lock | hle_lock'
+	echo 'default = ALL'
+
+	echo
+	echo '-a <stamp app>'
+	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo 'default = ALL'
+
+	echo
+	echo '-b <build>'
+	echo 'tinystm | seq | lock | hle | rtm'
+	echo 'default = ALL'
+}
+
+
+function compile_tinystm_apps {
+
+	test -z "$_tinySTM_DESIGNS" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"     && _tinySTMCMS=$tinySTM_CMS
+			
+	for design in ${_tinySTM_DESIGNS}; do
+		for cm in ${_tinySTM_CMS}; do
+			sed "/${!design}/s|# ||;/${!cm}/s|# ||" \
+				$tinySTM/Makefile.template > $tinySTM/Makefile
+			touch $tinySTM/Makefile
+			make -C $tinySTM clean ${MAKE_OPTIONS}
+			make -C $tinySTM ${MAKE_OPTIONS}
+			
+			echo "## tinySTM ${design}-${cm} compiled"
+			
+			for app in ${_STAMP_APPS}; do
+				SRC_APP_PATH=$STAMP_APPSDIR/$app
+				BIN_APP_PATH=$STAMP/$build/$app
+				make -C $SRC_APP_PATH -f Makefile \
+					TMBUILD=tinystm clean ${MAKE_OPTIONS} 2> /dev/null
+				make -C $SRC_APP_PATH -f Makefile \
+					TMBUILD=tinystm ${MAKE_OPTIONS} 2> /dev/null
+				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${design}-${cm}
+				echo "## ${app}-${build}-${design}-${cm} compiled"
+			done # FOR EACH APP
+		done # FOR EACH CM
+	done # FOR EACH DESIGN
+
+}
+
+function compile_rtm_apps {
+
+	test -z "$_rtm_CMS"     && _rtm_CMS=$rtm_CMS
+	test -z "$_tsx_LOCKS"   && _tsx_LOCKS=$tsx_LOCKS
+				
+	for cm in ${_rtm_CMS}; do
+		for lock in ${_tsx_LOCKS}; do
+			sed "/# DEFINES += -D${lock^^}/s|# ||;/${!cm}/s|# ||" \
+				$TSX_RTM/Makefile.template > $TSX_RTM/Makefile
+			touch $TSX_RTM/Makefile
+			make -C $TSX_RTM clean ${MAKE_OPTIONS}
+			make -C $TSX_RTM ${MAKE_OPTIONS}
+			for app in ${_STAMP_APPS}; do
+				SRC_APP_PATH=$STAMP_APPSDIR/$app
+				BIN_APP_PATH=$STAMP/$build/$app
+				make -C $SRC_APP_PATH -f Makefile \
+					TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+				make -C $SRC_APP_PATH -f Makefile \
+					TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${cm}-${lock}
+				echo "## ${app}-${build}-$cm-$lock compiled"
+			done # FOR EACH APP
+			rm -f $TSX_RTM/Makefile
+		done # FOR EACH LOCK
+	done #FOR EACH CM
+
+}
+
+function compile_hle_apps {
+	
+	for app in ${_STAMP_APPS}; do
+		SRC_APP_PATH=$STAMP_APPSDIR/$app
+		BIN_APP_PATH=$STAMP/$build/$app
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+		echo "## ${app}-${build} compiled"
+	done # FOR EACH APP
+
+}
+
+function compile_lock_apps {
+	
+	for app in ${_STAMP_APPS}; do
+		SRC_APP_PATH=$STAMP_APPSDIR/$app
+		BIN_APP_PATH=$STAMP/$build/$app
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+		echo "## ${app}-$build compiled"
+	done # FOR EACH APP
+
+}
+
+function compile_seq_apps {
+	
+	for app in ${_STAMP_APPS}; do
+		SRC_APP_PATH=$STAMP_APPSDIR/$app
+		BIN_APP_PATH=$STAMP/$build/$app
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+		echo "## ${app}-$build compiled"
+	done # FOR EACH APP
+
+}
+
+function compile {
+	
+	echo 'starting compilation...'
+	
+	make -C $MSRDIR clean $MAKE_OPTIONS && make -C $MSRDIR $MAKE_OPTIONS
+
+	test -z "$_BUILDS"   && _BUILDS=$BUILDS
+	test -z "$_STAMP_APPS"   && _STAMP_APPS=$STAMP_APPS
+
+	for build in $_BUILDS; do
+		case $build in
+			seq)
+				compile_seq_apps
+				;;
+			tinystm)
+				compile_tinystm_apps
+				;;
+			rtm)
+				compile_rtm_apps
+				;;
+			hle)
+				compile_hle_apps
+				;;
+			lock)
+				compile_lock_apps
+				;;
+			\?)
+				echo "error: unkown build '$build'!"
+				exit -1
+				;;
+		esac
+	done
+	
+	echo 'compilation finished.'
+}
+
+while getopts "b:d:m:D:l:a:P:h" opt;
+do
+	case $opt in
+		b) _BUILDS=$OPTARG ;;
+		d) _tinySTM_DESIGNS=$OPTARG ;;
+		m) _tinySTM_CMS=$OPTARG ;;
+		D) _rtm_CMS=$OPTARG ;;
+		l) _tsx_LOCKS=$OPTARG ;;
+		a) _STAMP_APPS=$OPTARG ;;
+		P) MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
+		h) usage && exit -1 ;;
+		\?) echo $0" : error - invalid option -- $OPTARG"
+			exit 1
+	esac
+done
+
+compile

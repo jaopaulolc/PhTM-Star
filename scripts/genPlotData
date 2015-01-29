@@ -1,0 +1,207 @@
+#!/bin/bash
+
+source $PWD/scripts/scripts.cfg
+
+function usage {
+	
+	echo $0' -c <data file columns> [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>] [-D <RTM CM>]'
+	echo -e '\t[-l <TSX lock>] [-t <n. threads>] [-b <build>] [-M <memalloc>] [-g <governor>]'
+
+	echo
+	echo '-c <data file columns>'
+	echo "builds | memallocs | governors"
+	echo "default = none"
+
+	echo
+	echo '-d <tinySTM DESIGN>'
+	echo 'ETL | CTL | WT'
+	echo 'default = ALL'
+
+	echo
+	echo '-m <tinySTM CM>'
+	echo 'SUICIDE | BACKOFF | DELAY'
+	echo 'default = ALL'
+	
+	echo
+	echo '-D <RTM CM>'
+	echo 'glock | auxlock | backoff | diegues'
+	echo 'default = ALL'
+	
+	echo
+	echo '-l <TSX lock>'
+	echo 'simple_lock | hle_lock'
+	echo 'default = ALL'
+
+	echo
+	echo '-a <stamp app>'
+	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo 'default = ALL'
+
+	echo
+	echo '-b <build>'
+	echo 'tinystm | seq | lock | hle | rtm'
+	echo 'default = ALL'
+	
+	echo
+	echo '-M <memalloc>'
+	echo 'ptmalloc | tcmalloc | hoard | tbbmalloc'
+	echo 'default = ptmalloc'
+	
+	echo
+	echo '-g <governor>'
+	echo 'powersave | conservative | ondemand | userspace | performance'
+	echo 'default = ondemand'
+
+	echo
+	echo '-t <n. threads>'
+	echo '1 | 2 | 4 | etc... | "1 2 4 8" | "4 8 16" | etc...'
+	echo 'default = "1 2 3 4"'
+}
+
+meanScript='BEGIN{
+	sum=0
+	i=0
+	ntype=normtype
+	nval=normval
+}{
+	sum+=$1
+	v[i]=$1
+	i++
+}
+END{
+	mean=sum/NR
+	dp=0
+	for(i=0;i<NR;i++)
+		dp+=(mean-v[i])*(mean-v[i])
+	dp=sqrt(dp/(NR-1))
+	confint=0.98*(dp/sqrt(NR))
+	if (ntype == 1){
+		# speedup
+		mean = nval / mean
+		confint = confint / nval
+	} else if (ntype == 2) {
+		# energy normalized
+		mean = mean / nval
+		confint = confint / nval
+	}
+	printf "%.3lf %.3lf ", mean, confint
+}'
+
+function getNormVal {
+
+	regex=$1
+	OIFS=$IFS
+	IFS='-'
+	tokens=( $2 )
+	IFS=$OIFS
+	
+
+	n=$(echo ${tokens[@]} | wc -w)
+	app=${tokens[0]}
+	mem=${tokens[$n-1]}
+	gov=${tokens[$n-2]}
+
+	log="$LOGDIR/$app-seq-$gov-$mem-1.log"
+
+	echo $(grep -e "$regex" $log | awk '{print $3}' | \
+		awk -v normtype=0 "$meanScript")
+}
+
+function generate_data {
+
+	[ -d $DATADIR ] || mkdir $DATADIR
+	
+	test -z "$_BUILDS"          && _BUILDS=$BUILDS
+	test -z "$_NTHREADS"        && _NTHREADS=$NTHREADS
+	test -z "$_STAMP_APPS"      && _STAMP_APPS=$STAMP_APPS
+	test -z "$_MEMALLOCS"       && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL" && _MEMALLOCS=$MEM_ALLOCS
+	test -z "$_GOVERNORS"       && _GOVERNORS='ondemand'
+	test "$_GOVERNORS" == "ALL" && _GOVERNORS=$GOVERNORS
+	test -z "$_tinySTM_DESIGNS" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"     && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_rtm_CMS"         && _rtm_CMS=$rtm_CMS
+	test -z "$_tsx_LOCKS"       && _tsx_LOCKS=$tsx_LOCKS
+	
+	case $_COLUMN in
+		builds)
+			PREFIXES="$_STAMP_APPS"
+			COLUMNS=""
+			for build in ${_BUILDS}; do
+				[ "$build" == "seq" ] && continue
+				if [ "$build" == "tinystm" ]; then
+					TEMP="$(eval echo -n -$build-{${_tinySTM_DESIGNS// /,}}| sed 's|{||g;s|}||g')";
+					TEMP="$(eval echo -n {${TEMP// /,}}-{${_tinySTM_CMS// /,}}| sed 's|{||g;s|}||g')";
+				elif [ "$build" == "rtm" ]; then
+					TEMP="$(eval echo -n -$build-{${_rtm_CMS// /,}} | sed 's|{||g;s|}||g')";
+					TEMP="$(eval echo -n {${TEMP// /,}}-{${_tsx_LOCKS// /,}} | sed 's|{||g;s|}||g')";
+				else
+					TEMP="-$build"
+				fi
+				COLUMNS="$COLUMNS $TEMP"
+			done
+			TEMP="$(eval echo -n -{${_GOVERNORS// /,}}| sed 's|{||g;s|}||g')";
+			SUFFIXES="$(eval echo -n {${TEMP// /,}}-{${_MEMALLOCS// /,}}| sed 's|{||g;s|}||g')";
+			for h in $COLUMNS; do
+				h="$(echo $h | sed 's|^|"|;s|$|"|;s|"-|"|g;s|-| |g' )"
+				HEADER="${HEADER}$h $h "
+			done
+			HEADER="- ${HEADER}"
+			;;
+		memallocs)
+			echo "not implemented yet!" && exit -1
+			;;
+		governors)
+			echo "not implemented yet!" && exit -1
+			;;
+	esac
+
+	for prefix in ${PREFIXES}; do
+		for suffix in ${SUFFIXES}; do
+			speedupdata=$DATADIR/${prefix}${suffix}.speedup
+			energydata=$DATADIR/${prefix}${suffix}.energy
+			echo "generating '$speedupdata' and"
+			echo -n "'$energydata' ..."
+			echo "$HEADER" > $speedupdata
+			echo "$HEADER" > $energydata
+			for t in ${_NTHREADS}; do
+				echo -n "$t " >> $speedupdata
+				echo -n "$t " >> $energydata
+				for column in ${COLUMNS}; do
+					logfile="$LOGDIR/${prefix}${column}${suffix}-$t.log"
+					timenormval="$(getNormVal '^Time[ ]\+= ' ${prefix}${column}${suffix} | awk '{print $1}')"
+					energynormval="$(getNormVal '^Energy[ ]\+= ' ${prefix}${column}${suffix} | awk '{print $1}')"
+					grep -e '^Time[ ]\+= ' $logfile | awk '{print $3}' | \
+						awk -v normtype=1 -v normval=$timenormval "$meanScript" >> $speedupdata
+					grep -e '^Energy[ ]\+= ' $logfile | awk '{print $3}' | \
+						awk -v normtype=2 -v normval=$energynormval "$meanScript" >> $energydata
+				done
+				echo >> $speedupdata
+				echo >> $energydata
+			done
+			echo "done."
+		done
+	done
+}
+
+while getopts "c:b:d:m:D:l:a:t:g:M:h" opt;
+do
+	case $opt in
+		c) _COLUMN=$OPTARG ;;
+		b) _BUILDS=$OPTARG ;;
+		d) _tinySTM_DESIGNS=$OPTARG ;;
+		m) _tinySTM_CMS=$OPTARG ;;
+		D) _rtm_CMS=$OPTARG ;;
+		l) _tsx_LOCKS=$OPTARG ;;
+		a) _STAMP_APPS=$OPTARG ;;
+		t) _NCORES=$OPTARG ;;
+		g) _GOVERNORS=$OPTARG ;;
+		M) _MEMALLOCS=$OPTARG ;;
+		h) usage && exit -1 ;;
+		\?) echo $0" : error - invalid option -- $OPTARG"
+			exit 1
+	esac
+done
+
+[ -z "$_COLUMN" ] && usage && exit -1
+generate_data

@@ -15,6 +15,8 @@ LIBSRCS += \
 
 OBJS := ${SRCS:.c=.o} ${LIBSRCS:%.c=lib_%.o}
 
+CFLAGS += -DNUMBER_OF_TRANSACTIONS=3
+
 # Display results of the benchmark
 # CFLAGS += -DOUTPUT_TO_STDOUT
 

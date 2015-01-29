@@ -5,24 +5,20 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <inttypes.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <math.h>
 #include <limits.h>
 
-#define MSR_RAPL_POWER_UNIT		0x606
-#define MSR_PKG_ENERGY_STATUS		0x611
-#define MSR_PP0_ENERGY_STATUS		0x639
-
-int __msrOpen(int core);
-long long __msrRead(int fd, int which);
+#include <msr.h>
 
 int __msrFileDescriptor;
+int __isCore0MsrFileOpen = 0;
 double __energyUnit;
 
-void msrInit(){
+void msrInitialize(){
   
-	long long result;
+	uint64_t result;
   
 	// open file descriptor for only one socket
 	// TODO: handle file descriptors for more sockets
@@ -36,6 +32,10 @@ void msrInit(){
   //time_units=pow(0.5,(double)((result>>16)&0xf));
 }
 
+void msrTerminate(){
+	__msrClose(__msrFileDescriptor);
+}
+
 double msrDiffCounter(unsigned int before,unsigned int after){
 	if(before > after){
 		return (after + (UINT_MAX - before))*__energyUnit;
@@ -46,7 +46,7 @@ double msrDiffCounter(unsigned int before,unsigned int after){
 
 unsigned int msrGetCounter(){
 
-	long long counter;
+	uint64_t counter;
 
   counter = __msrRead(__msrFileDescriptor, MSR_PKG_ENERGY_STATUS);
   return (unsigned int)counter;
@@ -54,11 +54,16 @@ unsigned int msrGetCounter(){
 
 int __msrOpen(int core) {
 
+	if(core == 0 && __isCore0MsrFileOpen){
+	  __isCore0MsrFileOpen++;
+		return __msrFileDescriptor;
+	}
+
   char msr_filename[BUFSIZ];
   int fd;
 
   sprintf(msr_filename, "/dev/cpu/%d/msr", core);
-  fd = open(msr_filename, O_RDONLY);
+  fd = open(msr_filename, O_RDWR);
   if ( fd < 0 ) {
     if ( errno == ENXIO ) {
       fprintf(stderr, "rdmsr: No CPU %d\n", core);
@@ -72,11 +77,23 @@ int __msrOpen(int core) {
       exit(127);
     }
   }
-
+	
+	if(core == 0) __isCore0MsrFileOpen++;
   return fd;
 }
 
-long long __msrRead(int fd, int which){
+void __msrClose(int msrFd) {
+
+	if(msrFd == __msrFileDescriptor){
+		__isCore0MsrFileOpen--;
+		if(__isCore0MsrFileOpen == 0) close(msrFd);
+		return;
+	}
+
+	close(msrFd);
+}
+
+uint64_t __msrRead(int fd, int which){
 
   uint64_t data;
 
@@ -85,5 +102,13 @@ long long __msrRead(int fd, int which){
     exit(127);
   }
 
-  return (long long)data;
+  return (uint64_t)data;
+}
+
+void __msrWrite(int fd, int which, uint64_t data){
+
+  if ( pwrite(fd, &data, sizeof data, which) != sizeof data ) {
+    perror("wrmsr:pwrite");
+    exit(127);
+  }
 }

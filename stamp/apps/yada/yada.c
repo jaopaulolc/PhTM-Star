@@ -1,74 +1,3 @@
-/* =============================================================================
- *
- * yada.c
- *
- * =============================================================================
- *
- * Copyright (C) Stanford University, 2006.  All Rights Reserved.
- * Author: Chi Cao Minh
- *
- * =============================================================================
- *
- * For the license of bayes/sort.h and bayes/sort.c, please see the header
- * of the files.
- * 
- * ------------------------------------------------------------------------
- * 
- * For the license of kmeans, please see kmeans/LICENSE.kmeans
- * 
- * ------------------------------------------------------------------------
- * 
- * For the license of ssca2, please see ssca2/COPYRIGHT
- * 
- * ------------------------------------------------------------------------
- * 
- * For the license of lib/mt19937ar.c and lib/mt19937ar.h, please see the
- * header of the files.
- * 
- * ------------------------------------------------------------------------
- * 
- * For the license of lib/rbtree.h and lib/rbtree.c, please see
- * lib/LEGALNOTICE.rbtree and lib/LICENSE.rbtree
- * 
- * ------------------------------------------------------------------------
- * 
- * Unless otherwise noted, the following license applies to STAMP files:
- * 
- * Copyright (c) 2007, Stanford University
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- * 
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in
- *       the documentation and/or other materials provided with the
- *       distribution.
- * 
- *     * Neither the name of Stanford University nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY STANFORD UNIVERSITY ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL STANFORD UNIVERSITY BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- * THE POSSIBILITY OF SUCH DAMAGE.
- *
- * =============================================================================
- */
-
-
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -81,9 +10,15 @@
 #include "timer.h"
 #include "tm.h"
 
-#include <msr.h>
+#ifdef PROFILING
+#include <locale.h> // needed to modify printf number format
+#ifdef STM
+unsigned int **coreSTM_commits;
+unsigned int **coreSTM_aborts;
+#endif /* STM */
+#endif /* PROFILING */
 
-#define PARAM_DEFAULT_INPUTPREFIX ("inputs/ttimeu1000000.2")
+#define PARAM_DEFAULT_INPUTPREFIX ("../../data/yada/inputs/ttimeu1000000.2")
 #define PARAM_DEFAULT_NUMTHREAD   (1L)
 #define PARAM_DEFAULT_ANGLE       (15.0)
 
@@ -204,18 +139,29 @@ process (void *arg)
     while (1) {
 
         element_t* elementPtr;
-
+#ifdef HYBRID_TM
+        RTM_BEGIN();
+        elementPtr = (element_t*)heap_remove(workHeapPtr);
+        RTM_END();
+#else
         TM_BEGIN();
         elementPtr = (element_t*)TMHEAP_REMOVE(workHeapPtr);
         TM_END();
+#endif
         if (elementPtr == NULL) {
             break;
         }
 
         bool_t isGarbage;
+#ifdef HYBRID_TM
+        STM_BEGIN();
+        isGarbage = element_isGarbage(elementPtr);
+        STM_END();
+#else
         TM_BEGIN();
         isGarbage = TMELEMENT_ISGARBAGE(elementPtr);
         TM_END();
+#endif
         if (isGarbage) {
             /*
              * Handle delayed deallocation
@@ -223,18 +169,36 @@ process (void *arg)
             PELEMENT_FREE(elementPtr);
             continue;
         }
+				
 
         long numAdded;
-
-        TM_BEGIN();
+#ifdef HYBRID_TM
+				/* barrier not present in the original code */
+				//thread_barrier_wait();
+				STM_BEGIN();
+        PREGION_CLEARBAD(regionPtr);
+        numAdded = TMREGION_REFINE(regionPtr, elementPtr, meshPtr);
+        STM_END();
+				/* barrier not present in the original code */
+				//thread_barrier_wait();
+#else
+				TM_BEGIN();
         PREGION_CLEARBAD(regionPtr);
         numAdded = TMREGION_REFINE(regionPtr, elementPtr, meshPtr);
         TM_END();
+#endif
 
+#ifdef HYBRID_TM
+        STM_BEGIN();
+        element_setIsReferenced(elementPtr, FALSE);
+        isGarbage = element_isGarbage(elementPtr);
+        STM_END();
+#else
         TM_BEGIN();
         TMELEMENT_SETISREFERENCED(elementPtr, FALSE);
         isGarbage = TMELEMENT_ISGARBAGE(elementPtr);
         TM_END();
+#endif
         if (isGarbage) {
             /*
              * Handle delayed deallocation
@@ -244,20 +208,37 @@ process (void *arg)
 
         totalNumAdded += numAdded;
 
+#ifdef HYBRID_TM
+        RTM_BEGIN();
+        region_transferBad(regionPtr, workHeapPtr);
+        RTM_END();
+				STM_BEGIN();
+				TMfree_bad(regionPtr);
+				STM_END();
+#else
         TM_BEGIN();
         TMREGION_TRANSFERBAD(regionPtr, workHeapPtr);
         TM_END();
+#endif
+
 
         numProcess++;
 
     }
 
+#ifdef HYBRID_TM
+    RTM_BEGIN();
+    global_totalNumAdded = global_totalNumAdded + totalNumAdded;
+    global_numProcess = global_numProcess + numProcess;
+    RTM_END();
+#else 
     TM_BEGIN();
     TM_SHARED_WRITE(global_totalNumAdded,
                     TM_SHARED_READ(global_totalNumAdded) + totalNumAdded);
     TM_SHARED_WRITE(global_numProcess,
                     TM_SHARED_READ(global_numProcess) + numProcess);
     TM_END();
+#endif
 
     PREGION_FREE(regionPtr);
 
@@ -273,8 +254,7 @@ MAIN(argc, argv)
 {
 
 		unsigned int counterBefore,counterAfter;
-		msrInit();
-		
+
     GOTO_REAL();
 
     /*
@@ -286,6 +266,7 @@ MAIN(argc, argv)
     TM_STARTUP(global_numThread);
     P_MEMORY_STARTUP(global_numThread);
     thread_startup(global_numThread);
+		
     global_meshPtr = mesh_alloc();
     assert(global_meshPtr);
     printf("Angle constraint = %lf\n", global_angleConstraint);
@@ -336,7 +317,7 @@ MAIN(argc, argv)
     printf("Number of elements processed    = %li\n", global_numProcess);
     fflush(stdout);
 
-#if 0
+#if 1
     bool_t isSuccess = mesh_check(global_meshPtr, finalNumElement);
 #else
     bool_t isSuccess = TRUE;
@@ -349,14 +330,15 @@ MAIN(argc, argv)
      * TODO: deallocate mesh and work heap
      */
 
+		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();
 
     GOTO_SIM();
 
     thread_shutdown();
-
-		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+		
     MAIN_RETURN(0);
 }
 

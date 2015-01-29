@@ -286,7 +286,7 @@ void stm_exit(void) _CALLCONV;
  * from each thread that performs transactional operations, before the
  * thread calls any other functions of the library.
  */
-struct stm_tx *stm_init_thread(void) _CALLCONV;
+struct stm_tx *stm_init_thread(int ntransactions) _CALLCONV;
 
 //@{
 /**
@@ -313,8 +313,8 @@ void stm_exit_thread_tx(struct stm_tx *tx) _CALLCONV;
  *   sigsetjmp() as an abort will restart the top-level transaction
  *   (flat nesting).
  */
-sigjmp_buf *stm_start(stm_tx_attr_t attr) _CALLCONV;
-sigjmp_buf *stm_start_tx(struct stm_tx *tx, stm_tx_attr_t attr) _CALLCONV;
+sigjmp_buf *stm_start(stm_tx_attr_t attr, int tx_count) _CALLCONV;
+sigjmp_buf *stm_start_tx(struct stm_tx *tx, stm_tx_attr_t attr, int tx_count) _CALLCONV;
 //@}
 
 //@{

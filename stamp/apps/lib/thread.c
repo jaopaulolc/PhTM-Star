@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /* =============================================================================
  *
  * thread.c
@@ -93,7 +94,33 @@ static THREAD_ATTR_T     global_threadAttr;
 static THREAD_T*         global_threads         = NULL;
 static void            (*global_funcPtr)(void*) = NULL;
 static void*             global_argPtr          = NULL;
-static volatile bool_t   global_doShutdown      = FALSE;
+volatile bool_t   global_doShutdown      = FALSE;
+
+#include <sched.h>
+#include <stdio.h>
+void set_affinity(long id){
+	int num_cores = sysconf(_SC_NPROCESSORS_ONLN)/2; // 2 threads per core
+	if (id < 0 || id >= num_cores){
+		fprintf(stderr,"error: invalid number of threads (nthreads > ncores)!\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	/* Haswell's HWthread mapping
+	 * swthread | hwthread | core
+	 *    0     |  0 ou 4  |  0
+	 *    1     |  1 ou 5  |  1
+	 *    2     |  2 ou 6  |  2
+	 *    3     |  3 ou 7  |  3 */
+	CPU_SET(id, &cpuset);
+
+	pthread_t current_thread = pthread_self();
+	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){
+		perror("pthread_setaffinity_np");
+		exit(EXIT_FAILURE);
+	}
+}
 
 
 /* =============================================================================

@@ -84,6 +84,8 @@
 extern "C" {
 #endif
 
+#include <unistd.h>
+void set_affinity(long id);
 
 #define THREAD_T                            pthread_t
 #define THREAD_ATTR_T                       pthread_attr_t
@@ -224,7 +226,7 @@ thread_barrier (thread_barrier_t* barrierPtr, long threadId);
  * -- Call after thread_start() to get thread ID inside parallel region
  * =============================================================================
  */
-long
+long __attribute__((const))
 thread_getId();
 
 

@@ -133,6 +133,15 @@ void
 TMregion_transferBad (TM_ARGDECL  region_t* regionPtr, heap_t* workHeapPtr);
 
 
+/* =============================================================================
+ * region_transferBad
+ * =============================================================================
+ */
+void
+region_transferBad (region_t* regionPtr, heap_t* workHeapPtr);
+void TMfree_bad(region_t* regionPtr);
+
+
 #define PREGION_ALLOC()                 Pregion_alloc()
 #define PREGION_FREE(r)                 Pregion_free(r)
 #define PREGION_CLEARBAD(r)             Pregion_clearBad(r)

@@ -23,6 +23,8 @@ LIBSRCS += \
 
 OBJS := ${SRCS:.c=.o} ${LIBSRCS:%.c=lib_%.o}
 
+CFLAGS += -DNUMBER_OF_TRANSACTIONS=3
+
 CFLAGS += -DMAP_USE_RBTREE
 
 include ../common/$(TMBUILD)/Makefile.common

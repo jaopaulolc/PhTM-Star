@@ -1,0 +1,19 @@
+# tsx-rtm build
+#TMBUILD ?= tsx-rtm
+
+# ======== Defines ========
+CC       := gcc-4.8.3
+#CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DRTM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3 -mrtm
+
+LD       := gcc-4.8.3
+LDFLAGS  += -lpthread
+
+TMLIBDIR ?= ../../../tsx/rtm
+CPPFLAGS += -I$(TMLIBDIR)
+LDFLAGS  += -L$(TMLIBDIR) -lrtm -mrtm
+LIBDEPS  += $(TMLIBDIR)/librtm.a
+
+include ../common/Makefile.common

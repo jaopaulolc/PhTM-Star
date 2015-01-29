@@ -1,6 +1,7 @@
 #ifndef _HLE_INCLUDE
 #define _HLE_INCLUDE
 
+#include <pthread.h>
 /* Requires TSX support in the CPU */
 #include <immintrin.h>
 
@@ -11,7 +12,7 @@
 #define hle_lock(l) \
 	while (__atomic_exchange_n(l, 1, __ATOMIC_ACQUIRE | __ATOMIC_HLE_ACQUIRE) != 0){ \
 		do{ \
-			_mm_pause(); \
+			pthread_yield(); \
 		}while(__atomic_load_n(l,__ATOMIC_CONSUME) == 1);\
 	}
 

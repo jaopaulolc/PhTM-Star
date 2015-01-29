@@ -13,6 +13,7 @@
 #define P_MEMORY_STARTUP(numThread)   /* nothing */
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
+#include <msr.h>
 #include <assert.h>
 
 #define TM_ARG                        /* nothing */
@@ -22,10 +23,10 @@
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#define TM_STARTUP(numThread)         /* nothing */
-#define TM_SHUTDOWN()                 /* nothing */
+#define TM_STARTUP(numThread)         msrInitialize()
+#define TM_SHUTDOWN()                 msrTerminate()
 
-#define TM_THREAD_ENTER()             /* nothing */
+#define TM_THREAD_ENTER()             set_affinity(thread_getId())
 #define TM_THREAD_EXIT()              /* nothing */
 
 #define SEQ_MALLOC(size)              malloc(size)

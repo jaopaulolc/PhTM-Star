@@ -1,0 +1,19 @@
+# tinySTM + TSX RTM
+#TMBUILD ?= hybrid
+
+# ======== Defines ========
+CC       := gcc
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DSTM -DRTM -DHYBRID_TM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := gcc
+LDFLAGS  += -lpthread
+
+STMLIBDIR ?= ../../../tinySTM
+RTMLIBDIR ?= ../../../tsx/rtm
+CPPFLAGS += -I$(STMLIBDIR)/include -I$(RTMLIBDIR)
+LDFLAGS  += -L$(STMLIBDIR)/lib -lstm -L$(RTMLIBDIR) -lrtm -mrtm -flto
+LIBDEPS  += $(STMLIBDIR)/lib/libstm.a $(RTMLIBDIR)/librtm.a
+
+include ../common/Makefile.common

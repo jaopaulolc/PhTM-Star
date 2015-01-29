@@ -14,7 +14,10 @@
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
 #include <msr.h>
+#include <pmu.h>
 #include <assert.h>
+#include <hle.h>
+extern hle_lock_t global_lock;
 
 #define TM_ARG                        /* nothing */
 #define TM_ARG_ALONE                  /* nothing */
@@ -23,11 +26,42 @@
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#define TM_STARTUP(numThread)         msrInitialize()
-#define TM_SHUTDOWN()                 msrTerminate();
+#ifdef PROFILING
+#define TM_STARTUP(numThread)         msrInitialize();                         \
+																			pmuStartup(NUMBER_OF_TRANSACTIONS);      \
+																			pmuAddCustomCounter(0, RTM_TX_STARTED);  \
+																			pmuAddCustomCounter(1, RTM_TX_COMMITED); \
+																			pmuAddCustomCounter(2, HLE_TX_STARTED);  \
+																			pmuAddCustomCounter(3, HLE_TX_COMMITED)
 
-#define TM_THREAD_ENTER()             /* nothing */
+#define TM_SHUTDOWN()                 msrTerminate(); \
+																			pmuShutdown()
+
+#define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
+																			set_affinity(__threadId__)
 #define TM_THREAD_EXIT()              /* nothing */
+
+#define TM_BEGIN()                    pmuStartCounting(__threadId__, __COUNTER__); \
+																			hle_lock(&global_lock)
+#define TM_BEGIN_RO()                 pmuStartCounting(__threadId__, __COUNTER__); \
+																			hle_lock(&global_lock)
+#define TM_END()                      hle_unlock(&global_lock); \
+																			pmuStopCounting(__threadId__)
+#else /* NO PROFILING */
+#define TM_STARTUP(numThread)         msrInitialize()
+#define TM_SHUTDOWN()                 msrTerminate()
+
+#define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
+																			set_affinity(__threadId__)
+#define TM_THREAD_EXIT()              /* nothing */
+
+#define TM_BEGIN()                    hle_lock(&global_lock)
+#define TM_BEGIN_RO()                 hle_lock(&global_lock)
+#define TM_END()                      hle_unlock(&global_lock)
+#endif /* NO PROFILING */
+
+#define TM_RESTART()                  assert(0)
+#define TM_EARLY_RELEASE(var)         /* nothing */
 
 #define SEQ_MALLOC(size)              malloc(size)
 #define SEQ_FREE(ptr)                 free(ptr)
@@ -35,13 +69,6 @@
 #define P_FREE(ptr)                   free(ptr)
 #define TM_MALLOC(size)               malloc(size)
 #define TM_FREE(ptr)                  free(ptr)
-
-#define TM_BEGIN()                    /* nothing */
-#define TM_BEGIN_RO()                 /* nothing */
-#define TM_END()                      /* nothing */
-#define TM_RESTART()                  assert(0)
-
-#define TM_EARLY_RELEASE(var)         /* nothing */
 
 #define TM_SHARED_READ(var)           (var)
 #define TM_SHARED_READ_P(var)         (var)

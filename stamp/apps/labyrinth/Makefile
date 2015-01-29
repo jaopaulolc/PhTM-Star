@@ -20,6 +20,8 @@ LIBSRCS += \
 
 OBJS := ${SRCS:.c=.o} ${LIBSRCS:%.c=lib_%.o}
 
+CFLAGS += -DNUMBER_OF_TRANSACTIONS=3
+
 CFLAGS += -DUSE_EARLY_RELEASE
 
 LDFLAGS += -lm

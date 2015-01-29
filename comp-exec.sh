@@ -5,21 +5,21 @@ MAKE_OPTIONS='--quiet --no-keep-going'
 APPS='bayes genome intruder kmeans labyrinth ssca2 vacation yada'
 DESIGNS='ETL CTL WT'
 CMS='SUICIDE DELAY BACKOFF'
-RTMCMS='spinlock1 spinlock2 auxlock backoff trylock'
+LOCKS='simple_lock hle_lock'
+RTMCMS='glock auxlock backoff diegues'
 BUILDS='tinystm seq lock tsx-hle tsx-rtm'
 MEMALLOCS='ptmalloc tcmalloc hoard tbbmalloc'
 GOVERNORS='powersave conservative ondemand userspace performance'
-userspace="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies | awk '{print $((NF+1)/2)}')"
+#userspace="$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies | awk '{print $((NF+1)/2)}')"
 ALLOCS_DIR='allocators'
 ptmalloc=''
 tcmalloc="$ALLOCS_DIR/libtcmalloc_minimal.so.4.1.0"
 hoard="$ALLOCS_DIR/libhoard.so"
 tbbmalloc="$ALLOCS_DIR/libtbbmalloc.so.2"
-spinlock1='# DEFINES += -DRTM_CM_SPINLOCK1'
-spinlock2='# DEFINES += -DRTM_CM_SPINLOCK2'
+glock='# DEFINES += -DRTM_CM_GLOCK'
 auxlock='# DEFINES += -DRTM_CM_AUXLOCK'
 backoff='# DEFINES += -DRTM_CM_BACKOFF'
-trylock='# DEFINES += -DRTM_CM_TRYLOCK'
+diegues='# DEFINES += -DRTM_CM_DIEGUES'
 ETL='# DEFINES += -DDESIGN=WRITE_BACK_ETL'
 CTL='# DEFINES += -DDESIGN=WRITE_BACK_CTL'
 WT='# DEFINES += -DDESIGN=WRITE_THROUGH'
@@ -37,10 +37,6 @@ EXEC_FLAG_labyrinth='-i stamp/data/labyrinth/inputs/random-x512-y512-z7-n512.txt
 EXEC_FLAG_ssca2='-s20 -i1.0 -u1.0 -l3 -p3 -t'
 EXEC_FLAG_vacation='-n4 -q60 -u90 -r1048576 -T4194304 -t'
 EXEC_FLAG_yada='-a15 -i stamp/data/yada/inputs/ttimeu1000000.2 -t'
-PCM_PATH=IntelPCM/
-_AUX='$(echo ${build/tsx-/} | tr "[:lower:]" "[:upper:]")'
-PCM_FLAGS='-e ${_AUX}_RETIRED.ABORTED_MISC1 -e ${_AUX}_RETIRED.ABORTED_MISC2
-					 -e ${_AUX}_RETIRED.ABORTED_MISC3 -e ${_AUX}_RETIRED.ABORTED_MISC4'
 
 awkscript='
 BEGIN{
@@ -164,11 +160,7 @@ function compile {
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
-
-	echo
-	echo -n "compiling intel PCM..."
-	(make -C $PCM_PATH clean ${MAKE_OPTIONS} 2>&1 /dev/null && make -C $PCM_PATH pcm-tsx.x ${MAKE_OPTIONS} 2>&1 > /dev/null) 2>&1 > /dev/null
-	echo "done."
+	test ! -z "$ARG_LOCKS"   && LOCKS=$ARG_LOCKS
 
 	for build in $BUILDS; do
 		if [ $build == "tinystm" ]; then
@@ -194,20 +186,22 @@ function compile {
 		else
 			if [ $build == "tsx-rtm" ]; then
 				for cm in ${RTMCMS}; do
-					sed "/${!cm}/s|# ||" tsx/rtm/Makefile.template > tsx/rtm/Makefile
-					touch tsx/rtm/Makefile
-					make -C tsx/rtm clean ${MAKE_OPTIONS}
-					make -C tsx/rtm ${MAKE_OPTIONS}
-					for app in ${APPS}; do
-						SRC_APP_PATH=stamp/apps/$app
-						BIN_APP_PATH=stamp/$build/$app
-						make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-						make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-						mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${cm}
-						echo "## ${app}-$build-$cm compiled"
-					done # FOR EACH APP
-					rm -f tsx/rtm/Makefile
-				done
+					for lock in ${LOCKS}; do
+						sed "/# DEFINES += -D${lock^^}/s|# ||;/${!cm}/s|# ||" tsx/rtm/Makefile.template > tsx/rtm/Makefile
+						touch tsx/rtm/Makefile
+						make -C tsx/rtm clean ${MAKE_OPTIONS}
+						make -C tsx/rtm ${MAKE_OPTIONS}
+						for app in ${APPS}; do
+							SRC_APP_PATH=stamp/apps/$app
+							BIN_APP_PATH=stamp/$build/$app
+							make -C $SRC_APP_PATH -f Makefile TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+							make -C $SRC_APP_PATH -f Makefile TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+							mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${cm}-${lock}
+							echo "## ${app}-$build-$cm-$lock compiled"
+						done # FOR EACH APP
+						rm -f tsx/rtm/Makefile
+					done # FOR EACH LOCK
+				done #FOR EACH CM
 			else
 				for app in ${APPS}; do
 					SRC_APP_PATH=stamp/apps/$app
@@ -258,6 +252,7 @@ function execute {
 	test ! -z "$STM_CMS"     && CMS=$STM_CMS
 	test ! -z "$STAMP_APP"   && APPS=$STAMP_APP
 	test ! -z "$RTM_CMS"     && RTMCMS=$RTM_CMS
+	test ! -z "$ARG_LOCKS"   && LOCKS=$ARG_LOCKS
 	
 	echo
 	echo 'starting execution...'
@@ -267,17 +262,16 @@ function execute {
 		for build in $BUILDS; do
 			SUFIXES=$build
 			test $build == 'tinystm' && SUFIXES="$(eval echo -n {${DESIGNS// /,}}-{${CMS// /,}} | sed 's|{||g;s|}||g')"
-			test $build == 'tsx-rtm' && SUFIXES="$(eval echo -n $build-{${RTMCMS// /,}} | sed 's|{||g;s|}||g')"
+			test $build == 'tsx-rtm' && SUFIXES="$(eval echo -n $build-{${RTMCMS// /,}}-{${LOCKS// /,}} | sed 's|{||g;s|}||g')"
 			NTHREADS=$NB_CORES
 			test $build == "seq" && NTHREADS='1'
 			SUFIXES="$(eval echo -n {${SUFIXES// /,}}-{${GOVERNORS// /,}} | sed 's|{||g;s|}||g')"
 			for sufix in $SUFIXES; do
 				regex='-([a-z]+)$' # regular expression to get governor from sufix variable
-				[[ $sufix =~ $regex ]] && governor=${BASH_REMATCH[1]} && setGovernor $governor
+				[[ $sufix =~ $regex ]] && governor=${BASH_REMATCH[1]} #&& setGovernor $governor
 				appRunPath="stamp/$build/$app/$app-$(sed 's/-[a-z]\+$//' <<< $sufix)" # remove governor from sufix
 				timeOutput="$output/$app-$sufix.time"
 				timeLog="$output/$app-$sufix.timelog"
-				abortOutput="$output/$app-$sufix.abort"
 				energyOutput="$output/$app-$sufix.energy"
 				energyLog="$output/$app-$sufix.energylog"
 				echo "#$MEMALLOCS" | sed 's/ /\t/g' > $timeOutput
@@ -287,25 +281,17 @@ function execute {
 				for memalloc in $MEMALLOCS; do
 					timeTemp="$memalloc.time"
 					timeLogTemp="$memalloc.timelog"
-					abortTemp="$memalloc.abort"
 					energyTemp="$memalloc.energy"
 					energyLogTemp="$memalloc.energylog"
 					for i in $NTHREADS; do
 						rm -f *.temp
 						for((j=0;j<${NEXEC};j++)); do
 							echo "execution $j: ./$appRunPath ${exec_flags}$i ($memalloc) ($governor)"	
-							if [ $build == "tsx-rtm" -o $build == "tsx-hle" ]; then
-								PCM_FLAGS=$(eval eval echo -n $PCM_FLAGS)
-								eval sudo ./$PCM_PATH/pcm-tsx.x \"LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i\" $PCM_FLAGS > data.temp
-							else
-								sudo LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
-							fi
+							sudo LD_PRELOAD=${!memalloc} ./${appRunPath} ${exec_flags}$i  > data.temp
 							eval $GET_TIME   >> time.temp
-							eval $GET_ABORT  >> abort.temp
 							eval $GET_ENERGY >> energy.temp
 						done # FOR EACH EXECUTION
 						echo "$(awk "$awkscript" time.temp)"   >> $timeTemp
-						echo "$(awk "$awkscript" abort.temp)"  >> $abortTemp
 						echo "$(awk "$awkscript" energy.temp)" >> $energyTemp
 						cat time.temp >> $timeLogTemp
 						echo >> $timeLogTemp
@@ -315,11 +301,10 @@ function execute {
 				done # FOR EACH MEMORY ALLOCATOR
 				eval paste "$(for m in $MEMALLOCS; do echo $m".time";      done | tr '\n' ' ')" >> $timeOutput
 				eval paste "$(for m in $MEMALLOCS; do echo $m".timelog";   done | tr '\n' ' ')" >> $timeLog
-				eval paste "$(for m in $MEMALLOCS; do echo $m".abort";     done | tr '\n' ' ')" >> $abortOutput
 				eval paste "$(for m in $MEMALLOCS; do echo $m".energy";    done | tr '\n' ' ')" >> $energyOutput
 				eval paste "$(for m in $MEMALLOCS; do echo $m".energylog"; done | tr '\n' ' ')" >> $energyLog
-				rm *.{time,timelog,abort,energy,energylog}
-				restoreGovernor # reset system governor to ondemand
+				rm *.{time,timelog,energy,energylog}
+				#restoreGovernor # reset system governor to ondemand
 			done # FOR EACH SUFIX
 		done # FOR EACH BUILD
 	done # FOR EACH APPS
@@ -337,7 +322,6 @@ function clean {
 	make -C tsx/rtm -f Makefile.template clean
 	make -C msr/ clean
 	rm -rf stamp/{seq,tinystm,lock,tsx-rtm,tsx-hle}
-	make -C IntelPCM clean
 
 	echo 'cleanup finished.'
 	
@@ -377,7 +361,7 @@ function cleanup {
 	rm -f *.temp
 	rm -f *.{time,timelog,abort,energy,energylog}
 	test -d output-data && rm -f output-data/*.{png,eps,table}
-	restoreGovernor
+	#restoreGovernor
 	exit
 }
 
@@ -389,7 +373,7 @@ if [ "$#" -eq "0" ]; then
 else
 	run_opt=$1
 	shift
-	while getopts ":d:D:m:a:b:t:n:p:g:M:P:" opt;
+	while getopts ":d:D:m:a:b:t:n:p:g:M:l:P:" opt;
 	do
 		case $opt in
 			d) STM_DESIGNS=$OPTARG ;;
@@ -402,7 +386,8 @@ else
 			p) PLOT=$OPTARG ;;
 			g) GOVS=$OPTARG ;;
 			M) MEM_ALLOCS=$OPTARG ;;
-			P) PCM_PATH=$OPTARG ;;
+			l) ARG_LOCKS=$OPTARG ;;
+			P) MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
 			\?) echo $0" : error - invalid option -- $OPTARG"
 				exit 1
 		esac

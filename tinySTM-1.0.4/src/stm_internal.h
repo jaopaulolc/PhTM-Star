@@ -346,8 +346,9 @@ typedef struct stm_tx {                 /* Transaction descriptor */
   unsigned int stat_retries;            /* Number of consecutive aborts (retries) */
 #endif /* CM == CM_MODULAR || defined(TM_STATISTICS) */
 #ifdef TM_STATISTICS
-  unsigned int stat_commits;            /* Total number of commits (cumulative) */
-  unsigned int stat_aborts;             /* Total number of aborts (cumulative) */
+	int tx_count;
+  unsigned int *stat_commits;            /* Total number of commits (cumulative) */
+  unsigned int *stat_aborts;             /* Total number of aborts (cumulative) */
   unsigned int stat_retries_max;        /* Maximum number of consecutive aborts (retries) */
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
@@ -992,7 +993,7 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
   tx->stat_retries++;
 #endif /* CM == CM_MODULAR || defined(TM_STATISTICS) */
 #ifdef TM_STATISTICS
-  tx->stat_aborts++;
+  tx->stat_aborts[tx->tx_count]++;
   if (tx->stat_retries_max < tx->stat_retries)
     tx->stat_retries_max = tx->stat_retries;
 #endif /* TM_STATISTICS */
@@ -1181,7 +1182,7 @@ int_stm_WaW(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_word_
 }
 
 static INLINE stm_tx_t *
-int_stm_init_thread(void)
+int_stm_init_thread(int ntransactions)
 {
   stm_tx_t *tx;
 
@@ -1244,8 +1245,9 @@ int_stm_init_thread(void)
 #endif /* CM == CM_MODULAR || defined(TM_STATISTICS) */
 #ifdef TM_STATISTICS
   /* Statistics */
-  tx->stat_commits = 0;
-  tx->stat_aborts = 0;
+	tx->tx_count = 0;
+  tx->stat_commits = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
+  tx->stat_aborts  = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
   tx->stat_retries_max = 0;
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
@@ -1295,13 +1297,16 @@ int_stm_exit_thread(stm_tx_t *tx)
   }
 
 #ifdef TM_STATISTICS
-  /* Display statistics before to lose it */
+  /* Statistics */
+  if(tx->stat_commits != NULL) free(tx->stat_commits);
+  if(tx->stat_aborts  != NULL) free(tx->stat_aborts);
+/* // Display statistics before to lose it 
   if (getenv("TM_STATISTICS") != NULL) {
     double avg_aborts = .0;
     if (tx->stat_commits)
       avg_aborts = (double)tx->stat_aborts / tx->stat_commits;
     printf("Thread %p | commits:%12u avg_aborts:%12.2f max_retries:%12u\n", (void *)pthread_self(), tx->stat_commits, avg_aborts, tx->stat_retries_max);
-  }
+  }*/
 #endif /* TM_STATISTICS */
 
   stm_quiesce_exit_thread(tx);
@@ -1322,7 +1327,7 @@ int_stm_exit_thread(stm_tx_t *tx)
 }
 
 static INLINE sigjmp_buf *
-int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
+int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr, int tx_count)
 {
   PRINT_DEBUG("==> stm_start(%p)\n", tx);
 
@@ -1338,6 +1343,10 @@ int_stm_start(stm_tx_t *tx, stm_tx_attr_t attr)
 
   /* Initialize transaction descriptor */
   int_stm_prepare(tx);
+
+#ifdef TM_STATISTICS
+	tx->tx_count = tx_count;
+#endif /* TM_STATISTICS */
 
   /* Callbacks */
   if (likely(_tinystm.nb_start_cb != 0)) {
@@ -1404,7 +1413,7 @@ int_stm_commit(stm_tx_t *tx)
 
  end:
 #ifdef TM_STATISTICS
-  tx->stat_commits++;
+  tx->stat_commits[tx->tx_count]++;
 #endif /* TM_STATISTICS */
 #if CM == CM_MODULAR || defined(TM_STATISTICS)
   tx->stat_retries = 0;
@@ -1532,21 +1541,23 @@ int_stm_get_stats(stm_tx_t *tx, const char *name, void *val)
   }
 #ifdef TM_STATISTICS
   if (strcmp("nb_commits", name) == 0) {
-    *(unsigned int *)val = tx->stat_commits;
+    *(unsigned int **)val = tx->stat_commits;
+		tx->stat_commits = NULL;
     return 1;
   }
   if (strcmp("nb_aborts", name) == 0) {
-    *(unsigned int *)val = tx->stat_aborts;
+    *(unsigned int **)val = tx->stat_aborts;
+		tx->stat_aborts = NULL;
     return 1;
   }
-  if (strcmp("avg_aborts", name) == 0) {
+/*  if (strcmp("avg_aborts", name) == 0) {
     *(unsigned int *)val = tx->stat_aborts / tx->stat_commits;
     return 1;
   }
   if (strcmp("max_retries", name) == 0) {
     *(unsigned int *)val = tx->stat_retries_max;
     return 1;
-  }
+  }*/
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
   if (strcmp("nb_aborts_1", name) == 0) {
