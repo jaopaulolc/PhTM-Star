@@ -143,7 +143,7 @@ function generate_data {
 			TEMP="$(eval echo -n -{${_GOVERNORS// /,}}| sed 's|{||g;s|}||g')";
 			SUFFIXES="$(eval echo -n {${TEMP// /,}}-{${_MEMALLOCS// /,}}| sed 's|{||g;s|}||g')";
 			for h in $COLUMNS; do
-				h="$(echo $h | sed 's|^|"|;s|$|"|;s|"-|"|g;s|-| |g' )"
+				h="$(echo $h | sed 's|^|"|;s|$|"|;s|"-|"|g;s|-| |g;s|_| |g')"
 				HEADER="${HEADER}$h $h "
 			done
 			HEADER="- ${HEADER}"

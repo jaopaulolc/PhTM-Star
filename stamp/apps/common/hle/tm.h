@@ -27,15 +27,74 @@ extern hle_lock_t global_lock;
 #define TM_SAFE                       /* nothing */
 
 #ifdef PROFILING
-#define TM_STARTUP(numThread)         msrInitialize();                         \
-																			pmuStartup(NUMBER_OF_TRANSACTIONS);      \
-																			pmuAddCustomCounter(0, RTM_TX_STARTED);  \
-																			pmuAddCustomCounter(1, RTM_TX_COMMITED); \
-																			pmuAddCustomCounter(2, HLE_TX_STARTED);  \
-																			pmuAddCustomCounter(3, HLE_TX_COMMITED)
+#if PROFILING == 1
 
-#define TM_SHUTDOWN()                 msrTerminate(); \
-																			pmuShutdown()
+#define TM_STARTUP(numThread)         msrInitialize();                               \
+																			pmuStartup(NUMBER_OF_TRANSACTIONS);            \
+																			pmuAddCustomCounter(0, HLE_TX_STARTED);        \
+																			pmuAddCustomCounter(1, HLE_TX_COMMITED)
+#elif PROFILING == 2
+#define TM_STARTUP(numThread)         msrInitialize();                                 \
+																			pmuStartup(NUMBER_OF_TRANSACTIONS);              \
+																			pmuAddCustomCounter(0, TX_ABORT_CONFLICT);       \
+																			pmuAddCustomCounter(1, TX_ABORT_CAPACITY);       \
+																			pmuAddCustomCounter(2, HLE_TX_ABORT_UNFRIENDLY); \
+																			pmuAddCustomCounter(3, HLE_TX_ABORT_OTHER)
+#endif /* PROFILING == 2 */
+
+#define TM_SHUTDOWN()									setlocale(LC_ALL, ""); \
+		int __numThreads__  = thread_getNumThread(); \
+		int nfixedCounters  = pmuNumberOfFixedCounters(); \
+		int ncustomCounters = pmuNumberOfCustomCounters(); \
+		int ntotalCounters  = nfixedCounters + ncustomCounters; \
+		int nmeasurements = pmuNumberOfMeasurements(); \
+		int ii; \
+		if(PROFILING == 1){ \
+			printf("\nTx #  | %10s | %19s | %24s | %24s | %24s", \
+			"HLE START", "HLE COMMIT", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
+		} else if(PROFILING == 2){ \
+			printf("\nTx #  | %19s | %19s | %19s | %19s ", \
+			"CONFLICT/READ CAP.", "WRITE CAPACITY", "UNFRIENDLY INST.", "OTHER"); \
+		} \
+		for(ii=0; ii < __numThreads__; ii++){ \
+			uint64_t **measurements = pmuGetMeasurements(ii); \
+			printf("\nThread %d\n",ii); \
+			int i, j; \
+			uint64_t total[3] = {0,0,0}; \
+			if(PROFILING == 1){ \
+				for(j=ncustomCounters; j < ntotalCounters; j++) \
+					for(i=0; i < nmeasurements; i++) \
+						total[j-ncustomCounters] += measurements[i][j]; \
+			} \
+			for(i=0; i < nmeasurements; i++){ \
+				printf("Tx %2d",i); \
+				if(PROFILING == 1){ \
+					for(j=0; j < ncustomCounters-2; j++){ \
+						if(j && j % 2){ \
+							printf(" | %'10lu ",measurements[i][j]); \
+							printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)measurements[i][j-1])); \
+						} else printf(" | %'10lu",measurements[i][j]); \
+					} \
+				} else { \
+					uint64_t sum = 0; \
+					for(j=0; j < ncustomCounters; j++){ sum += measurements[i][j]; } \
+					for(j=0; j < ncustomCounters; j++){ \
+						printf(" | %'10lu ",measurements[i][j]); \
+						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)sum)); \
+					} \
+				} \
+				if(PROFILING == 1){ \
+					for(j=ncustomCounters; j < ntotalCounters; j++){ \
+						printf(" | %'15lu ",measurements[i][j]); \
+						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)total[j-ncustomCounters])); \
+					} \
+				} \
+				printf("\n"); \
+			} \
+		} \
+		printf("\n|====%6s%s%6s=====|\n","", "END OF REPORT", " "); \
+																			pmuShutdown(); \
+																			msrTerminate()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
 																			set_affinity(__threadId__)
