@@ -1,0 +1,120 @@
+#!/bin/bash
+
+source $PWD/scripts/scripts.cfg
+[ $? != 0 ] && echo -e "\nerror: running scripts from wrong directory!" && exit -1
+
+function usage {
+	
+	echo $0' -p <profile data> [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>] [-D <RTM CM>]'
+	echo -e '\t[-l <TSX lock>] [-t <n. threads>] [-b <build>] [-M <memalloc>] [-g <governor>]'
+
+	echo
+	echo '-p <profile data>'
+	echo 'colselection | aborts'
+	echo 'default = none'
+	
+	echo
+	echo '-c <column selection>'
+	echo 'regex = colselec(;colselec)*'
+	echo 'colselec = [0-9]+p?'
+
+	echo
+	echo '-a <stamp app>'
+	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo 'default = ALL'
+}
+
+columnSummary='
+BEGIN{
+	FS="|"; nr=0
+	split(column,columns,";")
+	for(col in columns){
+		match(columns[col],/([0-9]+)(p?)/,groups)
+		colnum[col]=groups[1]
+		if(groups[2] == "p") regex[col]="\\([ ]*([0-9.]+)\\)"
+		else regex[col]="([0-9]+)"
+	}
+}
+{
+	if( $1 ~ "Tx #"){
+		i=1; nr++; nt=0
+		sub("[ ]+$","",$1)
+		data[1,1] = sprintf("\"%s\"", $1)
+		for(col in columns){
+			sub("^[ ]+","",$colnum[col])
+			sub("[ ]+$","",$colnum[col])
+			data[1,col+1] = sprintf("\"%s\"", $colnum[col])
+		}
+	} else if( $1 ~ "Thread" ){
+		i=1; nt++;
+	} else if( $1 ~ "Tx") {
+		i++
+		match($1,"([0-9]+)",txid)
+		data[i,1] = txid[1]
+		for(col in columns){
+			gsub(",","",$colnum[col])
+			sub("-nan","0.00",$colnum[col])
+			match($colnum[col],regex[col],val)
+			data[i,col+1] += val[1]
+		}
+	}
+}
+END{
+	nlines=i
+	nr = nr * nt
+	printf("%s",data[1,1])
+	for(col in columns){ printf(" %s", data[1,col+1]) }
+	printf("\n")
+	for(i=2; i <= nlines; i++){
+		printf("%s",data[i,1])
+		for(col in columns){ printf(" %lf", data[i,col+1]/nr) }
+		printf("\n")
+	}
+}'
+
+function generate {
+	
+	[ -e $DATADIR ] || mkdir $DATADIR
+	
+	test -z "$_STAMP_APPS"       && _STAMP_APPS=$STAMP_APPS
+	test -z "$_PROFDATA"         && _PROFDATA=$PROFDATA
+	test -z "$_SUFFIXES"         && echo "error: -s must be specified!" && exit -1
+
+	for app in ${_STAMP_APPS}; do
+		for suffix in $_SUFFIXES; do
+			logfile="$LOGDIR/$app-$suffix.log"
+			for profdata in $_PROFDATA; do
+				case $profdata in
+					colselection)
+					[ "$COLSELECTION" == "" ] && echo "error: -c must be specified!" && exit -1
+					proffile="$DATADIR/$app-$suffix.prof"
+					awk -v column=$COLSELECTION "$columnSummary" $logfile > $proffile
+					;;
+				aborts)
+					proffile="$DATADIR/$app-$suffix.aborts"
+					awk -v column="2p;3p;4p;5p" "$columnSummary" $logfile > $proffile
+					;;
+				\?)
+					echo "error: unknown profdata option '$profdata'!"
+					exit -1
+					;;
+			esac
+			done # FOR EACH PROFDATA
+		done # FOR EACH SUFFIX
+	done # FOR EACH APPS
+}
+
+while getopts "a:hp:c:s:" opt;
+do
+	case $opt in
+		a) _STAMP_APPS=$OPTARG ;;
+		h) usage && exit -1 ;;
+		p) _PROFDATA=$OPTARG ;;
+		c) COLSELECTION=$OPTARG ;;
+		s) _SUFFIXES=$OPTARG ;;
+		\?) echo $0" : error - invalid option -- $OPTARG"
+			exit 1
+	esac
+done
+
+generate

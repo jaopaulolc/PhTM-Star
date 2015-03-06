@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source $PWD/scripts/scripts.cfg
+[ $? != 0 ] && echo -e "\nerror: running scripts from wrong directory!" && exit -1
 
 function plot-stamp {
 	tmpdatafile=$1
@@ -32,7 +33,49 @@ function plot-stamp {
 		plot for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u 1:j:xtic(1) w lp ls j/2 t column(j) , \
 		for[i=1:words(apps)-1] for[j=2:$NCOLUMNS:2] "$tmpdatafile" index i u (5*i + column(0)):j:xtic(1) w lp ls j/2 notitle
 																	
-		set terminal ""
+		set terminal pop
+		set output
+	EOF
+}
+
+function plot-txcycles {
+	tmpdatafile=$1
+	graphfilename=$2
+	ylabel=$3
+	xlabel=$4
+	gnuplot <<-EOF
+		set encoding utf8
+		set terminal postscript eps enhanced color size 9.60,2.80 font "NimbusSanL-Bold,16"
+		set output '$GRAPHDIR/$graphfilename.eps'
+	
+		# estilo das linhas
+		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "black"
+		set style line 2 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#8C1717" #scarlet
+		set style line 3 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#EE7621" #chocolate2
+		set style line 4 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#99CC32" #yellowgreen
+		set style line 5 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#00688B" #deepskyblue4
+		set style line 6 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#8B6969" #rosybrown4
+		set style line 7 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#2F4F4F" #darkslategrey
+		set style line 8 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#CD5C5C" #indianred
+		
+		#set xtics out nomirror
+		unset xtics
+		set ytics out nomirror
+		set grid y
+		unset key
+
+		set ylabel "$ylabel" offset 1.8
+		set xlabel "$xlabel" offset 0,-1.5
+		#set xlabel " " offset 1
+
+		apps = "$_STAMP_APPS"
+		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*2.95,-5.00 center
+
+		#plot for[j=0:words(apps)-1] "$tmpdatafile" index j u (\$1 + 6*j):2:xtic(sprintf("%d",column(0))) w lp ls j+1 notitle
+		plot for[j=0:words(apps)-1] "$tmpdatafile" index j u (\$1 + 6*j):2 w lp ls j+1 notitle, \
+		     for[j=0:words(apps)-1] "$tmpdatafile" index j u (\$1 + 6*j):(\$2 > 20.0 ? (\$2 + 5.0) :1/0):(sprintf("%0.2f",\$3)) w labels
+
+		set terminal pop
 		set output
 	EOF
 }
@@ -84,7 +127,7 @@ function plot-STAMP-energy {
 				 "tinySTM.energy"  u (column(0) + 1 + int(column(0)/4)):1 w lp ls 4 t 'tinySTM',\
 				 "lock.energy"     u (column(0) + 1 + int(column(0)/4)):1 w lp ls 5 t 'LOCK'
 		
-		set terminal ""
+		set terminal pop
 		set output
 	EOF
 	rm -f {tsx-hle,tsx-rtm1,tsx-rtm2,tinySTM,seq,lock}.energy
@@ -137,7 +180,7 @@ function plot-STAMP-rtm {
 				 "tsx-rtm2.speedup" u 1 ls 2 t 'RTM+HLE' ,\
 				 "tsx-rtm3.speedup" u 1 ls 3 t 'Diegues'
 		
-		set terminal ""
+		set terminal pop
 		set output
 	EOF
 	rm -f *.speedup
@@ -241,7 +284,7 @@ function plot-STAMP-edp {
 	
 				unset multiplot
 		
-				set terminal ""
+				set terminal pop
 				set output
 			EOF
 		done
@@ -335,7 +378,7 @@ function stamp-default-gov {
 
 			unset multiplot
 	
-			set terminal ""
+			set terminal pop
 			set output
 		EOF
 	rm $app-seq-$gov.{time,energy}
@@ -488,7 +531,7 @@ function plot {
 		stamp-energy)
 			tmpfile=energy.tmp
 			./scripts/genPlotData -c builds -d "$_tinySTM_DESIGNS" -b "$_BUILDS" -m "$_tinySTM_CMS" \
-														-D "$_rtm_CMS" -l "$_tsx_LOCKS" -M "$_MEMALLOCS" -g "$_GOVERNORS"
+										-D "$_rtm_CMS" -l "$_tsx_LOCKS" -M "$_MEMALLOCS" -g "$_GOVERNORS"
 			for gov in ${_GOVERNORS}; do
 				for mem in ${_MEMALLOCS}; do
 					rm -f $tmpfile
@@ -501,6 +544,42 @@ function plot {
 					rm -f $tmpfile
 				done # FOR EACH MEMALLOC
 			done # FOR EACH GOVERNOR
+			;;
+		stamp-aborts)
+			echo "not implemented yet!" && exit -1
+			;;
+		stamp-txcycles)
+			tmpfile=commits.tmp
+			for build in ${_BUILDS}; do
+				SUFFIXES=$build
+				test $build == 'tinystm' && \
+					SUFFIXES="$(eval echo -n $build-{${_tinySTM_DESIGNS// /,}}-{${_tinySTM_CMS// /,}} | sed 's|{||g;s|}||g')"
+				test $build == 'rtm' && \
+					SUFFIXES="$(eval echo -n $build-{${_rtm_CMS// /,}}-{${_tsx_LOCKS// /,}} | sed 's|{||g;s|}||g')"
+				SUFFIXES="$(eval echo -n {${SUFFIXES// /,}}-{${_GOVERNORS// /,}} | sed 's|{||g;s|}||g')"
+				SUFFIXES="$(eval echo -n {${SUFFIXES// /,}}-{${_MEMALLOCS// /,}} | sed 's|{||g;s|}||g')"
+				for suffix in ${SUFFIXES}; do
+					for t in ${_NTHREADS}; do
+						rm -f $tmpfile
+						for app in $STAMP_APPS; do
+							proffile="$DATADIR/$app-$suffix-$t.prof"
+							if [ ! -e $proffile ]; then
+								colselection="5p;3p"
+								[ "$build" == "rtm" ] && colselection="7p;3p"
+								./scripts/genPlotData2 -p colselection -c $colselection -a $app -s "$suffix-$t"
+							fi
+							nlines=$(wc -l $proffile | cut -d' ' -f1)
+							awk -v nlines=$nlines '{$1=($1+1)*(5/nlines);print;}' $proffile >> $tmpfile
+							echo -e "\n" >> $tmpfile
+						done # FOR EACH APP
+						NCOLUMNS="$(head -n1 $tmpfile | awk -F ' "' 'END{print NF}')"
+						echo -n "ploting 'stamp-txcycles-$suffix-$t'..."
+						plot-txcycles "$tmpfile" "stamp-txcycles-$suffix-$t" "% dos ciclos" "Transações"
+						echo "done."
+						rm -f $tmpfile
+					done # FOR EACH NTHREAD
+				done # FOR EACH SUFFIX
+			done # FOR EACH BUILD
 			;;
 		\?) usage && exit -1 ;;
 	esac
