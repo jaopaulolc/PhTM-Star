@@ -438,6 +438,7 @@ TMregion_transferBad (TM_ARGDECL  region_t* regionPtr, heap_t* workHeapPtr)
 }
 
 
+#ifdef HYBRID_TM
 /* =============================================================================
  * region_transferBad
  * =============================================================================
@@ -473,7 +474,7 @@ void TMfree_bad(region_t* regionPtr)
 				}
 		}
 }
-
+#endif /* HYBRID_TM */
 
 /* =============================================================================
  *
