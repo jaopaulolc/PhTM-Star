@@ -1,10 +1,16 @@
 #ifndef _PMU_INCLUDE
 #define _PMU_INCLUDE
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE 
+#endif /* _GNU_SOURCE*/
 #include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /**
  * PMU macros
@@ -129,4 +135,7 @@ enum{
 	TX_ABORT_CAPACITY  ,
 };
 
+#if defined(__cplusplus)
+} /* extern "C" { */
+#endif
 #endif /* _PMU_INCLUDE */

@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /**
  * Alloc msr lib variables.
  * MUST BE called only once.
@@ -61,6 +65,10 @@ void __msrWrite(int fd, int which, uint64_t data);
 #define MSR_RAPL_POWER_UNIT			(0x606)
 #define MSR_PKG_ENERGY_STATUS		(0x611)
 #define MSR_PP0_ENERGY_STATUS		(0x639)
+
+#if defined(__cplusplus)
+} /* extern "C" { */
+#endif
 
 #endif /* _MSR_INCLUDE*/
 
