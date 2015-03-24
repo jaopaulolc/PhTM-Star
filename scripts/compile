@@ -35,7 +35,7 @@ function usage {
 
 	echo
 	echo '-b <build>'
-	echo 'tinystm | seq | lock | hle | rtm'
+	echo 'tinystm | seq | lock | hle | rtm | norec'
 	echo 'default = ALL'
 }
 
@@ -68,6 +68,23 @@ function compile_tinystm_apps {
 		done # FOR EACH CM
 	done # FOR EACH DESIGN
 
+}
+
+function compile_norec_apps {
+	
+	make -C $NOrec clean ${MAKE_OPTIONS}
+	make -C $NOrec ${MAKE_OPTIONS}
+	echo "## NOrec STM compiled"
+	for app in ${_STAMP_APPS}; do
+		SRC_APP_PATH=$STAMP_APPSDIR/$app
+		BIN_APP_PATH=$STAMP/$build/$app
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $SRC_APP_PATH -f Makefile \
+			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
+		echo "## ${app}-${build} compiled"
+	done # FOR EACH APP
 }
 
 function compile_rtm_apps {
@@ -159,6 +176,9 @@ function compile {
 				;;
 			tinystm)
 				compile_tinystm_apps
+				;;
+			norec)
+				compile_norec_apps
 				;;
 			rtm)
 				compile_rtm_apps
