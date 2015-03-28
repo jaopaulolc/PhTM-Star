@@ -349,6 +349,7 @@ namespace stm
 					/* inicializando apenas o NOrec (por enquanto) */
 					initTM<CGL>(); /* precisa para não bloquear a inicializar  */
 					initTM<NOrec>();
+					initTM<RH_NOrec>();
 
           // guess a default configuration, then check env for a better option
           const char* cfg = "NOrec";

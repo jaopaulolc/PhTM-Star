@@ -6,7 +6,7 @@ SRCS = $(wildcard *.cpp)
 OBJS = $(SRCS:.cpp=.o)
 
 CPPFLAGS = -I./include
-CXXFLAGS = -O3 -Wall
+CXXFLAGS = -O3 -mrtm -Wall
 
 
 $(TARGET):	$(OBJS)

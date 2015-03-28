@@ -46,6 +46,16 @@ namespace stm
    */
   struct TxThread
   {
+			/*** RH-NOrec fields ***/
+			uint64_t tx_version;
+			bool is_on_fast_path;
+			bool is_rh_active;
+			bool is_rh_prefix_active;
+			bool is_write_detected;
+			uint64_t htm_retries;
+			uint64_t slow_retries;
+
+
       /*** THESE FIELDS DEAL WITH THE STM IMPLEMENTATIONS ***/
       uint32_t       id;            // per thread id
       uint32_t       nesting_depth; // nesting; 0 == not in transaction

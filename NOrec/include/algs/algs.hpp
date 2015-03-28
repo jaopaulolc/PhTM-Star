@@ -44,7 +44,7 @@ namespace stm
       OrEAU, OrEAUFCM, OrEAUHA, OrEAUHour,
       OrecEager, OrecEagerHour, OrecEagerBackoff, OrecEagerHB,
       OrecLazy,  OrecLazyHour,  OrecLazyBackoff,  OrecLazyHB,
-      NOrec,     NOrecHour,     NOrecBackoff,     NOrecHB,
+      NOrec,     NOrecHour,     NOrecBackoff,     NOrecHB, RH_NOrec,
       // ProfileTM support.  These are not true STMs
       ProfileTM, ProfileAppAvg, ProfileAppMax, ProfileAppAll,
       // end with a distinct value
