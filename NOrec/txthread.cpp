@@ -61,7 +61,10 @@ namespace stm
    *  Constructor sets up the lists and vars
    */
   TxThread::TxThread()
-      : nesting_depth(0),
+				// RH-NOrec fields
+			:	tmbegin_local(NULL), tx_version(0), is_rh_active(false),
+				is_rh_prefix_active(false), slow_retries(0),
+      	nesting_depth(0),
         allocator(),
         num_commits(0), num_aborts(0), num_restarts(0),
         num_ro(0), scope(NULL),

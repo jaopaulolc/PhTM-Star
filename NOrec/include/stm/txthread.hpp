@@ -47,14 +47,12 @@ namespace stm
   struct TxThread
   {
 			/*** RH-NOrec fields ***/
+      TM_FASTCALL bool(*tmbegin_local)(TxThread*);
 			uint64_t tx_version;
-			bool is_on_fast_path;
 			bool is_rh_active;
 			bool is_rh_prefix_active;
-			bool is_write_detected;
 			uint64_t htm_retries;
 			uint64_t slow_retries;
-
 
       /*** THESE FIELDS DEAL WITH THE STM IMPLEMENTATIONS ***/
       uint32_t       id;            // per thread id
