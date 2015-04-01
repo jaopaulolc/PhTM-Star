@@ -62,7 +62,8 @@ namespace stm
    */
   TxThread::TxThread()
 				// RH-NOrec fields
-			:	tmbegin_local(NULL), tx_version(0), is_rh_active(false),
+			:	tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
+				xbegin_status(0), tx_version(0), is_rh_active(false),
 				is_rh_prefix_active(false), slow_retries(0),
       	nesting_depth(0),
         allocator(),

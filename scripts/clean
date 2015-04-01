@@ -9,7 +9,7 @@ function usage {
 
 	echo
 	echo '-b <build>'
-	echo 'tinystm | seq | lock | hle | rtm'
+	echo 'tinystm | seq | lock | hle | rtm | norec'
 	echo 'default = ALL'
 }
 
@@ -31,6 +31,9 @@ function clean {
 			rtm)
 				test -e $TSX_RTM/Makefile && rm $TSX_RTM/Makefile
 				make -C $TSX_RTM -f Makefile.template clean
+				;;
+			norec)
+				make -C $NOrec clean
 				;;
 			hle) ;;
 			lock) ;;
