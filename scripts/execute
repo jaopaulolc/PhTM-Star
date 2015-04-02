@@ -117,7 +117,7 @@ function execute {
 						rm -f $outputLog
 						for j in $(seq 1 ${_NEXEC}); do
 							echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($governor)"	
-							sudo LD_PRELOAD=${!memalloc} ${appRunPath} ${exec_flags}$t  >> $outputLog
+							sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
 						done # FOR EACH EXECUTION
 					done # FOR EACH NUMBER OF THREADS
 				done # FOR EACH MEMORY ALLOCATOR

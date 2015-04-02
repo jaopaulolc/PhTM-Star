@@ -91,7 +91,7 @@ namespace {
 
   void
   onSwitchTo() {
-		fprintf(stderr, "error: function 'onSwitchTo' not implemented yet!\n");
+		fprintf(stderr, "warning: function 'onSwitchTo' not implemented yet!\n");
   }
 
 	void initialize(int id, const char* name)

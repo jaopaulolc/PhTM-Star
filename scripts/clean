@@ -35,6 +35,9 @@ function clean {
 			norec)
 				make -C $NOrec clean
 				;;
+			rh_norec)
+				make -C $RH_NOrec clean
+				;;
 			hle) ;;
 			lock) ;;
 			\?) echo $0" : error - unknown build '$build'"
