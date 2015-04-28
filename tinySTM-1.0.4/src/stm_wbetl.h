@@ -49,7 +49,13 @@ stm_wbetl_validate(stm_tx_t *tx)
   r = tx->r_set.entries;
   for (i = tx->r_set.nb_entries; i > 0; i--, r++) {
     /* Read lock */
+#ifdef ORT_PROFILING
+		RTM_BEGIN();
+			l = *(r->lock);
+		RTM_END();
+#else /* ORIGINAL CODE */
     l = ATOMIC_LOAD(r->lock);
+#endif /* ORIGINAL CODE */
     /* Unlocked and still the same version? */
     if (LOCK_GET_OWNED(l)) {
       /* Do we own the lock? */
@@ -151,7 +157,13 @@ stm_wbetl_rollback(stm_tx_t *tx)
     for (; i > 0; i--, w++) {
       if (w->next == NULL) {
         /* Only drop lock for last covered address in write set */
+#ifdef ORT_PROFILING
+				RTM_BEGIN();
+					*(w->lock) = LOCK_SET_TIMESTAMP(w->version);
+				RTM_END();
+#else /* ORIGINAL CODE */
         ATOMIC_STORE(w->lock, LOCK_SET_TIMESTAMP(w->version));
+#endif /* ORIGINAL CODE */
       }
     }
     /* Make sure that all lock releases become visible */
@@ -182,12 +194,24 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
 
   /* Get reference to lock */
   lock = GET_LOCK(addr);
+#ifdef ORT_PROFILING
+	volatile stm_word_t *locks_shadow = _tinystm.locks_shadow + LOCK_IDX(addr);
+	stm_word_t shadow;
+	assert( (lock - _tinystm.locks) == (locks_shadow - _tinystm.locks_shadow) );
+#endif /* ORT_PROFILING */
 
   /* Note: we could check for duplicate reads and get value from read set */
 
   /* Read lock, value, lock */
  restart:
+#ifdef ORT_PROFILING
+	RTM_BEGIN();
+		l = *lock;
+		shadow = *locks_shadow;
+	RTM_END();
+#else /* ORIGNAL CODE */
   l = ATOMIC_LOAD_ACQ(lock);
+#endif /* ORIGINAL CODE */
  restart_no_load:
   if (unlikely(LOCK_GET_WRITE(l))) {
     /* Locked */
@@ -218,6 +242,13 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
       /* No need to add to read set (will remain valid) */
       return value;
     }
+
+#ifdef ORT_PROFILING
+		tx->nb_total_conflicts++;
+		if(shadow != (stm_word_t)addr){
+			tx->nb_false_conflicts++;
+		}
+#endif /* ORT_PROFILING */
 
 # ifdef UNIT_TX
     if (l == LOCK_UNIT) {
@@ -329,7 +360,14 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
   } else {
     /* Not locked */
     value = ATOMIC_LOAD_ACQ(addr);
+#ifdef ORT_PROFILING
+		RTM_BEGIN();
+			l2 = *lock;
+			shadow = *locks_shadow;
+		RTM_END();
+#else /* ORIGNAL CODE */
     l2 = ATOMIC_LOAD_ACQ(lock);
+#endif /* ORIGNAL CODE */
     if (unlikely(l != l2)) {
       l = l2;
       goto restart_no_load;
@@ -363,7 +401,14 @@ stm_wbetl_read_invisible(stm_tx_t *tx, volatile stm_word_t *addr)
       /* Verify that version has not been overwritten (read value has not
        * yet been added to read set and may have not been checked during
        * extend) */
+#ifdef ORT_PROFILING
+			RTM_BEGIN();
+				l = *lock;
+				shadow = *locks_shadow;
+			RTM_END();
+#else /* ORIGNAL CODE */
       l = ATOMIC_LOAD_ACQ(lock);
+#endif /* ORIGNAL CODE */
       if (l != l2) {
         l = l2;
         goto restart_no_load;
@@ -573,10 +618,22 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
 
   /* Get reference to lock */
   lock = GET_LOCK(addr);
+#ifdef ORT_PROFILING
+	volatile stm_word_t *locks_shadow = _tinystm.locks_shadow + LOCK_IDX(addr);
+	volatile stm_word_t shadow;
+	assert( (lock - _tinystm.locks) == (locks_shadow - _tinystm.locks_shadow) );
+#endif /* ORT_PROFILING */
 
   /* Try to acquire lock */
  restart:
+#ifdef ORT_PROFILING
+	RTM_BEGIN();
+		l = *lock;
+		shadow = *locks_shadow;
+	RTM_END();
+#else /* ORIGNAL CODE */
   l = ATOMIC_LOAD_ACQ(lock);
+#endif /* ORIGINAL CODE */
  restart_no_load:
   if (unlikely(LOCK_GET_OWNED(l))) {
     /* Locked */
@@ -639,6 +696,14 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
 #endif /* CM == CM_MODULAR */
       goto do_write;
     }
+
+#ifdef ORT_PROFILING
+		tx->nb_total_conflicts++;
+		if(shadow != (stm_word_t)addr){
+			tx->nb_false_conflicts++;
+		}
+#endif /* ORT_PROFILING */
+
     /* Conflict: CM kicks in */
 #if defined(IRREVOCABLE_ENABLED) && defined(IRREVOCABLE_IMPROVED)
     if (tx->irrevocable && ATOMIC_LOAD(&_tinystm.irrevocable) == 1)
@@ -746,8 +811,21 @@ stm_wbetl_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_w
 #if CM == CM_MODULAR
   w->version = version;
 #endif /* if CM == CM_MODULAR */
+#ifdef ORT_PROFILING
+	int success = 0;
+	RTM_BEGIN();
+		if( (*lock) == l ) {
+			(*lock) = LOCK_SET_ADDR_WRITE((stm_word_t)w);
+			(*locks_shadow) = (stm_word_t)addr;
+			success = 1;
+		} else _xabort(0xFF);
+	RTM_END();
+	// rtm based "cas" failed, restart and read lock again
+	if( !success ) goto restart;
+#else /* ORIGINAL CODE */
   if (unlikely(ATOMIC_CAS_FULL(lock, l, LOCK_SET_ADDR_WRITE((stm_word_t)w)) == 0))
     goto restart;
+#endif /* ORIGINAL CODE */
   /* We own the lock here (ETL) */
 do_write:
   /* Add address to write set */
@@ -935,7 +1013,13 @@ stm_wbetl_commit(stm_tx_t *tx)
         ATOMIC_STORE_REL(w->lock, LOCK_SET_TIMESTAMP(w->version));
       else
 # endif /* CM == CM_MODULAR */
+#ifdef ORT_PROFILING
+				RTM_BEGIN();
+					*(w->lock) = LOCK_SET_TIMESTAMP(t);
+				RTM_END();
+#else /* ORIGINAL CODE */
         ATOMIC_STORE_REL(w->lock, LOCK_SET_TIMESTAMP(t));
+#endif /* ORIGINAL CODE */
     }
   }
 

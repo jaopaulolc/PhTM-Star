@@ -43,11 +43,11 @@ function usage {
 function compile_tinystm_apps {
 
 	test -z "$_tinySTM_DESIGNS" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"     && _tinySTMCMS=$tinySTM_CMS
+	test -z "$_tinySTM_CMS"     && _tinySTM_CMS=$tinySTM_CMS
 			
 	for design in ${_tinySTM_DESIGNS}; do
 		for cm in ${_tinySTM_CMS}; do
-			sed "/${!design}/s|# ||;/${!cm}/s|# ||" \
+			sed "/${!design}/s|# ||;/${!cm}/s|# ||;/${ORT_PROFILING}/s|# ||" \
 				$tinySTM/Makefile.template > $tinySTM/Makefile
 			touch $tinySTM/Makefile
 			make -C $tinySTM clean ${MAKE_OPTIONS}
@@ -188,7 +188,13 @@ do
 		D) _rtm_CMS=$OPTARG ;;
 		l) _tsx_LOCKS=$OPTARG ;;
 		a) _STAMP_APPS=$OPTARG ;;
-		P) MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
+		P) case $OPTARG in
+		     ORT_PROFILING)
+				 	ORT_PROFILING='# DEFINES += -DORT_PROFILING' ;;
+				 [0-9]) # TSX PROFILING (TODO: NAME EACH PROFILING MODE)
+				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
+				 *) echo "error: invalid profiling mode '$OPTARG'" && exit -1 ;;
+				esac ;;
 		h) usage && exit -1 ;;
 		\?) echo $0" : error - invalid option -- $OPTARG"
 			exit 1
