@@ -5,47 +5,52 @@ source $PWD/scripts/scripts.cfg
 
 function usage {
 	
-	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>] [-D <RTM CM>] [-l <TSX lock>]'
-	echo -e '\t[-t <n. threads>] [-n <nb executions>] [-b <build>] [-M <memalloc>] [-g <governor>]'
+	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-H <ORT hash>] [-a <stamp app>] [-D <RTM CM>]'
+	echo -e '\t[-l <TSX lock>] [-t <n. threads>] [-n <nb executions>] [-b <build>] [-M <memalloc>] [-g <governor>]'
 
 	echo
 	echo '-d <tinySTM DESIGN>'
-	echo 'ETL | CTL | WT'
+	echo "${tinySTM_DESIGNS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-m <tinySTM CM>'
-	echo 'SUICIDE | BACKOFF | DELAY'
+	echo "${tinySTM_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
+	echo '-H <ORT hash>'
+	echo "${ORT_HASHES// / | }"
+	echo 'default = ORIGINAL'
+	
+	echo
 	echo '-D <RTM CM>'
-	echo 'glock | auxlock | backoff | diegues'
+	echo "${rtm_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
 	echo '-l <TSX lock>'
-	echo 'simple_lock | hle_lock'
+	echo "${tsx_LOCKS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-a <stamp app>'
-	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo "${STAMP_APPS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-b <build>'
-	echo 'tinystm | seq | lock | hle | rtm'
+	echo "${BUILDS// / | }"
 	echo 'default = ALL'
 	
 	echo
 	echo '-M <memalloc>'
-	echo 'ptmalloc | tcmalloc | hoard | tbbmalloc'
+	echo "${MEMALLOCS// / | }"
 	echo 'default = ptmalloc'
 	
 	echo
 	echo '-g <governor>'
-	echo 'powersave | conservative | ondemand | userspace | performance'
+	echo "${GOVERNORS// / | }"
 	echo 'default = ondemand'
 
 	echo
@@ -84,12 +89,14 @@ function execute {
 	test -z "$_BUILDS"           && _BUILDS=$BUILDS
 	test -z "$_NEXEC"            && _NEXEC=$NEXEC
 	test -z "$_NTHREADS"         && _NTHREADS=$NTHREADS
-	test -z "$_MEM_ALLOCS"       && _MEMALLOCS='ptmalloc'
-	test "$_MEM_ALLOCS" == "ALL" && _MEMALLOCS=$MEM_ALLOCS
+	test -z "$_MEMALLOCS"        && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL"  && _MEMALLOCS=$MEMALLOCS
 	test -z "$_GOVERNORS"        && _GOVERNORS='ondemand'
 	test "$_GOVERNORS" == "ALL"  && _GOVERNORS=$GOVERNORS
 	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS
 	test -z "$_tinySTM_CMS"      && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"       && _ORT_HASHES='ORIGINAL'
+	test "$_ORT_HASHES" == "ALL" && _ORT_HASHES=$ORT_HASHES
 	test -z "$_STAMP_APPS"       && _STAMP_APPS=$STAMP_APPS
 	test -z "$_rtm_CMS"          && _rtm_CMS=$rtm_CMS
 	test -z "$_tsx_LOCKS"        && _tsx_LOCKS=$tsx_LOCKS
@@ -100,13 +107,13 @@ function execute {
 		eval exec_flags=\$EXEC_FLAG_$app
 		for build in $_BUILDS; do
 			SUFFIXES=$build
-			test $build == 'tinystm' && \
-				SUFFIXES="$(eval echo -n $build-{${_tinySTM_DESIGNS// /,}}-{${_tinySTM_CMS// /,}} | sed 's|{||g;s|}||g')"
-			test $build == 'rtm' && \
-				SUFFIXES="$(eval echo -n $build-{${_rtm_CMS// /,}}-{${_tsx_LOCKS// /,}} | sed 's|{||g;s|}||g')"
+			[ $build == 'tinystm' ] && \
+				SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+			[ $build == 'rtm' ] && \
+				SUFFIXES="$(cross_product $build "${_rtm_CMS}" "${_tsx_LOCKS}")"
 			NUMTHREADS=$_NTHREADS
-			test $build == "seq" && NUMTHREADS='1'
-			SUFFIXES="$(eval echo -n {${SUFFIXES// /,}}-{${_GOVERNORS// /,}} | sed 's|{||g;s|}||g')"
+			[ $build == "seq" ] && NUMTHREADS='1'
+			SUFFIXES="$(cross_product "${SUFFIXES}" "${_GOVERNORS}")"
 			for suffix in $SUFFIXES; do
 				regex='-([a-z]+)$' # regular expression to get governor from suffix variable
 				[[ $suffix =~ $regex ]] && governor=${BASH_REMATCH[1]} #&& setGovernor $governor
@@ -116,7 +123,7 @@ function execute {
 						outputLog="$LOGDIR/$app-$suffix-$memalloc-$t.log"
 						rm -f $outputLog
 						for j in $(seq 1 ${_NEXEC}); do
-							echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($governor)"	
+							echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($governor)"
 							sudo LD_PRELOAD=${!memalloc} ${appRunPath} ${exec_flags}$t  >> $outputLog
 						done # FOR EACH EXECUTION
 					done # FOR EACH NUMBER OF THREADS
@@ -129,7 +136,7 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:d:m:D:l:a:t:n:g:M:h" opt;
+while getopts "b:d:m:D:l:a:t:n:g:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -142,6 +149,7 @@ do
 		n) _NEXEC=$OPTARG ;;
 		g) _GOVERNORS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
+		H) _ORT_HASHES=$OPTARG ;;
 		h) usage && exit -1 ;;
 		\?) echo $0" : error - invalid option -- $OPTARG"
 			exit 1

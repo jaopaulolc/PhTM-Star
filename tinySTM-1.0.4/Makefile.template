@@ -261,6 +261,12 @@ DEFINES += -UUNIT_TX
 # DEFINES += -DMAX_BACKOFF=0x80000000UL
 # DEFINES += -DVR_THRESHOLD_DEFAULT=3
 
+
+# DEFINES += -DHASHFUNCTION=ORIGINAL_HASH
+# DEFINES += -DHASHFUNCTION=CONSTANT_HASH
+# DEFINES += -DHASHFUNCTION=XOR_HASH
+# DEFINES += -DHASHFUNCTION=MULT_HASH
+
 ########################################################################
 # Do not modify anything below this point!
 ########################################################################

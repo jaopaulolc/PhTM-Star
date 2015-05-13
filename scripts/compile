@@ -5,66 +5,78 @@ source $PWD/scripts/scripts.cfg
 
 function usage {
 	
-	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-a <stamp app>] [-b <build>]'
-	echo -e '\t[-D <RTM CM>]  [-l <TSX lock>]'
+	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-H ORT hash] [-a <stamp app>]'
+	echo -e '\t[-b <build>] [-D <RTM CM>]  [-l <TSX lock>]'
 
 	echo
 	echo '-d <tinySTM DESIGN>'
-	echo 'ETL | CTL | WT'
+	echo "${tinySTM_DESIGNS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-m <tinySTM CM>'
-	echo 'SUICIDE | BACKOFF | DELAY'
+	echo "${tinySTM_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
+	echo '-H <ORT hash>'
+	echo "${ORT_HASHES// / | }"
+	echo 'default = ORIGINAL'
+	
+	echo
 	echo '-D <RTM CM>'
-	echo 'glock | auxlock | backoff | diegues'
+	echo "${rtm_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
 	echo '-l <TSX lock>'
-	echo 'simple_lock | hle_lock'
+	echo "${tsx_LOCKS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-a <stamp app>'
-	echo 'bayes | genome | intruder | kmeans | labyrinth | ssca2 | vacation | yada'
+	echo "${STAMP_APPS// / | }"
 	echo 'default = ALL'
 
 	echo
 	echo '-b <build>'
-	echo 'tinystm | seq | lock | hle | rtm'
+	echo "${BUILDS// / | }"
 	echo 'default = ALL'
 }
 
 
 function compile_tinystm_apps {
 
-	test -z "$_tinySTM_DESIGNS" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"     && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"      && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"       && _ORT_HASHES="ORIGINAL"
+	test "$_ORT_HASHES" == "ALL" && _ORT_HASHES=$ORT_HASHES
 			
 	for design in ${_tinySTM_DESIGNS}; do
 		for cm in ${_tinySTM_CMS}; do
-			sed "/${!design}/s|# ||;/${!cm}/s|# ||;/${ORT_PROFILING}/s|# ||" \
-				$tinySTM/Makefile.template > $tinySTM/Makefile
-			touch $tinySTM/Makefile
-			make -C $tinySTM clean ${MAKE_OPTIONS}
-			make -C $tinySTM ${MAKE_OPTIONS}
-			
-			echo "## tinySTM ${design}-${cm} compiled"
-			
-			for app in ${_STAMP_APPS}; do
-				SRC_APP_PATH=$STAMP_APPSDIR/$app
-				BIN_APP_PATH=$STAMP/$build/$app
-				make -C $SRC_APP_PATH -f Makefile \
-					TMBUILD=tinystm clean ${MAKE_OPTIONS} 2> /dev/null
-				make -C $SRC_APP_PATH -f Makefile \
-					TMBUILD=tinystm ${MAKE_OPTIONS} 2> /dev/null
-				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${design}-${cm}
-				echo "## ${app}-${build}-${design}-${cm} compiled"
-			done # FOR EACH APP
+			for ort_hash in ${_ORT_HASHES}; do
+				sed -e "/${!design}/s|# ||;/${!cm}/s|# ||" \
+						-e "/${ORT_PROFILING}/s|# ||"          \
+						-e "/${ort_hash}/s|# ||"      				 \
+						$tinySTM/Makefile.template > $tinySTM/Makefile
+				touch $tinySTM/Makefile
+				make -C $tinySTM clean ${MAKE_OPTIONS}
+				make -C $tinySTM ${MAKE_OPTIONS}
+				
+				suffix=${design}-${cm}-${ort_hash}
+				echo "## tinySTM ${suffix} compiled"
+				
+				for app in ${_STAMP_APPS}; do
+					SRC_APP_PATH=$STAMP_APPSDIR/$app
+					BIN_APP_PATH=$STAMP/$build/$app
+					make -C $SRC_APP_PATH -f Makefile \
+						TMBUILD=tinystm clean ${MAKE_OPTIONS} 2> /dev/null
+					make -C $SRC_APP_PATH -f Makefile \
+						TMBUILD=tinystm ${MAKE_OPTIONS} 2> /dev/null
+					mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${suffix}
+					echo "## ${app}-${build}-${suffix} compiled"
+				done # FOR EACH APP
+			done # FOR EACH ORT HASH
 		done # FOR EACH CM
 	done # FOR EACH DESIGN
 
@@ -179,7 +191,7 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:d:m:D:l:a:P:h" opt;
+while getopts "b:d:m:D:l:a:P:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -195,6 +207,7 @@ do
 				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
 				 *) echo "error: invalid profiling mode '$OPTARG'" && exit -1 ;;
 				esac ;;
+		H) _ORT_HASHES=$OPTARG ;;
 		h) usage && exit -1 ;;
 		\?) echo $0" : error - invalid option -- $OPTARG"
 			exit 1
