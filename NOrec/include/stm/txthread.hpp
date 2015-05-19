@@ -28,6 +28,12 @@
 #include <stm/ValueList.hpp>
 #include <stm/WBMMPolicy.hpp>
 
+typedef volatile long TMmode;
+enum {
+	HARDWARE=0,
+	SOFTWARE,
+};
+
 namespace stm
 {
   /**
@@ -46,6 +52,9 @@ namespace stm
    */
   struct TxThread
   {
+			/*** Phased-NOrec fields ***/
+			TMmode mode;
+
 			/*** RH-NOrec fields ***/
       TM_FASTCALL bool(*tmbegin_local)(TxThread*);
 			bool clock_lock_is_mine;

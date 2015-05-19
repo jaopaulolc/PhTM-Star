@@ -61,8 +61,10 @@ namespace stm
    *  Constructor sets up the lists and vars
    */
   TxThread::TxThread()
+				// Phased-NOrec fields
+			:	mode(HARDWARE),
 				// RH-NOrec fields
-			:	tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
+				tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
 				xbegin_status(0), tx_version(0), is_rh_active(false),
 				is_rh_prefix_active(false), slow_retries(0),
       	nesting_depth(0),
@@ -354,6 +356,7 @@ namespace stm
 					initTM<CGL>(); /* precisa para não bloquear a inicializar  */
 					initTM<NOrec>();
 					initTM<RH_NOrec>();
+					initTM<Phased_NOrec>();
 
           // guess a default configuration, then check env for a better option
           const char* cfg = "NOrec";
