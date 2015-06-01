@@ -140,6 +140,8 @@ function generate_data {
 					TMP="$TMP $(cross_product $build "$_rtm_CMS" "$_tsx_LOCKS")" ;;
 				hle)
 					TMP="$TMP $build" ;;
+				lock)
+					TMP="$TMP $build" ;;
 			esac
 		done
 		_BUILDS="$(echo -n $TMP | sed 's|^ ||')"
@@ -154,7 +156,6 @@ function generate_data {
 	fi
 	
 	column="_${_COLUMN}"
-	#COLUMNS=${!column}
 	for column in ${!column}; do
 		COLUMNS="${COLUMNS} -$column"
 	done
