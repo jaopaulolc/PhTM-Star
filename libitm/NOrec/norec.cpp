@@ -21,14 +21,6 @@
 #include <algs/algs.hpp>
 #include <RedoRAWUtils.hpp>
 
-#include <immintrin.h> // TSX instructions
-
-TMmode systemMode = HARDWARE;
-
-#define _XABORT_MODECHANGED 0xab
-#define MAX_HTM_RETRIES  	  10
-
-
 // Don't just import everything from stm. This helps us find bugs.
 using stm::TxThread;
 using stm::timestamp;
@@ -58,122 +50,8 @@ namespace {
       static stm::scope_t* rollback(STM_ROLLBACK_SIG(,,,));
       static void initialize(int id, const char* name);
   };
-  
-	template <class CM>
-  struct PhasedTM
-  {
-      static bool begin(TxThread*);
-			static TMmode oracle(TxThread*);
-  };
 
-	struct HTM
-	{
-      static TM_FASTCALL bool begin(TxThread*);
-      static TM_FASTCALL void commit(STM_COMMIT_SIG(,));
-      static TM_FASTCALL void* read(STM_READ_SIG(,,));
-      static TM_FASTCALL void write(STM_WRITE_SIG(,,,));
-			
-	};
-
-  template <typename CM>
-  void
-  NOrec_Generic<CM>::initialize(int id, const char* name)
-  {
-      // set the name
-      stm::stms[id].name = name;
-
-      // set the pointers
-      stm::stms[id].begin     = PhasedTM<CM>::begin;
-			// System starts in HARDWARE mode
-			stm::stms[id].commit    = HTM::commit;
-      stm::stms[id].read      = HTM::read;
-      stm::stms[id].write     = HTM::write;
-
-      stm::stms[id].irrevoc   = irrevoc;
-      stm::stms[id].switcher  = onSwitchTo;
-      stm::stms[id].privatization_safe = true;
-      stm::stms[id].rollback  = NOrec_Generic<CM>::rollback;
-  }
-
-	template <class CM>
-	TMmode
-	PhasedTM<CM>::oracle(TxThread* tx){
-		// Simple read is safe because readers are guaranteed to read after write 
-		TMmode mode = systemMode;
-		return mode;
-	}
-
-	template <class CM>
-	bool
-	PhasedTM<CM>::begin(TxThread* tx){
-		tx->mode = PhasedTM<CM>::oracle(tx);
-		if(tx->mode == HARDWARE){
-			tx->htm_retries = 0;
-			// notify the allocator
-			// this is needed because memory allocated/freed in
-			// HW transaction could/will be used in SW transactions
-      tx->allocator.onTxBegin();
-			return HTM::begin(tx);
-		} else {
-			// mode == SOFTWARE
-			tx->tmread   = NOrec_Generic<CM>::read_ro;
-			tx->tmwrite  = NOrec_Generic<CM>::write_ro;
-			tx->tmcommit = NOrec_Generic<CM>::commit_ro;
-			return NOrec_Generic<CM>::begin(tx);
-		}
-	}
-
-	bool
-	HTM::begin(TxThread* tx){
-		
-		while(tx->htm_retries < MAX_HTM_RETRIES){
-			if ( (tx->xbegin_status = _xbegin()) == _XBEGIN_STARTED ){
-				if ( (tx->mode = systemMode) == SOFTWARE ) _xabort(_XABORT_MODECHANGED);
-				return false;
-			}
-			unsigned int status = tx->xbegin_status & 0x3E;
-			tx->htm_retries++;
-
-			if ((status & _XABORT_EXPLICIT) != 0){
-				// go to slow-path mode
-				break;
-			}
-
-			// notify the allocator
-			// this is needed because memory allocated/freed in
-			// HW transaction could/will be used in SW transactions
-    	tx->allocator.onTxAbort();
-
-		}
-
-		// Change system mode to SOFTWARE and restart. Simple write is safe because
-		// multiple writes write the same value and readers are guaranteed to read
-		// after write
-		systemMode = SOFTWARE;
-		stm::restart();
-		return false;
-	}
-
-  void
-  HTM::commit(STM_COMMIT_SIG(tx,)){
-		_xend();
-		// notify the allocator
-		// this is needed because memory allocated/freed in
-		// HW transaction could/will be used in SW transactions
-    tx->allocator.onTxCommit();
-	}
-  
-	void*
-  HTM::read(STM_READ_SIG(tx,addr,mask)){
-		return *addr;
-	}
-  
-	void
-  HTM::write(STM_WRITE_SIG(tx,addr,val,mask)){
-		(*addr) = val;
-	}
-  
-	uintptr_t
+  uintptr_t
   validate(TxThread* tx)
   {
       while (true) {
@@ -225,6 +103,25 @@ namespace {
       // that it is odd.
       if (timestamp.val & 1)
           ++timestamp.val;
+  }
+
+
+  template <typename CM>
+  void
+  NOrec_Generic<CM>::initialize(int id, const char* name)
+  {
+      // set the name
+      stm::stms[id].name = name;
+
+      // set the pointers
+      stm::stms[id].begin     = NOrec_Generic<CM>::begin;
+      stm::stms[id].commit    = NOrec_Generic<CM>::commit_ro;
+      stm::stms[id].read      = NOrec_Generic<CM>::read_ro;
+      stm::stms[id].write     = NOrec_Generic<CM>::write_ro;
+      stm::stms[id].irrevoc   = irrevoc;
+      stm::stms[id].switcher  = onSwitchTo;
+      stm::stms[id].privatization_safe = true;
+      stm::stms[id].rollback  = NOrec_Generic<CM>::rollback;
   }
 
   template <class CM>
@@ -404,10 +301,10 @@ namespace {
 // Register NOrec initializer functions. Do this as declaratively as
 // possible. Remember that they need to be in the stm:: namespace.
 #define FOREACH_NOREC(MACRO)                    \
-    MACRO(Phased_NOrec, HyperAggressiveCM)             \
-    MACRO(Phased_NOrecHour, HourglassCM)               \
-    MACRO(Phased_NOrecBackoff, BackoffCM)              \
-    MACRO(Phased_NOrecHB, HourglassBackoffCM)
+    MACRO(NOrec, HyperAggressiveCM)             \
+    MACRO(NOrecHour, HourglassCM)               \
+    MACRO(NOrecBackoff, BackoffCM)              \
+    MACRO(NOrecHB, HourglassBackoffCM)
 
 #define INIT_NOREC(ID, CM)                      \
     template <>                                 \

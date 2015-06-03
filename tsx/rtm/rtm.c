@@ -70,7 +70,7 @@ void TX_START(){
 				else __tx_retries = 4;
 			}
 		#else /* !RTM_CM_DIEGUES */
-			__tx_status = __tx_status & 0x3F;
+			__tx_status = __tx_status & 0x3E;
 			switch(__tx_status){
 				default: // unknown reason (spurious?)
 				case _XABORT_EXPLICIT:
