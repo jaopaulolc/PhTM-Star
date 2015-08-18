@@ -36,15 +36,82 @@
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */
 
-#define TM_STARTUP(numThread)         msrInitialize(); \
-																			STM_STARTUP(numThread)
-#define TM_SHUTDOWN()                 STM_SHUTDOWN(); \
-																			msrTerminate()
+#ifdef PROFILING
+
+extern __thread long __txId__;
+extern long **__numCommits;
+extern long **__numAborts;
+extern long **__readSetSize;
+extern long **__writeSetSize;
+
+#define TM_STARTUP(numThread)	msrInitialize();                    \
+															pmuStartup(NUMBER_OF_TRANSACTIONS); \
+															STM_STARTUP(numThread);             \
+										{ int i;                                                    \
+											__numCommits   = (long**)malloc(numThread*sizeof(long*)); \
+											__numAborts    = (long**)malloc(numThread*sizeof(long*)); \
+											__readSetSize  = (long**)malloc(numThread*sizeof(long*)); \
+											__writeSetSize = (long**)malloc(numThread*sizeof(long*)); \
+											for(i=0; i < numThread; i++){                             \
+												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
+												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
+												__readSetSize[i]  = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
+												__writeSetSize[i] = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
+											}                                                                          \
+										}
+
+#define TM_SHUTDOWN()	STM_SHUTDOWN(); \
+					{ int i;                                                             \
+						int __numThreads__  = thread_getNumThread();                       \
+						int ncustomCounters = pmuNumberOfCustomCounters();                 \
+						int nfixedCounters  = pmuNumberOfFixedCounters();                  \
+						int ntotalCounters  = nfixedCounters + ncustomCounters;            \
+						int nmeasurements   = pmuNumberOfMeasurements();                   \
+						printf("Tx #  | %10s | %19s | %20s | %20s | %21s | %21s | %20s\n",               \
+						"STARTS", "COMMITS", "READS", "WRITES", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
+						for(i=0; i < __numThreads__; i++) {                                \
+							uint64_t **measurements = pmuGetMeasurements(i);                 \
+							int j, k;                                                        \
+							uint64_t total[3] = {0,0,0};                                     \
+							for(j=ncustomCounters; j < ntotalCounters; j++)                  \
+								for(k=0; k < nmeasurements; k++)                               \
+									total[j-ncustomCounters] += measurements[k][j];              \
+							printf("Thread %d\n",i);                                         \
+					  	for(j=0; j < nmeasurements; j++) {                               \
+								long numCommits = __numCommits[i][j];                          \
+								long numStarts  = numCommits + __numAborts[i][j];              \
+								printf("Tx %2d | %10ld | %10ld (%6.2lf) | %9ld (%8.2lf) | %9ld (%8.2lf) | %12lu (%6.2lf) | %12lu (%6.2lf) | %11lu (%6.2lf)\n"   \
+								, j, numStarts, numCommits, 1.0e2*((double)numCommits/(double)numStarts), __readSetSize[i][j]                                   \
+								, 1.0e0*((double)__readSetSize[i][j]/(double)numStarts), __writeSetSize[i][j]                                                   \
+								, 1.0e0*((double)__writeSetSize[i][j]/(double)numStarts), measurements[j][ncustomCounters+0]                                    \
+								, 1.0e2*((double)measurements[j][ncustomCounters+0]/(double)total[0]), measurements[j][ncustomCounters+1]                       \
+								, 1.0e2*((double)measurements[j][ncustomCounters+1]/(double)total[1]), measurements[j][ncustomCounters+2]                       \
+								, 1.0e2*((double)measurements[j][ncustomCounters+2]/(double)total[2]));                                                         \
+							}                                                                \
+							printf("\n");                                                    \
+							free(__numCommits[i]);  free(__numAborts[i]);                    \
+							free(__readSetSize[i]); free(__writeSetSize[i]);                 \
+						}                                                                  \
+						free(__numCommits);  free(__numAborts);                            \
+						free(__readSetSize); free(__writeSetSize);                         \
+					}                                                                    \
+					pmuShutdown();                                                       \
+					msrTerminate()
+
+#else /* NO PROFILING */
+
+#define TM_STARTUP(numThread)	msrInitialize();                    \
+															STM_STARTUP(numThread)
+
+#define TM_SHUTDOWN()	STM_SHUTDOWN(); \
+											msrTerminate()
+#endif /* NO PROFILING */
 
 #define TM_THREAD_ENTER()    long __threadId__ = thread_getId(); \
 														 TM_ARGDECL_ALONE = STM_NEW_THREAD(); \
                              STM_INIT_THREAD(TM_ARG_ALONE, thread_getId()); \
 														 set_affinity(__threadId__)
+
 #define TM_THREAD_EXIT()              STM_FREE_THREAD(TM_ARG_ALONE)
 
 #define P_MALLOC(size)                malloc(size)
@@ -54,9 +121,25 @@
 #define TM_MALLOC(size)               TM_ALLOC(size)
 /* TM_FREE(ptr) is already defined in the file interface. */
 
+#ifdef PROFILING
+
+#define TM_BEGIN()                    __txId__ = __COUNTER__;                   \
+																			pmuStartCounting(__threadId__, __txId__); \
+																			STM_BEGIN_WR()
+#define TM_BEGIN_RO()                 __txId__ = __COUNTER__;                   \
+																			pmuStartCounting(__threadId__, __txId__); \
+																			STM_BEGIN_RD()
+#define TM_END()                      STM_END();                    \
+																			pmuStopCounting(__threadId__)
+
+#else /* NO PROFILING */
+
 #define TM_BEGIN()                    STM_BEGIN_WR()
 #define TM_BEGIN_RO()                 STM_BEGIN_RD()
 #define TM_END()                      STM_END()
+
+#endif /* NO PROFILING */
+
 #define TM_RESTART()                  STM_RESTART()
 
 #define TM_EARLY_RELEASE(var)         /* nothing */

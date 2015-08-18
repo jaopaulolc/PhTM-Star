@@ -10,6 +10,12 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <setjmp.h>
+
+extern __thread jmp_buf __jmpbuf;
+
+#define __transaction_atomic	setjmp(__jmpbuf);   \
+															__transaction_atomic
 
 #ifdef __i386__
 /* Only for 32-bit x86.  */
@@ -111,6 +117,8 @@ void _ITM_error(const _ITM_srcLocation *, int errorCode)
 
 extern _ITM_howExecuting _ITM_inTransaction(void) ITM_FASTCALL;
 
+typedef struct _ITM_transaction _ITM_trasaction;
+#define _ITM_NoTransactionId    0
 typedef uint64_t _ITM_transactionId_t;	/* Transaction identifier */
 #define _ITM_noTransactionId 1		/* Id for non-transactional code. */
 

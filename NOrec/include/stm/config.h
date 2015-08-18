@@ -50,9 +50,10 @@
 /* #undef STM_TLS_PTHREAD */
 
 // Configured logging granularity
-#define STM_WS_WORDLOG
+//#define STM_WS_WORDLOG
 /* #undef STM_WS_BYTELOG */
-#define STM_USE_WORD_LOGGING_VALUELIST
+//#define STM_USE_WORD_LOGGING_VALUELIST
+#define STM_WS_BYTELOG
 
 // Configured options
 /* #undef STM_PROTECT_STACK */

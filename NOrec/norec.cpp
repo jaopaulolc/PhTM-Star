@@ -28,6 +28,15 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
+#ifdef PROFILING
+__thread long __txId__;
+
+long **__numCommits;
+long **__numAborts;
+long **__readSetSize;
+long **__writeSetSize;
+#endif /* PROFILING */
+
 
 namespace {
 
@@ -182,7 +191,13 @@ namespace {
       // Since all reads were consistent, and no writes were done, the read-only
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
-      tx->vlist.reset();
+			
+		#ifdef PROFILING
+			__numCommits[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
+		#endif /* PROFILING */
+
+			tx->vlist.reset();
       OnReadOnlyCommit(tx);
   }
 
@@ -206,6 +221,11 @@ namespace {
 
       // notify CM
       CM::onCommit(tx);
+		#ifdef PROFILING
+			__numCommits[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
+			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
+		#endif /* PROFILING */
 
       tx->vlist.reset();
       tx->writes.reset();
@@ -291,6 +311,12 @@ namespace {
       // branch overhead without concern because we're not worried about
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
+		
+		#ifdef PROFILING
+			__numAborts[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
+			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
+		#endif /* PROFILING */
 
       tx->vlist.reset();
       tx->writes.reset();

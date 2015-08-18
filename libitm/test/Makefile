@@ -4,7 +4,7 @@ target = test
 src = test.c
 obj = test.o
 
-CFLAGS  = -O3 -Wall -fgnu-tm -pthread -I. -I../ -I../NOrec/include/
+CFLAGS  = -g -O0 -Wall -fgnu-tm -pthread -I. -I../ -I../NOrec/include/
 LDFLAGS = -L../ -litm -lrt
 
 all: $(target)

@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <libitm.h>
@@ -8,6 +8,7 @@
 lock_t htm_glock = LOCK_INITIALIZER;
 static __thread bool htm_glock_is_mine;
 
+__thread jmp_buf __jmpbuf;
 
 int
 ITM_FASTCALL
@@ -39,9 +40,9 @@ _ITM_finalizeThread(void){
 
 uint32_t
 ITM_FASTCALL
-_ITM_beginTransaction(uint32_t properties, ...){
+_ITM_beginTransaction(uint32_t prop, ...){
 	
-	if(properties & pr_multiwayCode){
+	if(prop & pr_multiwayCode){
 		printf("The compiler has generated multiway code for this transaction!\n");
 	}
 /*	
@@ -58,9 +59,9 @@ _ITM_beginTransaction(uint32_t properties, ...){
 	lock(&htm_glock);
 	return a_runUninstrumentedCode;
 */
-	
-	stm_begin();
 
+	stm_begin(&__jmpbuf);
+	
 	return a_runInstrumentedCode;
 	
 }
@@ -85,4 +86,13 @@ ITM_FASTCALL
 _ITM_tryCommitTransaction(void){
 	fprintf(stderr,"_ITM_tryCommitTransaction not implemented yet!\n");
 	return false;
+}
+
+
+
+void
+ITM_FASTCALL
+ITM_NORETURN
+_ITM_abortTransaction(_ITM_abortReason reason){
+	stm_abort();
 }

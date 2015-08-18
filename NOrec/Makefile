@@ -6,7 +6,11 @@ SRCS = $(wildcard *.cpp)
 OBJS = $(SRCS:.cpp=.o)
 
 CPPFLAGS = -I./include
-CXXFLAGS = -O3 -mrtm -Wall
+CXXFLAGS = -O3 -fPIC -mrtm -Wall
+
+ifneq ($(PROFILING),)
+  CPPFLAGS += -DPROFILING
+endif
 
 
 $(TARGET):	$(OBJS)
