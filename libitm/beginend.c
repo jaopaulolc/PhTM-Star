@@ -42,8 +42,9 @@ uint32_t
 ITM_FASTCALL
 _ITM_beginTransaction(uint32_t prop, ...){
 	
-	if(prop & pr_multiwayCode){
-		printf("The compiler has generated multiway code for this transaction!\n");
+	if(prop & pr_multiwayCode == 0){
+		fprintf(stderr,"The compiler has NOT generated multiway code for this transaction!\n");
+		exit(EXIT_FAILURE);
 	}
 /*	
 	bool htm_started = htm_begin();
@@ -74,7 +75,7 @@ _ITM_commitTransaction(void){
 	if(htm_glock_is_mine){
 		unlock(&htm_glock);
 		htm_glock_is_mine = false;
-	} htm_commit();
+	} else htm_commit();
 */
 
 	stm_commit();
