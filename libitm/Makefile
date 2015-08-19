@@ -13,7 +13,7 @@ else
   CFLAGS   += -mrtm -DSIMPLE_LOCK
 endif
 
-CFLAGS += -I. -I$(HTM_PATH) -I../NOrec/include
+CFLAGS += -I. -I$(HTM_PATH) -I../NOrec/include -Istm_specific/NOrec
 
 #srcs = $(wildcard *.c) $(wildcard $(HTM_PATH)/*.c)
 c_srcs   = $(wildcard *.c) 

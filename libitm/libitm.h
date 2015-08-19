@@ -11,6 +11,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <setjmp.h>
+#include <immintrin.h>
 
 extern __thread jmp_buf __jmpbuf;
 
@@ -153,7 +154,6 @@ extern void *_ITM_calloc (size_t, size_t)
        __attribute__((__malloc__)) ITM_PURE;
 
 extern  void _ITM_free (void *) ITM_PURE;
-
 
 /* The following typedefs exist to make the macro expansions below work
    properly.  They are not part of any API.  */
