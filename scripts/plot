@@ -99,7 +99,7 @@ function plot-stamp-bar {
 		set style line 6 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#8B6969" #rosybrown4
 		
 		set style data histogram
-		set style histogram cluster gap 1
+		set style histogram clustered gap 0.2
 		set style fill solid border -1
 		set boxwidth 0.9
 		set style fill solid border -1
@@ -114,12 +114,11 @@ function plot-stamp-bar {
 		set xlabel "  " offset 1
 
 		apps = "$_STAMP_APPS"
-		set for[i=1:words(apps)] label word(apps,i) at (2*i-1)*3.0 - 1.6, graph -0.12 center
 
-		plot newhistogram, for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u j:xtic(1) ls j/2 \
+		plot newhistogram " ".word(apps,1), for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u j:xtic(1) ls j/2 \
 			$(APPS=$(echo $_STAMP_APPS | sed 's|^[a-z]\+ ||'); i=1;
 				for app in $APPS; do
-					echo -n 'notitle, newhistogram, for[j=2:'$NCOLUMNS':2] "'$tmpdatafile'" index '$i' u j:xtic(1) ls j/2 ';
+					echo -n 'notitle, newhistogram "'$app'", for[j=2:'$NCOLUMNS':2] "'$tmpdatafile'" index '$i' u j:xtic(1) ls j/2 ';
 					i=$((i+1))
 				done
 				echo -n 't column(j)'
@@ -257,7 +256,7 @@ do
 		D) _rtm_CMS=$OPTARG ;;
 		l) _tsx_LOCKS=$OPTARG ;;
 		a) _STAMP_APPS=$OPTARG ;;
-		t) _NCORES=$OPTARG ;;
+		t) _NTHREADS=$OPTARG ;;
 		g) _GOVERNORS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
 		H) _ORT_HASHES=$OPTARG ;;

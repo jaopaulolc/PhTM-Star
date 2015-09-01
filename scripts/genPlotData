@@ -138,9 +138,7 @@ function generate_data {
 					TMP="$TMP $(cross_product $build "$_tinySTM_DESIGNS" "$_tinySTM_CMS" "$_ORT_HASHES")" ;;
 				rtm)
 					TMP="$TMP $(cross_product $build "$_rtm_CMS" "$_tsx_LOCKS")" ;;
-				hle)
-					TMP="$TMP $build" ;;
-				lock)
+				hle | lock | norec | rh_norec | phased_norec)
 					TMP="$TMP $build" ;;
 			esac
 		done
