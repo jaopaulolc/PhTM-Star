@@ -1,6 +1,9 @@
 #ifndef TM_H
 #define TM_H 1
 
+#include <msr.h>
+#include <libitm.h>
+
 #include <stdlib.h>                   /* Defines size_t. */ 
 
 #define MAIN(argc, argv)              int main (int argc, char** argv)
@@ -22,11 +25,13 @@
 #define TM_PURE                       __attribute__((transaction_pure))
 #define TM_SAFE                       __attribute__((transaction_safe))
 
-#define TM_STARTUP(numThread)         /* nothing */
-#define TM_SHUTDOWN()                 /* nothing */
+#define TM_STARTUP(numThread)         msrInitialize();        \
+																			_ITM_initializeProcess()
+#define TM_SHUTDOWN()                 msrTerminate();         \
+																			_ITM_finalizeProcess()
 
-#define TM_THREAD_ENTER()             /* nothing */
-#define TM_THREAD_EXIT()              /* nothing */
+#define TM_THREAD_ENTER()             _ITM_initializeThread()
+#define TM_THREAD_EXIT()              _ITM_finalizeThread()
 
 #define SEQ_MALLOC(size)              malloc(size)
 #define SEQ_FREE(ptr)                 free(ptr)
@@ -73,9 +78,11 @@
 # define ITM_REGPARM
 #endif
 
+/*
 extern
 TM_PURE
 void _ITM_abortTransaction(int) ITM_REGPARM __attribute__((noreturn));
+*/
 
 /* Additional annotations */
 /* strncmp can be defined as a macro (FORTIFY_LEVEL) */

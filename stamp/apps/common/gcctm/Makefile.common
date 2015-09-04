@@ -2,16 +2,16 @@
 # TMBUILD ?= gcctm
 
 # ======== Defines ========
-CC       := gcc
+CC       := gcc-4.8.3
 #CPPFLAGS += -DNDEBUG
-CPPFLAGS += -I../lib -I../common/$(TMBUILD)
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -I../../../libitm
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -fgnu-tm
 CFLAGS   += -O3
 
-LD       := gcc
+LD       := gcc-4.8.3
 LDFLAGS  += -lpthread
-LDFLAGS  += -litm
+LDFLAGS  += -L../../../libitm -litm
 LIBDEPS  += 
 
 include ../common/Makefile.common
