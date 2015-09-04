@@ -41,28 +41,29 @@
 extern __thread long __txId__;
 extern long **__numCommits;
 extern long **__numAborts;
+#if PROFILING == 1
 extern long **__readSetSize;
 extern long **__writeSetSize;
 
-#define TM_STARTUP(numThread)	msrInitialize();                    \
-															pmuStartup(NUMBER_OF_TRANSACTIONS); \
-															STM_STARTUP(numThread);             \
-										{ int i;                                                    \
-											__numCommits   = (long**)malloc(numThread*sizeof(long*)); \
-											__numAborts    = (long**)malloc(numThread*sizeof(long*)); \
-											__readSetSize  = (long**)malloc(numThread*sizeof(long*)); \
-											__writeSetSize = (long**)malloc(numThread*sizeof(long*)); \
-											for(i=0; i < numThread; i++){                             \
-												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
-												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
-												__readSetSize[i]  = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
-												__writeSetSize[i] = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long)); \
-											}                                                                          \
+#define TM_STARTUP(numThread)	msrInitialize();                                                     \
+															pmuStartup(NUMBER_OF_TRANSACTIONS);                                  \
+															STM_STARTUP(numThread);                                              \
+										{ int i;                                                                       \
+											__numCommits   = (long**)malloc(numThread*sizeof(long*));                    \
+											__numAborts    = (long**)malloc(numThread*sizeof(long*));                    \
+											__readSetSize  = (long**)malloc(numThread*sizeof(long*));                    \
+											__writeSetSize = (long**)malloc(numThread*sizeof(long*));                    \
+											for(i=0; i < numThread; i++){                                                \
+												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__readSetSize[i]  = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__writeSetSize[i] = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+											}                                                                            \
 										}
 
 #define TM_SHUTDOWN()	STM_SHUTDOWN(); \
-					{ int i;                                                             \
-						int __numThreads__  = thread_getNumThread();                       \
+					{ int i;                                                               \
+						int __numThreads__  = thread_getNumThread();                         \
 						int ncustomCounters = pmuNumberOfCustomCounters();                 \
 						int nfixedCounters  = pmuNumberOfFixedCounters();                  \
 						int ntotalCounters  = nfixedCounters + ncustomCounters;            \
@@ -97,6 +98,64 @@ extern long **__writeSetSize;
 					}                                                                    \
 					pmuShutdown();                                                       \
 					msrTerminate()
+
+#endif /* PROFILING == 1 */
+
+#if PROFILING == 2
+#define MAX_TRANSACTIONS 40000000L
+extern long **__counter;
+extern long ***__readSetSize;
+extern long ***__writeSetSize;
+
+#define TM_STARTUP(numThread)	msrInitialize();                                                     \
+															pmuStartup(NUMBER_OF_TRANSACTIONS);                                  \
+															STM_STARTUP(numThread);                                              \
+										{ int i;                                                                       \
+											__numCommits   = (long**)malloc(numThread*sizeof(long*));                    \
+											__numAborts    = (long**)malloc(numThread*sizeof(long*));                    \
+											__counter      = (long**)malloc(numThread*sizeof(long*));                    \
+											__readSetSize  = (long***)malloc(numThread*sizeof(long**));                  \
+											__writeSetSize = (long***)malloc(numThread*sizeof(long**));                  \
+											for(i=0; i < numThread; i++){                                                \
+												__counter[i]      = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
+												__readSetSize[i]  = (long**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(long*));  \
+												__writeSetSize[i] = (long**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(long*));  \
+												int j;                                                                     \
+												for(j=0; j < NUMBER_OF_TRANSACTIONS; j++){                                 \
+													__readSetSize[i][j]  = (long*)calloc(MAX_TRANSACTIONS,sizeof(long));     \
+													__writeSetSize[i][j] = (long*)calloc(MAX_TRANSACTIONS,sizeof(long));     \
+												}                                                                          \
+											}                                                                            \
+										}
+
+#define TM_SHUTDOWN() STM_SHUTDOWN();                                  \
+					{ long i;                                                    \
+						long __numThreads__  = thread_getNumThread();              \
+						for(i=0; i < __numThreads__; i++) {                        \
+							long j;                                                  \
+							printf("Thread %ld\n",i);                                \
+					  	for(j=0; j < NUMBER_OF_TRANSACTIONS; j++) {              \
+								printf("Tx %2ld\n", j);                                \
+								long k;                                                \
+								for(k=0; k < __counter[i][j]; k++)                     \
+									printf("%ld %ld\n", __readSetSize[i][j][k]           \
+										,__writeSetSize[i][j][k]);                         \
+								free(__readSetSize[i][j]); free(__writeSetSize[i][j]); \
+							}                                                        \
+							free(__counter[i]);                                      \
+							free(__numCommits[i]);  free(__numAborts[i]);            \
+							free(__readSetSize[i]); free(__writeSetSize[i]);         \
+						}                                                          \
+						free(__counter);                                           \
+						free(__numCommits);  free(__numAborts);                    \
+						free(__readSetSize); free(__writeSetSize);                 \
+					}                                                            \
+					pmuShutdown();                                               \
+					msrTerminate()
+
+#endif /* PROFILING == 2 */
 
 #else /* NO PROFILING */
 

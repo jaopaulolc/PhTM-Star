@@ -9,7 +9,7 @@ CPPFLAGS = -I./include
 CXXFLAGS = -O3 -fPIC -mrtm -Wall
 
 ifneq ($(PROFILING),)
-  CPPFLAGS += -DPROFILING
+  CPPFLAGS += -DPROFILING=$(PROFILING)
 endif
 
 

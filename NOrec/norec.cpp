@@ -33,8 +33,14 @@ __thread long __txId__;
 
 long **__numCommits;
 long **__numAborts;
+#if PROFILING == 1
 long **__readSetSize;
 long **__writeSetSize;
+#elif PROFILING == 2
+long **__counter;
+long ***__readSetSize;
+long ***__writeSetSize;
+#endif
 #endif /* PROFILING */
 
 
@@ -192,9 +198,13 @@ namespace {
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
 			
-		#ifdef PROFILING
+		#if PROFILING == 1
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
+		#elif PROFILING == 2
+			__numCommits[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
+			__counter[tx->id -1][__txId__]++;
 		#endif /* PROFILING */
 
 			tx->vlist.reset();
@@ -221,10 +231,15 @@ namespace {
 
       // notify CM
       CM::onCommit(tx);
-		#ifdef PROFILING
+		#if PROFILING == 1
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
+		#elif PROFILING == 2
+			__numCommits[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
+			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
+			__counter[tx->id -1][__txId__]++;
 		#endif /* PROFILING */
 
       tx->vlist.reset();
@@ -312,10 +327,15 @@ namespace {
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
 		
-		#ifdef PROFILING
+		#if PROFILING == 1
 			__numAborts[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
+		#elif PROFILING == 2
+			__numAborts[tx->id - 1][__txId__]++;
+			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
+			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
+			__counter[tx->id -1][__txId__]++;
 		#endif /* PROFILING */
 
       tx->vlist.reset();
