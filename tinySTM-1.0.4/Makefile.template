@@ -22,6 +22,13 @@ include Makefile.common
 ########################################################################
 
 ########################################################################
+# Enable TSX RTM-Based Ownership Record Table Profiling
+# (number of false conflicts per thread)
+########################################################################
+
+# DEFINES += -DORT_PROFILING -D_GNU_SOURCE
+
+########################################################################
 # Three different designs can be chosen from, which differ in when locks
 # are acquired (encounter-time vs. commit-time), and when main memory is
 # updated (write-through vs. write-back).
@@ -254,6 +261,12 @@ DEFINES += -UUNIT_TX
 # DEFINES += -DMAX_BACKOFF=0x80000000UL
 # DEFINES += -DVR_THRESHOLD_DEFAULT=3
 
+
+# DEFINES += -DHASHFUNCTION=ORIGINAL_HASH
+# DEFINES += -DHASHFUNCTION=CONSTANT_HASH
+# DEFINES += -DHASHFUNCTION=XOR_HASH
+# DEFINES += -DHASHFUNCTION=MULT_HASH
+
 ########################################################################
 # Do not modify anything below this point!
 ########################################################################
@@ -291,7 +304,8 @@ all:	$(TMLIB)
 
 # Additional dependencies
 $(SRCDIR)/stm.o:	$(INCDIR)/stm.h
-$(SRCDIR)/stm.o:	$(SRCDIR)/stm_internal.h $(SRCDIR)/stm_wt.h $(SRCDIR)/stm_wbetl.h $(SRCDIR)/stm_wbctl.h $(SRCDIR)/tls.h $(SRCDIR)/utils.h $(SRCDIR)/atomic.h
+$(SRCDIR)/stm.o:	$(SRCDIR)/stm_internal.h $(SRCDIR)/stm_wt.h $(SRCDIR)/stm_wbetl.h $(SRCDIR)/stm_wbctl.h \
+										$(SRCDIR)/tls.h $(SRCDIR)/utils.h $(SRCDIR)/atomic.h $(SRCDIR)/tsx_rtm.h
 
 %.s:	%.c Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DCOMPILE_FLAGS="$(CPPFLAGS) $(CFLAGS)" -fverbose-asm -S -o $@ $<

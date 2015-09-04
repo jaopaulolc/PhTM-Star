@@ -26,6 +26,9 @@
 #ifndef _STM_INTERNAL_H_
 #define _STM_INTERNAL_H_
 
+#ifdef ORT_PROFILING
+#include "tsx_rtm.h"
+#endif /* ORT_PROFILING */
 #include <pthread.h>
 #include <string.h>
 #include "tls.h"
@@ -33,6 +36,7 @@
 #include "utils.h"
 #include "atomic.h"
 #include "gc.h"
+
 
 /* ################################################################### *
  * DEFINES
@@ -227,7 +231,29 @@ enum {                                  /* Transaction status */
 #define LOCK_ARRAY_SIZE                 (1 << LOCK_ARRAY_LOG_SIZE)
 #define LOCK_MASK                       (LOCK_ARRAY_SIZE - 1)
 #define LOCK_SHIFT                      (((sizeof(stm_word_t) == 4) ? 2 : 3) + LOCK_SHIFT_EXTRA)
-#define LOCK_IDX(a)                     (((stm_word_t)(a) >> LOCK_SHIFT) & LOCK_MASK)
+
+/* Hash functions */
+#define ORIGINAL_HASH             0
+#define CONSTANT_HASH             1
+#define XOR_HASH                  2
+#define MULT_HASH                 3
+
+#ifndef HASHFUNCTION
+# define HASHFUNCTION             ORIGINAL_HASH
+#endif /* ! DESIGN */
+
+#if HASHFUNCTION == CONSTANT_HASH
+# define LOCK_IDX(a)                    (0)
+#elif HASHFUNCTION == XOR_HASH
+# define LOCK_IDX(a)                    (((((stm_word_t)(a) >> 2) ^ (((stm_word_t)(a)>>7) & 0x1F)) >> 2) & LOCK_MASK)
+#elif HASHFUNCTION == MULT_HASH
+# define RANDOMMULT                     ((11400714818402800990ULL >> LOCK_SHIFT) | 1)
+# define SHIFTMULT                      ((sizeof(stm_word_t)*8)-LOCK_ARRAY_LOG_SIZE-LOCK_SHIFT)
+# define LOCK_IDX(a)                    (((((stm_word_t)(a)>>LOCK_SHIFT)*RANDOMMULT)>>SHIFTMULT) & LOCK_MASK)
+#else /* original */
+# define LOCK_IDX(a)                    (((stm_word_t)(a) >> LOCK_SHIFT) & LOCK_MASK)
+#endif
+
 #ifdef LOCK_IDX_SWAP
 # if LOCK_ARRAY_LOG_SIZE < 16
 #  error "LOCK_IDX_SWAP requires LOCK_ARRAY_LOG_SIZE to be at least 16"
@@ -313,6 +339,10 @@ typedef struct cb_entry {               /* Callback entry */
 } cb_entry_t;
 
 typedef struct stm_tx {                 /* Transaction descriptor */
+#ifdef ORT_PROFILING
+	unsigned long nb_total_conflicts;
+	unsigned long nb_false_conflicts;
+#endif /* ORT_PROFILING */
   JMP_BUF env;                          /* Environment for setjmp/longjmp */
   stm_tx_attr_t attr;                   /* Transaction attributes (user-specified) */
   volatile stm_word_t status;           /* Transaction status */
@@ -365,6 +395,9 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 /* This structure should be ordered by hot and cold variables */
 typedef struct {
   volatile stm_word_t locks[LOCK_ARRAY_SIZE] ALIGNED;
+#ifdef ORT_PROFILING
+  volatile stm_word_t locks_shadow[LOCK_ARRAY_SIZE] ALIGNED;
+#endif /* ORT_PROFILING */
   volatile stm_word_t gclock[512 / sizeof(stm_word_t)] ALIGNED;
   unsigned int nb_specific;             /* Number of specific slots used (<= MAX_SPECIFIC) */
   unsigned int nb_init_cb;
@@ -1249,6 +1282,10 @@ int_stm_init_thread(int ntransactions)
   tx->stat_commits = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
   tx->stat_aborts  = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
   tx->stat_retries_max = 0;
+#ifdef ORT_PROFILING
+	tx->nb_false_conflicts = 0;
+	tx->nb_total_conflicts = 0;
+#endif /* ORT_PROFILING */
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
   tx->stat_aborts_1 = 0;
@@ -1300,6 +1337,12 @@ int_stm_exit_thread(stm_tx_t *tx)
   /* Statistics */
   if(tx->stat_commits != NULL) free(tx->stat_commits);
   if(tx->stat_aborts  != NULL) free(tx->stat_aborts);
+#ifdef ORT_PROFILING
+	unsigned long total_conflicts = tx->nb_total_conflicts;
+	unsigned long false_conflicts = tx->nb_false_conflicts;
+  printf("\nnb_total_conflicts: %12lu | nb_false_conflicts: %12lu (%6.2lf %%) ",
+		total_conflicts, false_conflicts, ((double)false_conflicts/(double)total_conflicts)*100.0);
+#endif
 /* // Display statistics before to lose it 
   if (getenv("TM_STATISTICS") != NULL) {
     double avg_aborts = .0;

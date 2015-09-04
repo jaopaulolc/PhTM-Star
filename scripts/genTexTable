@@ -162,8 +162,8 @@ function generate {
 	
 	test -z "$_BUILDS"           && _BUILDS=$BUILDS
 	test -z "$_NTHREADS"         && _NTHREADS=$NTHREADS
-	test -z "$_MEM_ALLOCS"       && _MEMALLOCS='ptmalloc'
-	test "$_MEM_ALLOCS" == "ALL" && _MEMALLOCS=$MEM_ALLOCS
+	test -z "$_MEMALLOCS"        && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL"  && _MEMALLOCS=$MEMALLOCS
 	test -z "$_GOVERNORS"        && _GOVERNORS='ondemand'
 	test "$_GOVERNORS" == "ALL"  && _GOVERNORS=$GOVERNORS
 	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS

@@ -38,6 +38,11 @@
 #include "atomic.h"
 #include "gc.h"
 
+#ifdef ORT_PROFILING
+lock_t __global_lock = LOCK_INITIALIZER;
+__thread int num_retries = 0;
+#endif /* ORT_PROFILING */
+
 /* ################################################################### *
  * DEFINES
  * ################################################################### */
