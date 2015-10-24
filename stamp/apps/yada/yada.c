@@ -10,13 +10,18 @@
 #include "timer.h"
 #include "tm.h"
 
-#ifdef PROFILING
-#include <locale.h> // needed to modify printf number format
 #ifdef STM
+#include <locale.h> // needed to modify printf number format
+#if PROFILING == 1
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
+#endif /* PROFILING == 1 */
+#if PROFILING == 2
+unsigned int ***coreSTM_r_set_size;
+unsigned int ***coreSTM_w_set_size;
+unsigned int **coreSTM_counter;
+#endif /* PROFILING == 2 */
 #endif /* STM */
-#endif /* PROFILING */
 
 #define PARAM_DEFAULT_INPUTPREFIX ("../../data/yada/inputs/ttimeu1000000.2")
 #define PARAM_DEFAULT_NUMTHREAD   (1L)

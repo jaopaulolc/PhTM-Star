@@ -5,8 +5,7 @@ source $PWD/scripts/scripts.cfg
 
 function usage {
 	
-	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-H <ORT hash>] [-a <stamp app>] [-D <RTM CM>]'
-	echo -e '\t[-l <TSX lock>] [-t <n. threads>] [-n <nb executions>] [-b <build>] [-M <memalloc>] [-g <governor>]'
+	echo $0' <flags below>'
 
 	echo
 	echo '-d <tinySTM DESIGN>'
@@ -32,11 +31,31 @@ function usage {
 	echo '-l <TSX lock>'
 	echo "${tsx_LOCKS// / | }"
 	echo 'default = ALL'
+	
+	echo
+	echo '-i <intset app>'
+	echo "${INTSET_APPS// / | }"
+	echo 'default = NONE'
+	
+	echo
+	echo '-z <initial intset size>'
+	echo "${INITSIZES// / | }"
+	echo 'default = ALL'
+	
+	echo
+	echo '-u <intset update rate>'
+	echo "${UPDATERATES// / | }"
+	echo 'default = ALL'
 
 	echo
 	echo '-a <stamp app>'
 	echo "${STAMP_APPS// / | }"
-	echo 'default = ALL'
+	echo 'default = NONE'
+	
+	echo
+	echo '-w <app working-set size>'
+	echo "${WORK_SIZES// / | }"
+	echo 'default = large'
 
 	echo
 	echo '-b <build>'
@@ -47,11 +66,6 @@ function usage {
 	echo '-M <memalloc>'
 	echo "${MEMALLOCS// / | }"
 	echo 'default = ptmalloc'
-	
-	echo
-	echo '-g <governor>'
-	echo "${GOVERNORS// / | }"
-	echo 'default = ondemand'
 
 	echo
 	echo '-t <n. threads>'
@@ -63,80 +77,93 @@ function usage {
 	echo 'default = 20'
 }
 
-function setGovernor {
-	
-	governor=$1
-	for processor in $(cat /proc/cpuinfo | grep processor | awk '{print $3}');
-	do
-		sudo cpufreq-set -c $processor -g $governor
-		test $governor == 'userspace' && sudo cpufreq-set -c $processor -f ${!governor}
-	done
+function execute_stamp_apps {
+
+	for app in ${_STAMP_APPS}; do
+		for work in ${_WORK_SIZES}; do
+			eval exec_flags=\$EXEC_FLAG_${app}_$work
+			appRunPath="$STAMP/$build/$app/$app-$suffix"
+			for t in $NUMTHREADS; do
+				outputLog="$LOGDIR/$app-$suffix-$memalloc-$t.log"
+				rm -f $outputLog
+				for j in $(seq 1 ${_NEXEC}); do
+					echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($work)"	
+					sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
+				done # FOR EACH EXECUTION
+			done # FOR EACH NUMBER OF THREADS
+		done # FOR EACH WORK SIZE
+	done # FOR EACH APPS
 }
 
-function restoreGovernor {
+function execute_microbench_apps {
 
-	governor='ondemand'
-	for processor in $(cat /proc/cpuinfo | grep processor | awk '{print $3}');
-	do
-		sudo cpufreq-set -c $processor -g $governor
-	done
+	local i="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
+	local u="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
+	local n="$(sed 's|\([0-9]\+\)|n\1|g' <<<${NUMTHREADS})"
+
+	for app in ${_MICROBENCH_APPS}; do
+		appRunPath="$MICROBENCH/$build/$app-$suffix"
+		case $app in
+			intset_*)
+				local EXEC_FLAGS="$(cross_product "$i" "$u" "$n")" ;;
+			conflict)
+				local EXEC_FLAGS="$(cross_product "$u" "$n")" ;;
+		esac
+		for exec_flags in ${EXEC_FLAGS}; do
+			outputLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.log"
+			rm -f $outputLog
+			for j in $(seq 1 ${_NEXEC}); do
+				echo "execution $j: $appRunPath -${exec_flags//-/ -} ($memalloc)"	
+				sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
+			done # FOR EACH EXECUTION
+		done # FOR EACH EXEC FLAGS
+	done # FOR EACH APPS
 }
 
 function execute {
 
 	test -e $LOGDIR || mkdir -p $LOGDIR
-	
-	test -z "$_BUILDS"           && _BUILDS=$BUILDS
-	test -z "$_NEXEC"            && _NEXEC=$NEXEC
-	test -z "$_NTHREADS"         && _NTHREADS=$NTHREADS
-	test -z "$_MEMALLOCS"        && _MEMALLOCS='ptmalloc'
-	test "$_MEMALLOCS" == "ALL"  && _MEMALLOCS=$MEMALLOCS
-	test -z "$_GOVERNORS"        && _GOVERNORS='ondemand'
-	test "$_GOVERNORS" == "ALL"  && _GOVERNORS=$GOVERNORS
-	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"      && _tinySTM_CMS=$tinySTM_CMS
-	test -z "$_ORT_HASHES"       && _ORT_HASHES='ORIGINAL'
-	test "$_ORT_HASHES" == "ALL" && _ORT_HASHES=$ORT_HASHES
-	test -z "$_STAMP_APPS"       && _STAMP_APPS=$STAMP_APPS
-	test -z "$_rtm_CMS"          && _rtm_CMS=$rtm_CMS
-	test -z "$_tsx_LOCKS"        && _tsx_LOCKS=$tsx_LOCKS
+
+	test -z "$_BUILDS"            && _BUILDS=$BUILDS
+	test -z "$_NEXEC"             && _NEXEC=$NEXEC
+	test -z "$_NTHREADS"          && _NTHREADS=$NTHREADS
+	test -z "$_MEMALLOCS"         && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL"   && _MEMALLOCS=$MEMALLOCS
+	test -z "$_tinySTM_DESIGNS"   && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"       && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"        && _ORT_HASHES='ORIGINAL'
+	test "$_ORT_HASHES" == "ALL"  && _ORT_HASHES=$ORT_HASHES
+	test "$_STAMP_APPS" == "ALL"  && _STAMP_APPS=$STAMP_APPS
+	test -z "$_WORK_SIZES"        && _WORK_SIZES='large'
+	test "$_WORK_SIZES" == "ALL"  && _WORK_SIZES=$WORK_SIZES
+	test -z "$_rtm_CMS"           && _rtm_CMS=$rtm_CMS
+	test -z "$_tsx_LOCKS"         && _tsx_LOCKS=$tsx_LOCKS
+	test "$_MICROBENCH_APPS" == "ALL" && _MICROBENCH_APPS=$MICROBENCH_APPS
+	test -z "$_INITSIZES"         && _INITSIZES=$INITSIZES
+	test -z "$_UPDATERATES"       && _UPDATERATES=$UPDATERATES
 	
 	echo 'starting execution...'
 
-	for app in ${_STAMP_APPS}; do
-		eval exec_flags=\$EXEC_FLAG_$app
-		for build in $_BUILDS; do
-			SUFFIXES=$build
-			[ $build == 'tinystm' ] && \
-				SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-			[ $build == 'rtm' ] && \
-				SUFFIXES="$(cross_product $build "${_rtm_CMS}" "${_tsx_LOCKS}")"
-			NUMTHREADS=$_NTHREADS
-			[ $build == "seq" ] && NUMTHREADS='1'
-			SUFFIXES="$(cross_product "${SUFFIXES}" "${_GOVERNORS}")"
-			for suffix in $SUFFIXES; do
-				regex='-([a-z]+)$' # regular expression to get governor from suffix variable
-				[[ $suffix =~ $regex ]] && governor=${BASH_REMATCH[1]} #&& setGovernor $governor
-				appRunPath="$STAMP/$build/$app/$app-$(sed 's/-[a-z]\+$//' <<< $suffix)" # remove governor from suffix
-				for memalloc in $_MEMALLOCS; do
-					for t in $NUMTHREADS; do
-						outputLog="$LOGDIR/$app-$suffix-$memalloc-$t.log"
-						rm -f $outputLog
-						for j in $(seq 1 ${_NEXEC}); do
-							echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($governor)"	
-							sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
-						done # FOR EACH EXECUTION
-					done # FOR EACH NUMBER OF THREADS
-				done # FOR EACH MEMORY ALLOCATOR
-				#restoreGovernor # reset system governor to ondemand
-			done # FOR EACH SUFFIX
-		done # FOR EACH BUILD
-	done # FOR EACH APPS
+	for build in $_BUILDS; do
+		SUFFIXES=$build
+		[ $build == 'tinystm' ] && \
+			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+		[ $build == 'rtm' ] && \
+			SUFFIXES="$(cross_product $build "${_rtm_CMS}" "${_tsx_LOCKS}")"
+		NUMTHREADS=$_NTHREADS
+		[ $build == "seq" ] && NUMTHREADS='1'
+		for suffix in $SUFFIXES; do
+			for memalloc in $_MEMALLOCS; do
+				execute_stamp_apps
+				execute_microbench_apps
+			done # FOR EACH MEMORY ALLOCATOR
+		done # FOR EACH SUFFIX
+	done # FOR EACH BUILD
 
 	echo 'execution finished.'
 }
 
-while getopts "b:d:m:D:l:a:t:n:g:M:H:h" opt;
+while getopts "b:d:m:D:l:s:w:i:z:u:t:n:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -144,10 +171,13 @@ do
 		m) _tinySTM_CMS=$OPTARG ;;
 		D) _rtm_CMS=$OPTARG ;;
 		l) _tsx_LOCKS=$OPTARG ;;
-		a) _STAMP_APPS=$OPTARG ;;
+		s) _STAMP_APPS=$OPTARG ;;
+		w) _WORK_SIZES=$OPTARG ;;
+		i) _MICROBENCH_APPS=$OPTARG ;;
+		z) _INITSIZES=$OPTARG ;;
+		u) _UPDATERATES=$OPTARG ;;
 		t) _NTHREADS=$OPTARG ;;
 		n) _NEXEC=$OPTARG ;;
-		g) _GOVERNORS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
 		H) _ORT_HASHES=$OPTARG ;;
 		h) usage && exit -1 ;;
@@ -155,5 +185,8 @@ do
 			exit 1
 	esac
 done
+
+[[ -z "$_STAMP_APPS" && -z "$_MICROBENCH_APPS" ]] \
+	&& echo "error: no app specified to be executed" && exit -1
 
 execute

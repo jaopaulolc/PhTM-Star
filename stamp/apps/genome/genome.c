@@ -12,13 +12,18 @@
 #include "tm.h"
 #include "vector.h"
 
-#ifdef PROFILING
-#include <locale.h> // needed to modify printf number format
 #ifdef STM
+#include <locale.h> // needed to modify printf number format
+#if PROFILING == 1
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
+#endif /* PROFILING == 1 */
+#if PROFILING == 2
+unsigned int ***coreSTM_r_set_size;
+unsigned int ***coreSTM_w_set_size;
+unsigned int **coreSTM_counter;
+#endif /* PROFILING == 2 */
 #endif /* STM */
-#endif /* PROFILING */
 
 enum param_types {
     PARAM_GENE    = (unsigned char)'g',

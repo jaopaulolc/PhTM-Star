@@ -379,6 +379,10 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 	int tx_count;
   unsigned int *stat_commits;            /* Total number of commits (cumulative) */
   unsigned int *stat_aborts;             /* Total number of aborts (cumulative) */
+	unsigned int **stat_r_set_size;              /*  read-set size per tx execution */
+	unsigned int **stat_w_set_size;              /* write-set size per tx execution */
+	unsigned int *tx_count_counter;          /* number of times the tx with tx_count number started */
+	unsigned int nTx;                       /* number of transactions */
   unsigned int stat_retries_max;        /* Maximum number of consecutive aborts (retries) */
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
@@ -1027,6 +1031,13 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_MODULAR || defined(TM_STATISTICS) */
 #ifdef TM_STATISTICS
   tx->stat_aborts[tx->tx_count]++;
+	unsigned int _r_set_size = tx->r_set.nb_entries;
+	unsigned int _w_set_size = tx->w_set.nb_entries;
+	if(_r_set_size != 0 || _w_set_size != 0){
+		tx->stat_r_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = _r_set_size;
+		tx->stat_w_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = _w_set_size;
+		tx->tx_count_counter[tx->tx_count]++;
+	}
   if (tx->stat_retries_max < tx->stat_retries)
     tx->stat_retries_max = tx->stat_retries;
 #endif /* TM_STATISTICS */
@@ -1281,6 +1292,16 @@ int_stm_init_thread(int ntransactions)
 	tx->tx_count = 0;
   tx->stat_commits = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
   tx->stat_aborts  = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
+	tx->tx_count_counter = (unsigned int *)calloc(ntransactions,sizeof(unsigned int));
+	tx->stat_r_set_size  = (unsigned int **)malloc(ntransactions*sizeof(unsigned int*));
+	tx->stat_w_set_size  = (unsigned int **)malloc(ntransactions*sizeof(unsigned int*));
+	tx->nTx = ntransactions;
+	int _i;
+#define MAX_TRANSACTIONS 40000000
+	for(_i=0; _i < ntransactions; _i++){
+		tx->stat_r_set_size[_i] = (unsigned int*)calloc(MAX_TRANSACTIONS,sizeof(unsigned int));
+		tx->stat_w_set_size[_i] = (unsigned int*)calloc(MAX_TRANSACTIONS,sizeof(unsigned int));
+	}
   tx->stat_retries_max = 0;
 #ifdef ORT_PROFILING
 	tx->nb_false_conflicts = 0;
@@ -1337,6 +1358,21 @@ int_stm_exit_thread(stm_tx_t *tx)
   /* Statistics */
   if(tx->stat_commits != NULL) free(tx->stat_commits);
   if(tx->stat_aborts  != NULL) free(tx->stat_aborts);
+  if(tx->tx_count_counter  != NULL) free(tx->tx_count_counter);
+	if(tx->stat_r_set_size != NULL) {
+		int i;
+		for(i=0; i < tx->nTx; i++){
+			free(tx->stat_r_set_size[i]);
+		}
+		free(tx->stat_r_set_size);
+	}
+	if(tx->stat_w_set_size != NULL) {
+		int i;
+		for(i=0; i < tx->nTx; i++){
+			free(tx->stat_w_set_size[i]);
+		}
+		free(tx->stat_w_set_size);
+	}
 #ifdef ORT_PROFILING
 	unsigned long total_conflicts = tx->nb_total_conflicts;
 	unsigned long false_conflicts = tx->nb_false_conflicts;
@@ -1455,8 +1491,14 @@ int_stm_commit(stm_tx_t *tx)
 #endif /* DESIGN == MODULAR */
 
  end:
+#ifdef RW_SET_PROFILING
+	
+#endif /* RW_SET_PROFILING */
 #ifdef TM_STATISTICS
   tx->stat_commits[tx->tx_count]++;
+	tx->stat_r_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = tx->r_set.nb_entries;
+	tx->stat_w_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = tx->w_set.nb_entries;
+	tx->tx_count_counter[tx->tx_count]++;
 #endif /* TM_STATISTICS */
 #if CM == CM_MODULAR || defined(TM_STATISTICS)
   tx->stat_retries = 0;
@@ -1570,7 +1612,24 @@ int_stm_get_stats(stm_tx_t *tx, const char *name, void *val)
     *(unsigned int *)val = tx->w_set.size;
     return 1;
   }
-  if (strcmp("read_set_nb_entries", name) == 0) {
+#ifdef TM_STATISTICS
+  if (strcmp("r_set_nb_entries", name) == 0) {
+    *(unsigned int ***)val = tx->stat_r_set_size;
+		tx->stat_r_set_size = NULL;
+    return 1;
+  }
+  if (strcmp("w_set_nb_entries", name) == 0) {
+    *(unsigned int ***)val = tx->stat_w_set_size;
+		tx->stat_w_set_size = NULL;
+    return 1;
+  }
+  if (strcmp("tx_count_counter", name) == 0) {
+    *(unsigned int **)val = tx->tx_count_counter;
+		tx->tx_count_counter = NULL;
+    return 1;
+  }
+/*
+	if (strcmp("read_set_nb_entries", name) == 0) {
     *(unsigned int *)val = tx->r_set.nb_entries;
     return 1;
   }
@@ -1578,6 +1637,8 @@ int_stm_get_stats(stm_tx_t *tx, const char *name, void *val)
     *(unsigned int *)val = tx->w_set.nb_entries;
     return 1;
   }
+*/
+#endif /* TM_STATISTICS */
   if (strcmp("read_only", name) == 0) {
     *(unsigned int *)val = tx->attr.read_only;
     return 1;

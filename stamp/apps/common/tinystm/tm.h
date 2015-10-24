@@ -53,6 +53,8 @@
 #endif /* STM_VERSION_NB > 103 */
 
 #ifdef PROFILING
+
+#if PROFILING == 1
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
 																		coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
@@ -117,6 +119,74 @@ int __TX_COUNT__;
 																		TM_START(1, __TX_COUNT__)
 #define TM_END()                    stm_commit(); \
 																		pmuStopCounting(__threadId__)
+#endif /* PROFILING == 1 */
+
+#if PROFILING == 2
+#define TM_STARTUP(numThread)       msrInitialize(); \
+																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
+																		coreSTM_r_set_size = (unsigned int ***)malloc(sizeof(unsigned int **)*numThread); \
+																		coreSTM_w_set_size = (unsigned int ***)malloc(sizeof(unsigned int **)*numThread); \
+																		coreSTM_counter    = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
+																		stm_init(); \
+                                    mod_mem_init(0);
+extern unsigned int ***coreSTM_r_set_size;
+extern unsigned int ***coreSTM_w_set_size;
+extern unsigned int **coreSTM_counter;
+#define TM_SHUTDOWN() setlocale(LC_ALL, ""); \
+		{                                                         \
+			long i, __numThreads__  = thread_getNumThread();         \
+			for(i=0; i < __numThreads__; i++) {                     \
+				long j;                                               \
+				printf("Thread %ld\n",i);                             \
+		  	for(j=0; j < NUMBER_OF_TRANSACTIONS; j++) {           \
+					printf("Tx %2ld\n", j);                             \
+					long k;                                             \
+					for(k=0; k < coreSTM_counter[i][j]; k++)            \
+						printf("%u %u\n", coreSTM_r_set_size[i][j][k]   \
+							,coreSTM_w_set_size[i][j][k]);                  \
+					free(coreSTM_r_set_size[i][j]);                     \
+					free(coreSTM_w_set_size[i][j]);                     \
+				}                                                     \
+				free(coreSTM_counter[i]);                             \
+				free(coreSTM_r_set_size[i]);                          \
+				free(coreSTM_w_set_size[i]);                          \
+			}                                                       \
+			free(coreSTM_counter);                                  \
+			free(coreSTM_r_set_size);                               \
+			free(coreSTM_w_set_size);                               \
+		}                                                         \
+											stm_exit();            \
+										  pmuShutdown();         \
+											msrTerminate()
+
+#define TM_THREAD_ENTER()           long __threadId__ = thread_getId(); \
+																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
+																		set_affinity(__threadId__)
+
+#define TM_THREAD_EXIT()            if(stm_get_stats("r_set_nb_entries",&coreSTM_r_set_size[__threadId__]) == 0){ \
+																			fprintf(stderr,"error: get nb_commits failed!\n"); \
+																		} \
+																		if(stm_get_stats("w_set_nb_entries",&coreSTM_w_set_size[__threadId__]) == 0){ \
+																			fprintf(stderr,"error: get nb_aborts failed!\n"); \
+																		} \
+																		if(stm_get_stats("tx_count_counter",&coreSTM_counter[__threadId__]) == 0){ \
+																			fprintf(stderr,"error: get nb_aborts failed!\n"); \
+																		} \
+																		stm_exit_thread()
+
+int __TX_COUNT__;
+
+#define TM_BEGIN()									__TX_COUNT__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __TX_COUNT__); \
+																		TM_START(0, __TX_COUNT__)
+#define TM_BEGIN_RO()               __TX_COUNT__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __TX_COUNT__); \
+																		TM_START(1, __TX_COUNT__)
+#define TM_END()                    stm_commit(); \
+																		pmuStopCounting(__threadId__)
+
+#endif /* PROFILING == 2 */
+
 #else /* NO PROFILING */
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		stm_init(); \

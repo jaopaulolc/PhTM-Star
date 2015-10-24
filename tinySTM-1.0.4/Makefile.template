@@ -113,8 +113,8 @@ DEFINES += -UTM_STATISTICS2
 # same address.
 ########################################################################
 
-# DEFINES += -DNO_DUPLICATES_IN_RW_SETS
-DEFINES += -UNO_DUPLICATES_IN_RW_SETS
+DEFINES += -DNO_DUPLICATES_IN_RW_SETS
+#DEFINES += -UNO_DUPLICATES_IN_RW_SETS
 
 ########################################################################
 # Yield the processor when waiting for a contended lock to be released.
@@ -295,7 +295,8 @@ CPPFLAGS += $(DEFINES)
 
 MODULES := $(patsubst %.c,%.o,$(wildcard $(SRCDIR)/mod_*.c))
 
-.PHONY:	all doc test abi clean check
+#.PHONY:	all doc test abi clean check
+.PHONY:	all clean
 
 all:	$(TMLIB)
 
@@ -336,6 +337,6 @@ check: 	$(TMLIB)
 
 clean:
 	rm -f $(TMLIB) $(SRCDIR)/*.o
-	$(MAKE) -C abi clean
-	TARGET=clean $(MAKE) -C test
+#	$(MAKE) -C abi clean
+#	TARGET=clean $(MAKE) -C test
 
