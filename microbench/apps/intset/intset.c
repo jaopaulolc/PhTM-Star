@@ -1,3 +1,6 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif /* _GNU_SOURCE */
 /*
  * File:
  *   intset.c
@@ -37,61 +40,11 @@
 #define RO                              1
 #define RW                              0
 
-#if defined(TM_GCC) 
-# include "../../abi/gcc/tm_macros.h"
-#elif defined(TM_DTMC) 
-# include "../../abi/dtmc/tm_macros.h"
-/* Make erand48 pure for DTMC (transaction_pure should work too). */
-static double tanger_wrapperpure_erand48(unsigned short int __xsubi[3]) __attribute__ ((weakref("erand48")));
-#elif defined(TM_INTEL)
-# include "../../abi/intel/tm_macros.h"
-#elif defined(TM_ABI)
-# include "../../abi/tm_macros.h"
-#endif /* defined(TM_ABI) */
-
-#if defined(TM_GCC) || defined(TM_DTMC) || defined(TM_INTEL) || defined(TM_ABI)
-# define TM_COMPILER
-/* Add some attributes to library function */
-TM_PURE 
-void exit(int status);
-TM_PURE 
-void perror(const char *s);
-#else /* Compile with explicit calls to tinySTM */
-
-# include "stm.h"
-# include "mod_mem.h"
-# include "mod_ab.h"
-
-/*
- * Useful macros to work with transactions. Note that, to use nested
- * transactions, one should check the environment returned by
- * stm_get_env() and only call sigsetjmp() if it is not null.
- */
-# define TM_START(tid, ro)                  { stm_tx_attr_t _a = {{.id = tid, .read_only = ro}}; \
-                                              sigjmp_buf *_e = stm_start(_a); \
-                                              if (_e != NULL) sigsetjmp(*_e, 0); 
-# define TM_START_TS(ts, label)             { sigjmp_buf *_e = stm_start((stm_tx_attr_t)0); \
-                                              if (_e != NULL && sigsetjmp(*_e, 0)) goto label; \
-	                                      stm_set_extension(0, &ts)
-# define TM_LOAD(addr)                      stm_load((stm_word_t *)addr)
-# define TM_UNIT_LOAD(addr, ts)             stm_unit_load((stm_word_t *)addr, ts)
-# define TM_STORE(addr, value)              stm_store((stm_word_t *)addr, (stm_word_t)value)
-# define TM_UNIT_STORE(addr, value, ts)     stm_unit_store((stm_word_t *)addr, (stm_word_t)value, ts)
-# define TM_COMMIT                          stm_commit(); }
-# define TM_MALLOC(size)                    stm_malloc(size)
-# define TM_FREE(addr)                      stm_free(addr, sizeof(*addr))
-# define TM_FREE2(addr, size)               stm_free(addr, size)
-
-# define TM_INIT                            stm_init(); mod_mem_init(0); mod_ab_init(0, NULL)
-# define TM_EXIT                            stm_exit()
-# define TM_INIT_THREAD                     stm_init_thread()
-# define TM_EXIT_THREAD                     stm_exit_thread()
+#include <tm.h>
 
 /* Annotations used in this benchmark */
 # define TM_SAFE
 # define TM_PURE
-
-#endif /* Compile with explicit calls to tinySTM */
 
 #ifdef DEBUG
 # define IO_FLUSH                       fflush(NULL)
@@ -103,7 +56,7 @@ void perror(const char *s);
 #endif /* !(defined(USE_LINKEDLIST) || defined(USE_RBTREE) || defined(USE_SKIPLIST) || defined(USE_HASHSET)) */
 
 
-#define DEFAULT_DURATION                10000
+#define DEFAULT_DURATION                1000
 #define DEFAULT_INITIAL                 256
 #define DEFAULT_NB_THREADS              1
 #define DEFAULT_RANGE                   (DEFAULT_INITIAL * 2)
@@ -112,6 +65,28 @@ void perror(const char *s);
 
 #define XSTR(s)                         STR(s)
 #define STR(s)                          #s
+
+
+#include <unistd.h>
+#include <sched.h>
+void set_affinity(long id){
+	int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+	if (id < 0 || id >= num_cores){
+		fprintf(stderr,"error: invalid number of threads (nthreads > ncores)!\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(id%num_cores, &cpuset);
+
+	pthread_t current_thread = pthread_self();
+	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){
+		perror("pthread_setaffinity_np");
+		exit(EXIT_FAILURE);
+	}
+}
+
 
 /* ################################################################### *
  * GLOBALS
@@ -135,13 +110,14 @@ static inline int rand_range(int n, unsigned short *seed)
 }
 
 typedef struct thread_data {
+	long threadId;
   struct intset *set;
   struct barrier *barrier;
   unsigned long nb_add;
   unsigned long nb_remove;
   unsigned long nb_contains;
   unsigned long nb_found;
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   unsigned long nb_aborts;
   unsigned long nb_aborts_1;
   unsigned long nb_aborts_2;
@@ -286,7 +262,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     result = (v == val);
     TM_COMMIT;
   } 
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   else {
     /* Unit transactions */
     stm_word_t ts, start_ts, val_ts;
@@ -363,7 +339,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
     }
     TM_COMMIT;
   } 
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   else {
     /* Unit transactions */
     stm_word_t ts, start_ts, val_ts;
@@ -453,7 +429,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
     }
     TM_COMMIT;
   } 
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   else {
     /* Unit transactions */
     stm_word_t ts, start_ts, val_ts;
@@ -506,23 +482,10 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
  * ################################################################### */
 /* TODO: comparison function as a pointer should be changed for TM compiler
  * (not supported or introduce a lot of overhead). */
-# define INIT_SET_PARAMETERS            /* Nothing */
+#include "rbtree.h"
+#include "rbtree.c"
 
-# define TM_ARGDECL_ALONE               /* Nothing */
-# define TM_ARGDECL                     /* Nothing */
-# define TM_ARG                         /* Nothing */
-# define TM_ARG_ALONE                   /* Nothing */
-# define TM_CALLABLE                    TM_SAFE
-
-# define TM_SHARED_READ(var)            TM_LOAD(&(var))
-# define TM_SHARED_READ_P(var)          TM_LOAD(&(var))
-
-# define TM_SHARED_WRITE(var, val)      TM_STORE(&(var), val)
-# define TM_SHARED_WRITE_P(var, val)    TM_STORE(&(var), val)
-
-# include "rbtree.h"
-
-# include "rbtree.c"
+#define INIT_SET_PARAMETERS            /* Nothing */
 
 typedef struct intset intset_t;
 typedef intptr_t val_t;
@@ -1225,7 +1188,7 @@ static void *test(void *data)
   thread_data_t *d = (thread_data_t *)data;
 
   /* Create transaction */
-  TM_INIT_THREAD;
+  TM_INIT_THREAD(d->threadId);
   /* Wait on barrier */
   barrier_cross(d->barrier);
 
@@ -1272,7 +1235,7 @@ static void *test(void *data)
       d->nb_contains++;
     }
   }
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   stm_get_stats("nb_aborts", &d->nb_aborts);
   stm_get_stats("nb_aborts_1", &d->nb_aborts_1);
   stm_get_stats("nb_aborts_2", &d->nb_aborts_2);
@@ -1288,7 +1251,7 @@ static void *test(void *data)
   stm_get_stats("max_retries", &d->max_retries);
 #endif /* ! TM_COMPILER */
   /* Free transaction */
-  TM_EXIT_THREAD;
+  TM_EXIT_THREAD(d->threadId);
 
   return NULL;
 }
@@ -1317,7 +1280,7 @@ int main(int argc, char **argv)
   intset_t *set;
   int i, c, val, size, ret;
   unsigned long reads, updates;
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   char *s;
   unsigned long aborts, aborts_1, aborts_2,
     aborts_locked_read, aborts_locked_write,
@@ -1339,7 +1302,7 @@ int main(int argc, char **argv)
   int seed = DEFAULT_SEED;
   int update = DEFAULT_UPDATE;
   int alternate = 1;
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   char *cm = NULL;
 #endif /* ! TM_COMPILER */
 #ifdef USE_LINKEDLIST
@@ -1347,10 +1310,11 @@ int main(int argc, char **argv)
 #endif /* LINKEDLIST */
   sigset_t block_set;
 
+	int noRange=1;
   while(1) {
     i = 0;
     c = getopt_long(argc, argv, "ha"
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
                     "c:"
 #endif /* ! TM_COMPILER */
                     "d:i:n:r:s:u:"
@@ -1389,7 +1353,7 @@ int main(int argc, char **argv)
               "        Print this message\n"
               "  -a, --do-not-alternate\n"
               "        Do not alternate insertions and removals\n"
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
 	      "  -c, --contention-manager <string>\n"
               "        Contention manager for resolving conflicts (default=suicide)\n"
 #endif /* ! TM_COMPILER */
@@ -1414,7 +1378,7 @@ int main(int argc, char **argv)
      case 'a':
        alternate = 0;
        break;
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
      case 'c':
        cm = optarg;
        break;
@@ -1430,6 +1394,7 @@ int main(int argc, char **argv)
        break;
      case 'r':
        range = atoi(optarg);
+			 noRange=0;
        break;
      case 's':
        seed = atoi(optarg);
@@ -1450,6 +1415,8 @@ int main(int argc, char **argv)
     }
   }
 
+	if(noRange){ range=2*initial;}
+
   assert(duration >= 0);
   assert(initial >= 0);
   assert(nb_threads > 0);
@@ -1465,7 +1432,7 @@ int main(int argc, char **argv)
 #elif defined(USE_HASHSET)
   printf("Set type     : hash set\n");
 #endif /* defined(USE_HASHSET) */
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   printf("CM           : %s\n", (cm == NULL ? "DEFAULT" : cm));
 #endif /* ! TM_COMPILER */
   printf("Duration     : %d\n", duration);
@@ -1510,9 +1477,9 @@ int main(int argc, char **argv)
 
   /* Init STM */
   printf("Initializing STM\n");
-  TM_INIT;
+  TM_INIT(nb_threads);
 
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   if (stm_get_parameter("compile_flags", &s))
     printf("STM flags    : %s\n", s);
 
@@ -1541,6 +1508,7 @@ int main(int argc, char **argv)
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   for (i = 0; i < nb_threads; i++) {
     printf("Creating thread %d\n", i);
+		data[i].threadId = i;
     data[i].range = range;
     data[i].update = update;
     data[i].alternate = alternate;
@@ -1551,7 +1519,7 @@ int main(int argc, char **argv)
     data[i].nb_remove = 0;
     data[i].nb_contains = 0;
     data[i].nb_found = 0;
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
     data[i].nb_aborts = 0;
     data[i].nb_aborts_1 = 0;
     data[i].nb_aborts_2 = 0;
@@ -1601,7 +1569,7 @@ int main(int argc, char **argv)
   }
 
   duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   aborts = 0;
   aborts_1 = 0;
   aborts_2 = 0;
@@ -1624,7 +1592,7 @@ int main(int argc, char **argv)
     printf("  #remove     : %lu\n", data[i].nb_remove);
     printf("  #contains   : %lu\n", data[i].nb_contains);
     printf("  #found      : %lu\n", data[i].nb_found);
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
     printf("  #aborts     : %lu\n", data[i].nb_aborts);
     printf("    #lock-r   : %lu\n", data[i].nb_aborts_locked_read);
     printf("    #lock-w   : %lu\n", data[i].nb_aborts_locked_write);
@@ -1663,7 +1631,7 @@ int main(int argc, char **argv)
   printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration);
   printf("#read txs     : %lu (%f / s)\n", reads, reads * 1000.0 / duration);
   printf("#update txs   : %lu (%f / s)\n", updates, updates * 1000.0 / duration);
-#ifndef TM_COMPILER
+#if !defined(TM_COMPILER) && defined(TinySTM)
   printf("#aborts       : %lu (%f / s)\n", aborts, aborts * 1000.0 / duration);
   printf("  #lock-r     : %lu (%f / s)\n", aborts_locked_read, aborts_locked_read * 1000.0 / duration);
   printf("  #lock-w     : %lu (%f / s)\n", aborts_locked_write, aborts_locked_write * 1000.0 / duration);
@@ -1695,7 +1663,7 @@ int main(int argc, char **argv)
   set_delete(set);
 
   /* Cleanup STM */
-  TM_EXIT;
+  TM_EXIT(nb_threads);
 
   free(threads);
   free(data);

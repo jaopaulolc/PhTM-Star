@@ -5,8 +5,8 @@ source $PWD/scripts/scripts.cfg
 
 function usage {
 	
-	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-H ORT hash] [-a <stamp app>]'
-	echo -e '\t[-b <build>] [-D <RTM CM>]  [-l <TSX lock>]'
+	echo $0' [-d <tinySTM DESIGN>]  [-m <tinySTM CM>] [-H ORT hash] [-i <intset app>]'
+	echo -e '\t[-b <build>] [-D <RTM CM>]  [-l <TSX lock>] [-s <stamp app>]'
 
 	echo
 	echo '-d <tinySTM DESIGN>'
@@ -34,19 +34,51 @@ function usage {
 	echo 'default = ALL'
 
 	echo
-	echo '-a <stamp app>'
+	echo '-s <stamp app>'
 	echo "${STAMP_APPS// / | }"
-	echo 'default = ALL'
+	echo 'default = NONE'
+	
+	echo
+	echo '-i <intset app>'
+	echo "${INTSET_APPS// / | }"
+	echo 'default = NONE'
 
 	echo
 	echo '-b <build>'
 	echo "${BUILDS// / | }"
-
 	echo 'default = ALL'
 }
 
 
-function compile_tinystm_apps {
+function compile_stamp_apps {
+
+	for app in ${_STAMP_APPS}; do
+		local APP_SRC_PATH=$STAMP/apps/$app
+		local BIN_APP_PATH=$STAMP/$build/$app
+		make -C $APP_SRC_PATH -f Makefile \
+			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $APP_SRC_PATH -f Makefile \
+			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}${suffix}
+		echo -e "\t++ ${app} compiled"
+	done # FOR EACH APP
+}
+
+function compile_microbench_apps {
+
+	for app in ${_MICROBENCH_APPS}; do
+		local APP_SRC_PATH=$MICROBENCH/apps/$(sed 's|_[a-z]\+$||' <<<$app)
+		local BIN_APP_PATH=$MICROBENCH/$build
+		make -C $APP_SRC_PATH -f Makefile \
+			TMBUILD=$build APP=$app clean ${MAKE_OPTIONS} 2> /dev/null
+		make -C $APP_SRC_PATH -f Makefile \
+			TMBUILD=$build APP=$app ${MAKE_OPTIONS} 2> /dev/null
+		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}${suffix}
+		echo -e "\t++ ${app} compiled"
+	done # FOR EACH APP
+}
+
+function compile_with_tinystm {
 
 	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS
 	test -z "$_tinySTM_CMS"      && _tinySTM_CMS=$tinySTM_CMS
@@ -64,43 +96,28 @@ function compile_tinystm_apps {
 				make -C $tinySTM clean ${MAKE_OPTIONS}
 				make -C $tinySTM ${MAKE_OPTIONS}
 				
-				suffix=${design}-${cm}-${ort_hash}
+				suffix=-${design}-${cm}-${ort_hash}
 				echo "## tinySTM ${suffix} compiled"
-				
-				for app in ${_STAMP_APPS}; do
-					SRC_APP_PATH=$STAMP_APPSDIR/$app
-					BIN_APP_PATH=$STAMP/$build/$app
-					make -C $SRC_APP_PATH -f Makefile \
-						TMBUILD=tinystm clean ${MAKE_OPTIONS} 2> /dev/null
-					make -C $SRC_APP_PATH -f Makefile \
-						TMBUILD=tinystm ${MAKE_OPTIONS} 2> /dev/null
-					mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${suffix}
-					echo "## ${app}-${build}-${suffix} compiled"
-				done # FOR EACH APP
+			
+				compile_stamp_apps
+				compile_microbench_apps
 			done # FOR EACH ORT HASH
 		done # FOR EACH CM
 	done # FOR EACH DESIGN
 
 }
 
-function compile_norec_apps {
+function compile_with_norec {
 	
 	make -C $NOrec clean ${MAKE_OPTIONS}
 	make -C $NOrec ${MAKE_OPTIONS}
 	echo "## ${!build} STM compiled"
-	for app in ${_STAMP_APPS}; do
-		SRC_APP_PATH=$STAMP_APPSDIR/$app
-		BIN_APP_PATH=$STAMP/$build/$app
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
-		echo "## ${app}-${build} compiled"
-	done # FOR EACH APP
+	suffix=""
+	compile_stamp_apps
+	compile_microbench_apps
 }
 
-function compile_rtm_apps {
+function compile_with_rtm {
 
 	test -z "$_rtm_CMS"     && _rtm_CMS=$rtm_CMS
 	test -z "$_tsx_LOCKS"   && _tsx_LOCKS=$tsx_LOCKS
@@ -112,65 +129,40 @@ function compile_rtm_apps {
 			touch $TSX_RTM/Makefile
 			make -C $TSX_RTM clean ${MAKE_OPTIONS}
 			make -C $TSX_RTM ${MAKE_OPTIONS}
-			for app in ${_STAMP_APPS}; do
-				SRC_APP_PATH=$STAMP_APPSDIR/$app
-				BIN_APP_PATH=$STAMP/$build/$app
-				make -C $SRC_APP_PATH -f Makefile \
-					TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-				make -C $SRC_APP_PATH -f Makefile \
-					TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-				mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}-${cm}-${lock}
-				echo "## ${app}-${build}-$cm-$lock compiled"
-			done # FOR EACH APP
+			
+			suffix=-${cm}-${lock}
+			echo "## RTM ${suffix} compiled"
+			
+			compile_stamp_apps
+			compile_microbench_apps
 			rm -f $TSX_RTM/Makefile
 		done # FOR EACH LOCK
 	done #FOR EACH CM
 
 }
 
-function compile_hle_apps {
+function compile_with_hle {
 	
-	for app in ${_STAMP_APPS}; do
-		SRC_APP_PATH=$STAMP_APPSDIR/$app
-		BIN_APP_PATH=$STAMP/$build/$app
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
-		echo "## ${app}-${build} compiled"
-	done # FOR EACH APP
-
+	suffix=""
+	echo "## HLE compiled"
+	compile_stamp_apps
+	compile_microbench_apps
 }
 
-function compile_lock_apps {
+function compile_with_lock {
 	
-	for app in ${_STAMP_APPS}; do
-		SRC_APP_PATH=$STAMP_APPSDIR/$app
-		BIN_APP_PATH=$STAMP/$build/$app
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
-		echo "## ${app}-$build compiled"
-	done # FOR EACH APP
-
+	suffix=""
+	echo "## LOCK compiled"
+	compile_stamp_apps
+	compile_microbench_apps
 }
 
-function compile_seq_apps {
+function compile_seq {
 	
-	for app in ${_STAMP_APPS}; do
-		SRC_APP_PATH=$STAMP_APPSDIR/$app
-		BIN_APP_PATH=$STAMP/$build/$app
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build clean ${MAKE_OPTIONS} 2> /dev/null
-		make -C $SRC_APP_PATH -f Makefile \
-			TMBUILD=$build ${MAKE_OPTIONS} 2> /dev/null
-		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}
-		echo "## ${app}-$build compiled"
-	done # FOR EACH APP
-
+	suffix=""
+	echo "## SEQ compiled"
+	compile_stamp_apps
+	compile_microbench_apps
 }
 
 function compile {
@@ -179,34 +171,35 @@ function compile {
 	
 	make -C $MSRDIR clean $MAKE_OPTIONS && make -C $MSRDIR $MAKE_OPTIONS
 
-	test -z "$_BUILDS"   && _BUILDS=$BUILDS
-	test -z "$_STAMP_APPS"   && _STAMP_APPS=$STAMP_APPS
+	test -z "$_BUILDS"                && _BUILDS=$BUILDS
+	test "$_STAMP_APPS" == "ALL"      && _STAMP_APPS=$STAMP_APPS
+	test "$_MICROBENCH_APPS" == "ALL" && _MICROBENCH_APPS=$MICROBENCH_APPS
 
 	for build in $_BUILDS; do
 		case $build in
 			seq)
-				compile_seq_apps
+				compile_seq
 				;;
 			tinystm)
-				compile_tinystm_apps
+				compile_with_tinystm
 				;;
 			norec)
-				compile_norec_apps
+				compile_with_norec
 				;;
 			rh_norec)
-				compile_norec_apps
+				compile_with_norec
 				;;
 			phased_norec)
-				compile_norec_apps
+				compile_with_norec
 				;;
 			rtm)
-				compile_rtm_apps
+				compile_with_rtm
 				;;
 			hle)
-				compile_hle_apps
+				compile_with_hle
 				;;
 			lock)
-				compile_lock_apps
+				compile_with_lock
 				;;
 			\?)
 				echo "error: unkown build '$build'!"
@@ -218,7 +211,7 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:d:m:D:l:a:P:H:h" opt;
+while getopts "b:d:m:D:l:s:i:P:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -226,7 +219,8 @@ do
 		m) _tinySTM_CMS=$OPTARG ;;
 		D) _rtm_CMS=$OPTARG ;;
 		l) _tsx_LOCKS=$OPTARG ;;
-		a) _STAMP_APPS=$OPTARG ;;
+		s) _STAMP_APPS=$OPTARG ;;
+		i) _MICROBENCH_APPS=$OPTARG ;;
 		P) case $OPTARG in
 		     ORT_PROFILING)
 				 	ORT_PROFILING='# DEFINES += -DORT_PROFILING' ;;
@@ -240,5 +234,8 @@ do
 			exit 1
 	esac
 done
+
+[[ -z "$_STAMP_APPS" && -z "$_MICROBENCH_APPS" ]] \
+	&& echo "error: no app specified to be compiled" && exit -1
 
 compile

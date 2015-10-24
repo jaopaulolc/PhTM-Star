@@ -17,7 +17,7 @@ function clean {
 	
 	echo 'starting cleanup...'
 	
-	make -C $MSRDIR clean
+	make $MAKE_OPTIONS -C $MSRDIR clean
 
 	test -z "$_BUILDS" && _BUILDS=$BUILDS
 
@@ -26,25 +26,28 @@ function clean {
 			seq) ;;
 			tinystm)
 				test -e $tinySTM/Makefile && rm $tinySTM/Makefile
-				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean $MAKE_OPTIONS
+				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean
 				;;
 			rtm)
 				test -e $TSX_RTM/Makefile && rm $TSX_RTM/Makefile
-				make -C $TSX_RTM -f Makefile.template clean
+				make $MAKE_OPTIONS -C $TSX_RTM -f Makefile.template clean
 				;;
 			norec)
-				make -C $NOrec clean
+				make $MAKE_OPTIONS -C $NOrec clean
 				;;
 			rh_norec)
-				make -C $RH_NOrec clean
+				make $MAKE_OPTIONS -C $NOrec clean
 				;;
 			hle) ;;
 			lock) ;;
 			\?) echo $0" : error - unknown build '$build'"
 				exit 1
 		esac
-		echo -n "cleaning $STAMP/$build ..."
+		echo -n "cleaning STAMP apps ($build)..."
 		rm -rf $STAMP/$build
+		echo "done."
+		echo -n "cleaning MICROBENCH apps ($build)..."
+		rm -rf $MICROBENCH/$build
 		echo "done."
 	done
 

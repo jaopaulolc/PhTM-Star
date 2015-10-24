@@ -1,0 +1,17 @@
+# TMBUILD = norec
+# ======== Defines ========
+CC       := g++-4.8.3
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../common/$(TMBUILD) -DSTM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := g++-4.8.3
+LDFLAGS  += -lpthread
+
+LIBDIR    = ../../../NOrec
+CPPFLAGS += -I$(LIBDIR)/include 
+LDFLAGS  += -L$(LIBDIR) -lnorec -lrt
+TMLIB    += $(LIBDIR)/libnorec.a
+
+include ../common/Makefile.common
