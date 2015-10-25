@@ -86,9 +86,9 @@ int main(int argc, char** argv){
 	
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 
-	global_array = (long*)memalign(0x1000, (L1_CACHE_SIZE + 512) * sizeof(long));
+	global_array = (long*)memalign(0x1000, L1_CACHE_SIZE + 512 * sizeof(long));
 	
-	memset(global_array, 0, (L1_CACHE_SIZE + 512) * sizeof(long));
+	memset(global_array, 0, L1_CACHE_SIZE + 512 * sizeof(long));
 
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 

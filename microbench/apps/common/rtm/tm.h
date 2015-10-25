@@ -39,17 +39,12 @@
 		}                                                                                                      \
 		uint64_t conflicts = eventCount[2];                                                                    \
 		uint64_t capacity  = eventCount[3];                                                                    \
+		printf("#starts    : %lu\n", eventCount[0]);                                                           \
 		printf("#commits   : %lu\n", eventCount[1]);                                                           \
-		printf("#conflicts : %lu (%f)\n", conflicts, 100.0*((float)conflicts/(float)eventCount[0]) );          \
+		printf("#conflicts : %lu (%f)\n", conflicts, 100.0*((float)conflicts/(float)eventCount[0]));           \
 		printf("#capacity  : %lu (%f)\n", capacity, 100.0*((float)capacity/(float)eventCount[0]));             \
 																			pmuShutdown();                                                       \
 																			msrTerminate()
-#if 0
-		printf("#starts    : %lu\n", eventCount[0]);                                                           \
-		printf("#commits   : %lu\n", eventCount[1]);                                                           \
-		printf("#conflicts : %lu (%f)\n", conflicts, 100.0*((float)conflicts/(float)eventCount[0]) );          \
-		printf("#capacity  : %lu (%f)\n", eventCount[3], 100.0*((float)eventCount[3]/(float)eventCount[0]));
-#endif
 
 #define TM_INIT_THREAD(tid)           TX_INIT(tid); set_affinity(tid); \
 																			pmuStartCounting(tid,0)

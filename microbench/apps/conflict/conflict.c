@@ -40,20 +40,18 @@ void *readers_function(void *args){
 	
 	long tid = (long)args;
 	long sum = 0;
-	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS*nThreads;
+	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS;
 
 	unsigned short seed[3];
 	randomly_init_ushort_array(seed, 3);
 	
-	//long const i  = (nrand48(seed) % 8)*step;
-	long const i  = (tid-1)*step;
 
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 	
 	while(!stop){
 
-		long j;
+		long j, i  = (nrand48(seed) % 8)*step;
 		TM_START(tid, RO);
 			for(j=i; j < (i + step);j++){
 				sum += TM_LOAD(&global_array[j]);
@@ -69,7 +67,7 @@ void *writer_function(void *args){
 	
 	long tid = (long)args;
 	long sum = 0;
-	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS/2;
+	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS;
 	
 	unsigned short seed[3];
 	randomly_init_ushort_array(seed,3);
@@ -111,13 +109,13 @@ int main(int argc, char** argv){
 	
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 
-	global_array = (long*)memalign(0x1000, L1_CACHE_SIZE * sizeof(long));
+	global_array = (long*)memalign(0x1000, L1_CACHE_SIZE);
 	
-	//memset(global_array, 0, L1_CACHE_SIZE * sizeof(long));
+	//memset(global_array, 0, L1_CACHE_SIZE);
 
 	long i;
 	srand(time(NULL));
-	for(i=0; i < L1_CACHE_SIZE; i++){
+	for(i=0; i < L1_CACHE_SIZE/sizeof(long); i++){
 		global_array[i] = rand() % L1_CACHE_SIZE;
 	}
 
@@ -186,7 +184,6 @@ void showUsage(const char* argv0){
 	printf("   u <LONG>   Contention level [0%%..100%%]     (%ld)\n", PARAM_DEFAULT_CONTENTION);
 
 }
-
 
 void parseArgs(int argc, char** argv){
 
