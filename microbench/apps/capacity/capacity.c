@@ -179,7 +179,7 @@ void set_affinity(long id){
 	
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(id%num_cores, &cpuset);
+	CPU_SET(id, &cpuset);
 
 	pthread_t current_thread = pthread_self();
 	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){

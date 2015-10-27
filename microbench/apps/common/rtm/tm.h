@@ -20,11 +20,12 @@
 #define TM_INIT(nThreads)       TSX_STARTUP(nThreads);                          \
                                 msrInitialize();                                \
 																pmuStartup(1);                                  \
-															  pmuAddCustomCounter(0,RTM_TX_STARTED);          \
+															  pmuAddCustomCounter(0,RTM_TX_ABORTED);          \
 															  pmuAddCustomCounter(1,RTM_TX_COMMITED);         \
 															  pmuAddCustomCounter(2,TX_ABORT_CONFLICT);       \
-															  pmuAddCustomCounter(3,TX_ABORT_CAPACITY)
+															  pmuAddCustomCounter(3,TX_ABORT_CAPACITY)        
 #define TM_EXIT(nThreads)       TSX_SHUTDOWN();                                                            \
+    {                                                                                                      \
 		setlocale(LC_ALL, "");                                                                                 \
 		int ncustomCounters = pmuNumberOfCustomCounters();                                                     \
 		uint64_t eventCount[ncustomCounters];                                                                  \
@@ -37,12 +38,17 @@
 				eventCount[j] += measurements[0][j];                                                               \
 			}                                                                                                    \
 		}                                                                                                      \
+		uint64_t aborts  = eventCount[0];                                                                      \
+		uint64_t commits = eventCount[1];                                                                      \
+		uint64_t starts  = commits + aborts;                                                                   \
 		uint64_t conflicts = eventCount[2];                                                                    \
 		uint64_t capacity  = eventCount[3];                                                                    \
-		printf("#starts    : %lu\n", eventCount[0]);                                                           \
-		printf("#commits   : %lu\n", eventCount[1]);                                                           \
-		printf("#conflicts : %lu (%f)\n", conflicts, 100.0*((float)conflicts/(float)eventCount[0]));           \
-		printf("#capacity  : %lu (%f)\n", capacity, 100.0*((float)capacity/(float)eventCount[0]));             \
+		printf("#starts    : %lu\n", starts);                                                                  \
+		printf("#commits   : %lu\n", commits);                                                                 \
+		printf("#aborts    : %lu (%f)\n", aborts, 100.0*((float)aborts/(float)starts));                        \
+		printf("#conflicts : %lu\n", conflicts);                                                               \
+		printf("#capacity  : %lu\n", capacity);                                                                \
+		}                                                                                                      \
 																			pmuShutdown();                                                       \
 																			msrTerminate()
 

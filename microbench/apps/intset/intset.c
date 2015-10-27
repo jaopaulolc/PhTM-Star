@@ -117,7 +117,7 @@ typedef struct thread_data {
   unsigned long nb_remove;
   unsigned long nb_contains;
   unsigned long nb_found;
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   unsigned long nb_aborts;
   unsigned long nb_aborts_1;
   unsigned long nb_aborts_2;
@@ -1235,7 +1235,7 @@ static void *test(void *data)
       d->nb_contains++;
     }
   }
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   stm_get_stats("nb_aborts", &d->nb_aborts);
   stm_get_stats("nb_aborts_1", &d->nb_aborts_1);
   stm_get_stats("nb_aborts_2", &d->nb_aborts_2);
@@ -1282,6 +1282,8 @@ int main(int argc, char **argv)
   unsigned long reads, updates;
 #if !defined(TM_COMPILER) && defined(TinySTM)
   char *s;
+#endif /* ! TM_COMPILER */
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   unsigned long aborts, aborts_1, aborts_2,
     aborts_locked_read, aborts_locked_write,
     aborts_validate_read, aborts_validate_write, aborts_validate_commit,
@@ -1519,7 +1521,7 @@ int main(int argc, char **argv)
     data[i].nb_remove = 0;
     data[i].nb_contains = 0;
     data[i].nb_found = 0;
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
     data[i].nb_aborts = 0;
     data[i].nb_aborts_1 = 0;
     data[i].nb_aborts_2 = 0;
@@ -1569,7 +1571,7 @@ int main(int argc, char **argv)
   }
 
   duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   aborts = 0;
   aborts_1 = 0;
   aborts_2 = 0;
@@ -1592,7 +1594,7 @@ int main(int argc, char **argv)
     printf("  #remove     : %lu\n", data[i].nb_remove);
     printf("  #contains   : %lu\n", data[i].nb_contains);
     printf("  #found      : %lu\n", data[i].nb_found);
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
     printf("  #aborts     : %lu\n", data[i].nb_aborts);
     printf("    #lock-r   : %lu\n", data[i].nb_aborts_locked_read);
     printf("    #lock-w   : %lu\n", data[i].nb_aborts_locked_write);
@@ -1631,7 +1633,7 @@ int main(int argc, char **argv)
   printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration);
   printf("#read txs     : %lu (%f / s)\n", reads, reads * 1000.0 / duration);
   printf("#update txs   : %lu (%f / s)\n", updates, updates * 1000.0 / duration);
-#if !defined(TM_COMPILER) && defined(TinySTM)
+#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   printf("#aborts       : %lu (%f / s)\n", aborts, aborts * 1000.0 / duration);
   printf("  #lock-r     : %lu (%f / s)\n", aborts_locked_read, aborts_locked_read * 1000.0 / duration);
   printf("  #lock-w     : %lu (%f / s)\n", aborts_locked_write, aborts_locked_write * 1000.0 / duration);

@@ -101,6 +101,8 @@ DEFINES += -DIRREVOCABLE_ENABLED
 # from disabling them.
 ########################################################################
 
+# DEFINES += -DRW_SET_PROFILING
+
 DEFINES += -DTM_STATISTICS
 # DEFINES += -UTM_STATISTICS
 # DEFINES += -DTM_STATISTICS2

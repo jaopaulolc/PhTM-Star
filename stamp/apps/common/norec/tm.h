@@ -36,12 +36,12 @@
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */
 
-#ifdef PROFILING
+#if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 
 extern __thread long __txId__;
 extern long **__numCommits;
 extern long **__numAborts;
-#if PROFILING == 1
+#ifdef COMMIT_RATE_PROFILING
 extern long **__readSetSize;
 extern long **__writeSetSize;
 
@@ -99,9 +99,9 @@ extern long **__writeSetSize;
 					pmuShutdown();                                                       \
 					msrTerminate()
 
-#endif /* PROFILING == 1 */
+#endif /* COMMIT_RATE_PROFILING */
 
-#if PROFILING == 2
+#ifdef RW_SET_PROFILING
 #define MAX_TRANSACTIONS 40000000L
 extern long **__counter;
 extern long ***__readSetSize;
@@ -155,7 +155,7 @@ extern long ***__writeSetSize;
 					pmuShutdown();                                               \
 					msrTerminate()
 
-#endif /* PROFILING == 2 */
+#endif /* RW_SET_PROFILING */
 
 #else /* NO PROFILING */
 

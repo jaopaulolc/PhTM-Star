@@ -5,7 +5,7 @@ CPPFLAGS += -I$(MSR)
 LDFLAGS  += -L$(MSR) -lmsr -lm
 
 ifdef PROFILING
-  CPPFLAGS += -DPROFILING=$(PROFILING)
+  CPPFLAGS += -D$(PROFILING)
 endif
 
 # ======== Rules ========

@@ -52,9 +52,8 @@
                                     } while (0)
 #endif /* STM_VERSION_NB > 103 */
 
-#ifdef PROFILING
-
-#if PROFILING == 1
+#if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
+#ifdef COMMIT_RATE_PROFILING
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
 																		coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
@@ -119,9 +118,9 @@ int __TX_COUNT__;
 																		TM_START(1, __TX_COUNT__)
 #define TM_END()                    stm_commit(); \
 																		pmuStopCounting(__threadId__)
-#endif /* PROFILING == 1 */
+#endif /* COMMIT_RATE_PROFILING */
 
-#if PROFILING == 2
+#ifdef RW_SET_PROFILING
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
 																		coreSTM_r_set_size = (unsigned int ***)malloc(sizeof(unsigned int **)*numThread); \
@@ -185,7 +184,7 @@ int __TX_COUNT__;
 #define TM_END()                    stm_commit(); \
 																		pmuStopCounting(__threadId__)
 
-#endif /* PROFILING == 2 */
+#endif  /* RW_SET_PROFILING */
 
 #else /* NO PROFILING */
 #define TM_STARTUP(numThread)       msrInitialize(); \

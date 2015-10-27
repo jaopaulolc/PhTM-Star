@@ -90,6 +90,8 @@ function compile_with_tinystm {
 			for ort_hash in ${_ORT_HASHES}; do
 				sed -e "/${!design}/s|# ||;/${!cm}/s|# ||" \
 						-e "/${ORT_PROFILING}/s|# ||"          \
+						-e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
+						-e "/${RW_SET_PROFILING}/s|# ||"       \
 						-e "/${ort_hash}/s|# ||"      				 \
 						$tinySTM/Makefile.template > $tinySTM/Makefile
 				touch $tinySTM/Makefile
@@ -109,6 +111,10 @@ function compile_with_tinystm {
 
 function compile_with_norec {
 	
+	sed	-e "s|# DUMMY COMMENT||"               \
+	    -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
+			-e "/${RW_SET_PROFILING}/s|# ||"       \
+			$NOrec/Makefile.template > $NOrec/Makefile
 	make -C $NOrec clean ${MAKE_OPTIONS}
 	make -C $NOrec ${MAKE_OPTIONS}
 	echo "## ${!build} STM compiled"
@@ -224,7 +230,15 @@ do
 		P) case $OPTARG in
 		     ORT_PROFILING)
 				 	ORT_PROFILING='# DEFINES += -DORT_PROFILING' ;;
-				 [0-9]) # TSX PROFILING (TODO: NAME EACH PROFILING MODE)
+				 TSX_ABORT_PROFILING)
+				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=TSX_ABORT_PROFILING" ;;
+				 COMMIT_RATE_PROFILING)
+				 	COMMIT_RATE_PROFILING='# DEFINES += -DCOMMIT_RATE_PROFILING' 
+				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=COMMIT_RATE_PROFILING" ;;
+				 RW_SET_PROFILING)
+				 	RW_SET_PROFILING='# DEFINES += -DRW_SET_PROFILING' 
+				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=RW_SET_PROFILING" ;;
+				 [0-9])
 				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
 				 *) echo "error: invalid profiling mode '$OPTARG'" && exit -1 ;;
 				esac ;;

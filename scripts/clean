@@ -33,10 +33,12 @@ function clean {
 				make $MAKE_OPTIONS -C $TSX_RTM -f Makefile.template clean
 				;;
 			norec)
-				make $MAKE_OPTIONS -C $NOrec clean
+				test -e $NOrec/Makefile && rm $NOrec/Makefile
+				make $MAKE_OPTIONS -C $NOrec -f Makefile.template clean
 				;;
 			rh_norec)
-				make $MAKE_OPTIONS -C $NOrec clean
+				test -e $NOrec/Makefile && rm $NOrec/Makefile
+				make $MAKE_OPTIONS -C $NOrec -f Makefile.template clean
 				;;
 			hle) ;;
 			lock) ;;

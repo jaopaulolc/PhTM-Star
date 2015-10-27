@@ -28,21 +28,22 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
-#ifdef PROFILING
+#if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 __thread long __txId__;
 
 long **__numCommits;
 long **__numAborts;
-#if PROFILING == 1
+#ifdef COMMIT_RATE_PROFILING
 long **__readSetSize;
 long **__writeSetSize;
-#elif PROFILING == 2
+#endif /* COMMIT_RATE_PROFILING */
+
+#ifdef RW_SET_PROFILING
 long **__counter;
 long ***__readSetSize;
 long ***__writeSetSize;
-#endif
-#endif /* PROFILING */
-
+#endif /* RW_SET_PROFILING */
+#endif /*  COMMIT_RATE_PROFILING || RW_SET_PROFILING */
 
 namespace {
 
@@ -198,14 +199,15 @@ namespace {
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
 			
-		#if PROFILING == 1
+		#ifdef COMMIT_RATE_PROFILING
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
-		#elif PROFILING == 2
+		#endif /* COMMIT_RATE_PROFILING */
+		#ifdef RW_SET_PROFILING
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__counter[tx->id -1][__txId__]++;
-		#endif /* PROFILING */
+		#endif /* RW_SET_PROFILING */
 
 			tx->vlist.reset();
       OnReadOnlyCommit(tx);
@@ -231,16 +233,17 @@ namespace {
 
       // notify CM
       CM::onCommit(tx);
-		#if PROFILING == 1
+		#ifdef COMMIT_RATE_PROFILING
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
-		#elif PROFILING == 2
+		#endif /* COMMIT_RATE_PROFILING */
+		#ifdef RW_SET_PROFILING
 			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
 			__counter[tx->id -1][__txId__]++;
-		#endif /* PROFILING */
+		#endif /* RW_SET_PROFILING */
 
       tx->vlist.reset();
       tx->writes.reset();
@@ -327,16 +330,17 @@ namespace {
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
 		
-		#if PROFILING == 1
+		#ifdef COMMIT_RATE_PROFILING
 			__numAborts[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
-		#elif PROFILING == 2
+		#endif /* COMMIT_RATE_PROFILING */
+		#ifdef RW_SET_PROFILING
 			__numAborts[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
 			__counter[tx->id -1][__txId__]++;
-		#endif /* PROFILING */
+		#endif /* RW_SET_PROFILING */
 
       tx->vlist.reset();
       tx->writes.reset();

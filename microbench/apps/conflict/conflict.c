@@ -14,20 +14,23 @@
 #define RO	1
 #define RW	0
 
-#define L1_CACHE_SIZE    32*1024 
+#define L1_CACHE_SIZE   (32*1024)
 #define L1_BLOCK_SIZE         64 // 64 bytes per block/line
 #define L1_BLOCKS_PER_SET      8 // 8-way set associative
-#define L1_NUM_SETS      (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
 
 
 #define PARAM_DEFAULT_NUMTHREADS (1L)
 #define PARAM_DEFAULT_CONTENTION (100L)
 
 static pthread_t *threads;
-static long nThreads = PARAM_DEFAULT_NUMTHREADS;
-static long pWrites  = PARAM_DEFAULT_CONTENTION;
+static long nThreads     = PARAM_DEFAULT_NUMTHREADS;
+static uint64_t pWrites  = PARAM_DEFAULT_CONTENTION;
 
-static long *global_array;
+static long volatile lastChoice;
+
+static uint64_t *global_array;
 static int volatile stop = 0;
 static pthread_barrier_t sync_barrier;
 
@@ -38,23 +41,24 @@ double getTimeSeconds();
 
 void *readers_function(void *args){
 	
-	long tid = (long)args;
-	long sum = 0;
-	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS;
-
+	uint64_t const tid = (uint64_t)args;
+	uint64_t const blocksPerThread = L1_BLOCKS_PER_SET/nThreads;
 	unsigned short seed[3];
 	randomly_init_ushort_array(seed, 3);
-	
 
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 	
+	uint64_t sum = 0;
 	while(!stop){
-
-		long j, i  = (nrand48(seed) % 8)*step;
+		
+		uint64_t setIndex = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
+		//uint64_t setIndex = nrand48(seed) % 8;
+		uint64_t j, i = setIndex*L1_SET_BLOCK_OFFSET;
+		lastChoice = i;
 		TM_START(tid, RO);
-			for(j=i; j < (i + step);j++){
-				sum += TM_LOAD(&global_array[j]);
+			for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+				TM_LOAD(&global_array[j]);
 			}
 		TM_COMMIT;
 	}
@@ -65,37 +69,38 @@ void *readers_function(void *args){
 
 void *writer_function(void *args){
 	
-	long tid = (long)args;
-	long sum = 0;
-	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS;
-	
+	uint64_t const tid = (uint64_t)args;
+	uint64_t const blocksPerThread = L1_BLOCKS_PER_SET/nThreads;
 	unsigned short seed[3];
 	randomly_init_ushort_array(seed,3);
 	
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 
+	uint64_t sum = 0;
 	while(!stop){
 
-		long volatile op = nrand48(seed) % 101;
-		long i = (nrand48(seed) % 8)*step;
-		long j;
-
-		sum = nrand48(seed) % (2*L1_CACHE_SIZE);
+		uint64_t volatile op = nrand48(seed) % 101;
+		uint64_t setIndex = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
+		//uint64_t setIndex = nrand48(seed) % 8;
+		uint64_t j, i = setIndex*L1_SET_BLOCK_OFFSET;
+		uint64_t const value = nrand48(seed) % (L1_CACHE_SIZE*L1_CACHE_SIZE);
 		
-		if(pWrites < op){
-			TM_START(tid, RO);
-				for(j=i; j < (i + step);j++){
-					sum += TM_LOAD(&global_array[j]);
-				}
-			TM_COMMIT;
-		} else if(pWrites > op) {
+		if(op < pWrites){
+			i = lastChoice;
 			TM_START(tid, RW);
-				for(j=i; j < (i + step);j++){
-					TM_STORE(&global_array[j], sum);
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
 		}
+		else {
+			TM_START(tid, RO);
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+					TM_LOAD(&global_array[j]);
+				}
+			TM_COMMIT;
+		} 
 	}
 
   TM_EXIT_THREAD(tid);
@@ -107,28 +112,31 @@ int main(int argc, char** argv){
 
 	parseArgs(argc, argv);
 	
-	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-
-	global_array = (long*)memalign(0x1000, L1_CACHE_SIZE);
-	
-	//memset(global_array, 0, L1_CACHE_SIZE);
-
-	long i;
-	srand(time(NULL));
-	for(i=0; i < L1_CACHE_SIZE/sizeof(long); i++){
-		global_array[i] = rand() % L1_CACHE_SIZE;
-	}
-
-
+	struct timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
+	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
+	global_array = (uint64_t*)memalign(0x1000, L1_CACHE_SIZE);
 
-	struct timespec timeout = { 
-		.tv_sec  = 1 ,
-		.tv_nsec = 0
-	};
+	uint64_t set;
+	for (set=0; set < L1_NUM_SETS; set++){
+		uint64_t word;
+		for (word=0; word < L1_BLOCK_SIZE/sizeof(long); word++){
+			uint64_t block;
+			for (block=0; block < L1_BLOCKS_PER_SET; block++){
+				uint64_t addr = (uint64_t)&global_array[block*512 + word + set*8];
+				uint64_t set_n = (addr >> 6) & 0x3F;
+				if(set_n != set) {
+					fprintf(stderr,"error: set != set_n!\n");
+					exit(EXIT_FAILURE);
+				}
+				global_array[block*512 + word + set*8] = rand() % L1_CACHE_SIZE;
+			}
+		}
+	}
 
 	TM_INIT(nThreads);
 	
+	long i;
 	for(i=1; i < nThreads; i++){
 		if(pthread_create(&threads[i],NULL,readers_function,(void*)i)){
 			perror("pthread_create");
@@ -212,7 +220,7 @@ void set_affinity(long id){
 	
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(id%num_cores, &cpuset);
+	CPU_SET(id, &cpuset);
 
 	pthread_t current_thread = pthread_self();
 	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){

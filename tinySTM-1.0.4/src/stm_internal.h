@@ -379,10 +379,12 @@ typedef struct stm_tx {                 /* Transaction descriptor */
 	int tx_count;
   unsigned int *stat_commits;            /* Total number of commits (cumulative) */
   unsigned int *stat_aborts;             /* Total number of aborts (cumulative) */
+#ifdef RW_SET_PROFILING
 	unsigned int **stat_r_set_size;              /*  read-set size per tx execution */
 	unsigned int **stat_w_set_size;              /* write-set size per tx execution */
 	unsigned int *tx_count_counter;          /* number of times the tx with tx_count number started */
 	unsigned int nTx;                       /* number of transactions */
+#endif /* RW_SET_PROFILING */
   unsigned int stat_retries_max;        /* Maximum number of consecutive aborts (retries) */
 #endif /* TM_STATISTICS */
 #ifdef TM_STATISTICS2
@@ -1031,6 +1033,7 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 #endif /* CM == CM_MODULAR || defined(TM_STATISTICS) */
 #ifdef TM_STATISTICS
   tx->stat_aborts[tx->tx_count]++;
+#ifdef RW_SET_PROFILING
 	unsigned int _r_set_size = tx->r_set.nb_entries;
 	unsigned int _w_set_size = tx->w_set.nb_entries;
 	if(_r_set_size != 0 || _w_set_size != 0){
@@ -1038,6 +1041,7 @@ stm_rollback(stm_tx_t *tx, unsigned int reason)
 		tx->stat_w_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = _w_set_size;
 		tx->tx_count_counter[tx->tx_count]++;
 	}
+#endif /* RW_SET_PROFILING */
   if (tx->stat_retries_max < tx->stat_retries)
     tx->stat_retries_max = tx->stat_retries;
 #endif /* TM_STATISTICS */
@@ -1292,6 +1296,7 @@ int_stm_init_thread(int ntransactions)
 	tx->tx_count = 0;
   tx->stat_commits = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
   tx->stat_aborts  = (unsigned int*)calloc(ntransactions,sizeof(unsigned int));
+#ifdef RW_SET_PROFILING
 	tx->tx_count_counter = (unsigned int *)calloc(ntransactions,sizeof(unsigned int));
 	tx->stat_r_set_size  = (unsigned int **)malloc(ntransactions*sizeof(unsigned int*));
 	tx->stat_w_set_size  = (unsigned int **)malloc(ntransactions*sizeof(unsigned int*));
@@ -1302,6 +1307,7 @@ int_stm_init_thread(int ntransactions)
 		tx->stat_r_set_size[_i] = (unsigned int*)calloc(MAX_TRANSACTIONS,sizeof(unsigned int));
 		tx->stat_w_set_size[_i] = (unsigned int*)calloc(MAX_TRANSACTIONS,sizeof(unsigned int));
 	}
+#endif /* RW_SET_PROFILING */
   tx->stat_retries_max = 0;
 #ifdef ORT_PROFILING
 	tx->nb_false_conflicts = 0;
@@ -1358,6 +1364,7 @@ int_stm_exit_thread(stm_tx_t *tx)
   /* Statistics */
   if(tx->stat_commits != NULL) free(tx->stat_commits);
   if(tx->stat_aborts  != NULL) free(tx->stat_aborts);
+#ifdef RW_SET_PROFILING
   if(tx->tx_count_counter  != NULL) free(tx->tx_count_counter);
 	if(tx->stat_r_set_size != NULL) {
 		int i;
@@ -1373,6 +1380,7 @@ int_stm_exit_thread(stm_tx_t *tx)
 		}
 		free(tx->stat_w_set_size);
 	}
+#endif /* RW_SET_PROFILING */
 #ifdef ORT_PROFILING
 	unsigned long total_conflicts = tx->nb_total_conflicts;
 	unsigned long false_conflicts = tx->nb_false_conflicts;
@@ -1491,14 +1499,14 @@ int_stm_commit(stm_tx_t *tx)
 #endif /* DESIGN == MODULAR */
 
  end:
-#ifdef RW_SET_PROFILING
 	
-#endif /* RW_SET_PROFILING */
 #ifdef TM_STATISTICS
   tx->stat_commits[tx->tx_count]++;
+#ifdef RW_SET_PROFILING
 	tx->stat_r_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = tx->r_set.nb_entries;
 	tx->stat_w_set_size[tx->tx_count][tx->tx_count_counter[tx->tx_count]] = tx->w_set.nb_entries;
 	tx->tx_count_counter[tx->tx_count]++;
+#endif /* RW_SET_PROFILING */
 #endif /* TM_STATISTICS */
 #if CM == CM_MODULAR || defined(TM_STATISTICS)
   tx->stat_retries = 0;
@@ -1613,6 +1621,7 @@ int_stm_get_stats(stm_tx_t *tx, const char *name, void *val)
     return 1;
   }
 #ifdef TM_STATISTICS
+#ifdef RW_SET_PROFILING
   if (strcmp("r_set_nb_entries", name) == 0) {
     *(unsigned int ***)val = tx->stat_r_set_size;
 		tx->stat_r_set_size = NULL;
@@ -1628,6 +1637,7 @@ int_stm_get_stats(stm_tx_t *tx, const char *name, void *val)
 		tx->tx_count_counter = NULL;
     return 1;
   }
+#endif /* RW_SET_PROFILING */
 /*
 	if (strcmp("read_set_nb_entries", name) == 0) {
     *(unsigned int *)val = tx->r_set.nb_entries;

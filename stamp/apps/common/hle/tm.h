@@ -17,6 +17,7 @@
 #include <pmu.h>
 #include <assert.h>
 #include <hle.h>
+#include <locale.h>
 extern hle_lock_t global_lock;
 
 #define TM_ARG                        /* nothing */
@@ -26,21 +27,22 @@ extern hle_lock_t global_lock;
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#ifdef PROFILING
-#if PROFILING == 1
+#if defined(COMMIT_RATE_PROFILING) || defined(TSX_ABORT_PROFILING)
+#ifdef COMMIT_RATE_PROFILING
 
 #define TM_STARTUP(numThread)         msrInitialize();                               \
 																			pmuStartup(NUMBER_OF_TRANSACTIONS);            \
 																			pmuAddCustomCounter(0, HLE_TX_STARTED);        \
 																			pmuAddCustomCounter(1, HLE_TX_COMMITED)
-#elif PROFILING == 2
+#endif /* COMMIT_RATE_PROFILING */
+#ifdef TSX_ABORT_PROFILING
 #define TM_STARTUP(numThread)         msrInitialize();                                 \
 																			pmuStartup(NUMBER_OF_TRANSACTIONS);              \
 																			pmuAddCustomCounter(0, TX_ABORT_CONFLICT);       \
 																			pmuAddCustomCounter(1, TX_ABORT_CAPACITY);       \
 																			pmuAddCustomCounter(2, HLE_TX_ABORT_UNFRIENDLY); \
 																			pmuAddCustomCounter(3, HLE_TX_ABORT_OTHER)
-#endif /* PROFILING == 2 */
+#endif /* TSX_ABORT_PROFILING */
 
 #define TM_SHUTDOWN()									setlocale(LC_ALL, ""); \
 		int __numThreads__  = thread_getNumThread(); \
@@ -49,10 +51,10 @@ extern hle_lock_t global_lock;
 		int ntotalCounters  = nfixedCounters + ncustomCounters; \
 		int nmeasurements = pmuNumberOfMeasurements(); \
 		int ii; \
-		if(PROFILING == 1){ \
+		if(COMMIT_RATE_PROFILING){ \
 			printf("\nTx #  | %10s | %19s | %24s | %24s | %24s", \
 			"HLE START", "HLE COMMIT", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
-		} else if(PROFILING == 2){ \
+		} else { \
 			printf("\nTx #  | %19s | %19s | %19s | %19s ", \
 			"CONFLICT/READ CAP.", "WRITE CAPACITY", "UNFRIENDLY INST.", "OTHER"); \
 		} \
@@ -61,14 +63,14 @@ extern hle_lock_t global_lock;
 			printf("\nThread %d\n",ii); \
 			int i, j; \
 			uint64_t total[3] = {0,0,0}; \
-			if(PROFILING == 1){ \
+			if(COMMIT_RATE_PROFILING){ \
 				for(j=ncustomCounters; j < ntotalCounters; j++) \
 					for(i=0; i < nmeasurements; i++) \
 						total[j-ncustomCounters] += measurements[i][j]; \
 			} \
 			for(i=0; i < nmeasurements; i++){ \
 				printf("Tx %2d",i); \
-				if(PROFILING == 1){ \
+				if(COMMIT_RATE_PROFILING){ \
 					for(j=0; j < ncustomCounters-2; j++){ \
 						if(j && j % 2){ \
 							printf(" | %'10lu ",measurements[i][j]); \
@@ -83,7 +85,7 @@ extern hle_lock_t global_lock;
 						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)sum)); \
 					} \
 				} \
-				if(PROFILING == 1){ \
+				if(COMMIT_RATE_PROFILING){ \
 					for(j=ncustomCounters; j < ntotalCounters; j++){ \
 						printf(" | %'15lu ",measurements[i][j]); \
 						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)total[j-ncustomCounters])); \

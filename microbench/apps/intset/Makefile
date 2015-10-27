@@ -9,6 +9,8 @@ BUILDDIR = ../../$(TMBUILD)
 
 TARGET = $(BUILDDIR)/$(APP)
 
+CFLAGS  += -DNUMBER_OF_TRANSACTIONS=3
+
 LDFLAGS += -lrt
 
 .PHONY:	all clean

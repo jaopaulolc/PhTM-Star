@@ -8,6 +8,8 @@ BUILDDIR = ../../$(TMBUILD)
 
 TARGET = $(BUILDDIR)/capacity
 
+CFLAGS += -DNUMBER_OF_TRANSACTIONS=1
+
 .PHONY:	all clean
 
 all: TM_BUILD_DIR $(TARGET)

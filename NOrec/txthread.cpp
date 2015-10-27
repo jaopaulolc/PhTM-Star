@@ -241,6 +241,7 @@ namespace stm
 
 			printf("#commits   : %lu\n", numCommits);
 			printf("#conflicts : %lu (%lf)\n", numAborts, 100.0*((float)numAborts/(float)(numCommits+numAborts)));
+			printf("#capacity  : %lu (%lf)\n", 0L, 0.0);
 
       // if we ever switched to ProfileApp, then we should print out the
       // ProfileApp custom output.

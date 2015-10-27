@@ -17,15 +17,15 @@
 
 #ifdef STM
 #include <locale.h> // needed to modify printf number format
-#if PROFILING == 1
+#ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
-#endif /* PROFILING == 1 */
-#if PROFILING == 2
+#endif /* COMMIT_RATE_PROFILING */
+#ifdef RW_SET_PROFILING
 unsigned int ***coreSTM_r_set_size;
 unsigned int ***coreSTM_w_set_size;
 unsigned int **coreSTM_counter;
-#endif /* PROFILING == 2 */
+#endif /* RW_SET_PROFILING */
 #endif /* STM */
 
 #define MAX_LINE_LENGTH 1000000 /* max input is 400000 one digit input + spaces */
