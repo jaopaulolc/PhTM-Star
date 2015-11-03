@@ -17,19 +17,22 @@
 #define L1_CACHE_SIZE    32*1024 
 #define L1_BLOCK_SIZE         64 // 64 bytes per block/line
 #define L1_BLOCKS_PER_SET      8 // 8-way set associative
+#define L1_WORDS_PER_BLOCK     8
 #define L1_NUM_SETS      (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
 
 
 #define PARAM_DEFAULT_NUMTHREADS   (1L)
 #define PARAM_DEFAULT_OVERFLOWPROB (10L)
 
-static pthread_t *threads;
-static long nThreads   = PARAM_DEFAULT_NUMTHREADS;
-static long pOverflow  = PARAM_DEFAULT_OVERFLOWPROB;
+#define __ALIGN__ __attribute__((aligned(0x1000)))
 
-static long *global_array;
-static int volatile stop = 0;
-static pthread_barrier_t sync_barrier;
+static pthread_t *threads __ALIGN__;
+static long nThreads __ALIGN__  = PARAM_DEFAULT_NUMTHREADS;
+static long pOverflow __ALIGN__ = PARAM_DEFAULT_OVERFLOWPROB;
+
+static long *global_array __ALIGN__;
+static int volatile stop __ALIGN__ = 0;
+static pthread_barrier_t sync_barrier __ALIGN__;
 
 void randomly_init_ushort_array(unsigned short *s, long n);
 void parseArgs(int argc, char** argv);
@@ -37,39 +40,35 @@ void set_affinity(long id);
 
 void *writers_function(void *args){
 	
-	long tid = (long)args;
-	long const step = (L1_BLOCK_SIZE/sizeof(long))*L1_NUM_SETS;
-	long const setStart = tid*(L1_NUM_SETS/nThreads);
+	uint64_t tid = (uint64_t)args;
+	uint64_t const step = (L1_BLOCK_SIZE/sizeof(uint64_t))*L1_NUM_SETS;
+	uint64_t const setStart = tid*(L1_NUM_SETS/nThreads);
 	
 	unsigned short seed[3];
 	randomly_init_ushort_array(seed,3);
 	
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
+	
+	uint64_t const set = ((nrand48(seed) % L1_NUM_SETS)/nThreads + setStart)*8;
+	uint64_t const blockOffset  = nrand48(seed) % L1_WORDS_PER_BLOCK;
 
 	while(!stop){
 
-		long op = nrand48(seed) % 101;
-		long set = (nrand48(seed) % L1_NUM_SETS)/nThreads + setStart;
+		uint64_t op = nrand48(seed) % 101;
 		
-		if(pOverflow < op){
+		if(op < pOverflow) {
 			TM_START(tid, RW);
-				long i;
-				for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
-					long j;
-					for(j=0; j < L1_BLOCK_SIZE/sizeof(long); j++){
-						TM_STORE(&global_array[i*step + j + set*8], 0);
-					}
+				uint64_t i;
+				for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
+					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
 			TM_COMMIT;
-		} else if(pOverflow > op) {
+		} else {
 			TM_START(tid, RW);
-				long i;
-				for (i=0; i < L1_BLOCKS_PER_SET + 1; i++){
-					long j;
-					for(j=0; j < L1_BLOCK_SIZE/sizeof(long); j++){
-						TM_STORE(&global_array[i*step + j + set*8], 0);
-					}
+				uint64_t i;
+				for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
+					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
 			TM_COMMIT;
 		}
@@ -85,11 +84,8 @@ int main(int argc, char** argv){
 	parseArgs(argc, argv);
 	
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-
-	global_array = (long*)memalign(0x1000, L1_CACHE_SIZE + 512 * sizeof(long));
-	
-	memset(global_array, 0, L1_CACHE_SIZE + 512 * sizeof(long));
-
+	global_array = (long*)memalign(0x1000, 2*L1_CACHE_SIZE);
+	memset(global_array, 0, 2*L1_CACHE_SIZE);
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 
 	struct timespec timeout = { 
@@ -186,4 +182,6 @@ void set_affinity(long id){
 		perror("pthread_setaffinity_np");
 		exit(EXIT_FAILURE);
 	}
+
+	while ( id != sched_getcpu());
 }

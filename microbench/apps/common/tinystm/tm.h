@@ -34,9 +34,9 @@
  * stm_get_env() and only call sigsetjmp() if it is not null.
  */
 #define TM_START(tid, ro)                  { stm_tx_attr_t _a = {{.id = tid, .read_only = ro}}; \
-                                              sigjmp_buf *_e = stm_start(_a,__COUNTER__); \
+                                              sigjmp_buf *_e = stm_start(_a,0); \
                                               if (_e != NULL) sigsetjmp(*_e, 0); 
-#define TM_START_TS(ts, label)             { sigjmp_buf *_e = stm_start((stm_tx_attr_t)0,__COUNTER__); \
+#define TM_START_TS(ts, label)             { sigjmp_buf *_e = stm_start((stm_tx_attr_t)0,0); \
                                               if (_e != NULL && sigsetjmp(*_e, 0)) goto label; \
 	                                      stm_set_extension(0, &ts)
 #define TM_LOAD(addr)                      stm_load((stm_word_t *)addr)
@@ -56,7 +56,7 @@ static unsigned int **coreSTM_aborts;
 										coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads); \
 								    coreSTM_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads)
 
-#define TM_EXIT(nThreads)                                                                           \
+#define TM_EXIT(nThreads)   {                                                                       \
 										uint64_t starts = 0, aborts = 0, commits = 0;                                   \
 										long ii;                                                                        \
 										for(ii=0; ii < nThreads; ii++){                                                 \
@@ -64,14 +64,16 @@ static unsigned int **coreSTM_aborts;
 											for(i=0; i < NUMBER_OF_TRANSACTIONS; i++){                                    \
 												aborts  += coreSTM_aborts[ii][i];                                           \
 												commits += coreSTM_commits[ii][i];                                          \
-												starts  += commits + aborts;                                                \
 											}                                                                             \
+											free(coreSTM_aborts[ii]); free(coreSTM_commits[ii]);                          \
 										}                                                                               \
-										printf("#starts    : %lu\n", starts);                                           \
-										printf("#commits   : %lu\n", commits);                                          \
-										printf("#aborts    : %lu (%f)\n", aborts, 100.0*((float)aborts/(float)starts)); \
-										printf("#conflicts : %lu\n", aborts);                                           \
-										printf("#capacity  : %lu\n", 0L);                                               \
+										starts = commits + aborts;                                                      \
+										free(coreSTM_aborts); free(coreSTM_commits);                                    \
+										printf("#starts    : %12lu\n", starts);                                              \
+										printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts)); \
+										printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));   \
+										printf("#conflicts : %12lu\n", aborts);                                              \
+										printf("#capacity  : %12lu\n", 0L);                                            }     \
 																					 stm_exit()              
 
 #define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid)

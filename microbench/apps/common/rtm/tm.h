@@ -43,11 +43,11 @@
 		uint64_t starts  = commits + aborts;                                                                   \
 		uint64_t conflicts = eventCount[2];                                                                    \
 		uint64_t capacity  = eventCount[3];                                                                    \
-		printf("#starts    : %lu\n", starts);                                                                  \
-		printf("#commits   : %lu\n", commits);                                                                 \
-		printf("#aborts    : %lu (%f)\n", aborts, 100.0*((float)aborts/(float)starts));                        \
-		printf("#conflicts : %lu\n", conflicts);                                                               \
-		printf("#capacity  : %lu\n", capacity);                                                                \
+		printf("#starts    : %12lu\n", starts);                                                                \
+		printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts));                   \
+		printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));                     \
+		printf("#conflicts : %12lu\n", conflicts);                                                             \
+		printf("#capacity  : %12lu\n", capacity);                                                              \
 		}                                                                                                      \
 																			pmuShutdown();                                                       \
 																			msrTerminate()
