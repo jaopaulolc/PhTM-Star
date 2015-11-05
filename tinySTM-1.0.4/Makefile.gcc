@@ -2,8 +2,10 @@
 ifeq ($(CFG),debug)
   CFLAGS += -O0 -ggdb3
 else
-  CFLAGS += -O2
-#  CFLAGS += -march=native
+  CFLAGS += -O3
+  ifeq ($(shell uname -m),x86_64)
+    CFLAGS += -march=native
+  endif
 endif
 
 # Disable strict aliasing 

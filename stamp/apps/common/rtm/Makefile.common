@@ -8,12 +8,12 @@ CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DRTM
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3 -mrtm
 
-#LD       := gcc
+LD       := $(CC)
 LDFLAGS  += -lpthread
 
 TMLIBDIR ?= ../../../htm
 CPPFLAGS += -I$(TMLIBDIR)
-LDFLAGS  += -L$(TMLIBDIR) -lhtm -mrtm
+LDFLAGS  += -L$(TMLIBDIR) -lhtm
 LIBDEPS  += $(TMLIBDIR)/libhtm.a
 
 include ../common/Makefile.common

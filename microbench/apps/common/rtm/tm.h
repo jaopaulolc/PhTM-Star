@@ -1,7 +1,7 @@
 #ifndef TM_H
 #define TM_H 1
 
-#include <rtm.h>
+#include <htm.h>
 #include <msr.h>
 #include <pmu.h>
 #include <locale.h>
@@ -17,14 +17,14 @@
 
 #if defined(PROFILING)
 
-#define TM_INIT(nThreads)       TSX_STARTUP(nThreads);                          \
+#define TM_INIT(nThreads)       HTM_STARTUP(nThreads);                          \
                                 msrInitialize();                                \
 																pmuStartup(1);                                  \
 															  pmuAddCustomCounter(0,RTM_TX_ABORTED);          \
 															  pmuAddCustomCounter(1,RTM_TX_COMMITED);         \
 															  pmuAddCustomCounter(2,TX_ABORT_CONFLICT);       \
 															  pmuAddCustomCounter(3,TX_ABORT_CAPACITY)        
-#define TM_EXIT(nThreads)       TSX_SHUTDOWN();                                                            \
+#define TM_EXIT(nThreads)       HTM_SHUTDOWN();                                                            \
     {                                                                                                      \
 		setlocale(LC_ALL, "");                                                                                 \
 		int ncustomCounters = pmuNumberOfCustomCounters();                                                     \
@@ -58,8 +58,8 @@
 
 #else
 
-#define TM_INIT(nThreads)             TSX_STARTUP(nThreads)
-#define TM_EXIT(nThreads)             TSX_SHUTDOWN()
+#define TM_INIT(nThreads)             HTM_STARTUP(nThreads)
+#define TM_EXIT(nThreads)             HTM_SHUTDOWN()
 
 #define TM_INIT_THREAD(tid)           TX_INIT(tid); set_affinity(tid)
 #define TM_EXIT_THREAD                /* nothing */
@@ -70,7 +70,7 @@
 #define TM_START_TS(tid,ro)           TX_START()
 #define TM_COMMIT                     TX_END()
 
-#define TM_RESTART()                  _xabort(0xab)
+#define TM_RESTART()                  htm_abort()
 
 
 #define TM_MALLOC(size)               malloc(size)

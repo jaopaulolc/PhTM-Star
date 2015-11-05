@@ -1,12 +1,12 @@
 # TMBUILD = seq
 # ======== Defines ========
-CC       := gcc
+#CC       := gcc
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I$(TMBUILD)
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-LD       := gcc
+LD       := $(CC)
 LDFLAGS  += -lpthread
 
 TMLIB    = 

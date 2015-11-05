@@ -13,7 +13,7 @@
 #define P_MEMORY_STARTUP(numThread)   /* nothing */
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
-#include <rtm.h>
+#include <htm.h>
 #include <msr.h>
 #include <pmu.h>
 #include <assert.h>

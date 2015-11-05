@@ -8,7 +8,7 @@ CPPFLAGS += -I../lib -I../common/$(TMBUILD) -I../../../htm/haswell -DHLE
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-#LD       := gcc
+LD       := $(CC)
 LDFLAGS  += -lpthread
 LIBDEPS  += 
 

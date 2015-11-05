@@ -1,9 +1,13 @@
 
-MSR = ../../../msr
+ARCH = $(shell uname -m)
 
-CPPFLAGS += -I$(MSR)
-LDFLAGS  += -L$(MSR) -lmsr -lm
+ifeq ($(ARCH), x86_64)
+  MSR = ../../../msr
 
-ifdef PROFILING
-  CPPFLAGS += -DPROFILING=$(PROFILING)
+  CPPFLAGS += -I$(MSR)
+  LDFLAGS  += -L$(MSR) -lmsr -lm
+
+  ifdef PROFILING
+    CPPFLAGS += -DPROFILING=$(PROFILING)
+  endif
 endif

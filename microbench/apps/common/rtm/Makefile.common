@@ -1,17 +1,17 @@
 # TMBUILD = rtm
 # ======== Defines ========
-CC       := gcc-4.8.3
+#CC       := gcc
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DRTM
 CFLAGS   += -Wall -Wextra
-CFLAGS   += -O0 -ggdb3 -mrtm
+CFLAGS   += -O3 -mrtm
 
-LD       := gcc-4.8.3
+LD       := $(CC)
 LDFLAGS  += -lpthread
 
-LIBDIR   = ../../../tsx/rtm
+LIBDIR   = ../../../htm
 CPPFLAGS += -I$(LIBDIR)
-LDFLAGS  += -L$(LIBDIR) -lrtm -mrtm
-TMLIB     = $(LIBDIR)/librtm.a
+LDFLAGS  += -L$(LIBDIR) -lhtm
+TMLIB     = $(LIBDIR)/libhtm.a
 
 include ../common/Makefile.common
