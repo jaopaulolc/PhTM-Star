@@ -18,7 +18,6 @@
 #include "utility.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -361,7 +360,9 @@ MAIN(argc, argv)
     TIMER_T start;
     TIMER_T stop;
 		
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     GOTO_REAL();
 
@@ -380,7 +381,9 @@ MAIN(argc, argv)
     /* Run transactions */
     printf("Running clients... ");
     fflush(stdout);
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -393,7 +396,9 @@ MAIN(argc, argv)
 #endif
     GOTO_REAL();
     TIMER_READ(stop);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
     puts("done.");
     printf("Time = %0.6lf\n",
            TIMER_DIFF_SECONDS(start, stop));
@@ -411,7 +416,9 @@ MAIN(argc, argv)
     puts("done.");
     fflush(stdout);
 		
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

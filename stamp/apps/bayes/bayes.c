@@ -9,7 +9,6 @@
 #include "types.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -177,7 +176,9 @@ MAIN(argc, argv)
     /*
      * Initialization
      */
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     parseArgs(argc, (char** const)argv);
     long numThread     = global_params[PARAM_THREAD];
@@ -263,7 +264,9 @@ MAIN(argc, argv)
     fflush(stdout);
 
     TIMER_T learnStartTime;
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(learnStartTime);
     GOTO_SIM();
 
@@ -272,7 +275,9 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T learnStopTime;
     TIMER_READ(learnStopTime);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
 
     puts("done.");
     fflush(stdout);
@@ -304,7 +309,9 @@ MAIN(argc, argv)
     learner_free(learnerPtr);
 #endif
 		
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

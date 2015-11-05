@@ -24,13 +24,13 @@ function usage {
 	echo 'default = ORIGINAL'
 	
 	echo
-	echo '-D <RTM CM>'
-	echo "${rtm_CMS// / | }"
+	echo '-D <HTM CM>'
+	echo "${HTM_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
 	echo '-l <TSX lock>'
-	echo "${tsx_LOCKS// / | }"
+	echo "${TSX_LOCKS// / | }"
 	echo 'default = ALL'
 
 	echo
@@ -125,24 +125,48 @@ function compile_with_norec {
 
 function compile_with_rtm {
 
-	test -z "$_rtm_CMS"     && _rtm_CMS=$rtm_CMS
-	test -z "$_tsx_LOCKS"   && _tsx_LOCKS=$tsx_LOCKS
+	test -z "$_HTM_CMS"     && _HTM_CMS=$HTM_CMS
+	test -z "$_TSX_LOCKS"   && _TSX_LOCKS=$TSX_LOCKS
 				
-	for cm in ${_rtm_CMS}; do
-		for lock in ${_tsx_LOCKS}; do
-			sed "/# DEFINES += -D${lock^^}/s|# ||;/${!cm}/s|# ||" \
-				$TSX_RTM/Makefile.template > $TSX_RTM/Makefile
-			touch $TSX_RTM/Makefile
-			make -C $TSX_RTM clean ${MAKE_OPTIONS}
-			make -C $TSX_RTM ${MAKE_OPTIONS}
+	for cm in ${_HTM_CMS}; do
+		for lock in ${_TSX_LOCKS}; do
+			sed -e "/# DEFINES += -D${lock^^}/s|# ||"  \
+					-e "/${!cm}/s|# ||"                    \
+					$HTM/Makefile.template > $HTM/Makefile
+			touch $HTM/Makefile
+			make -C $HTM clean ${MAKE_OPTIONS}
+			make -C $HTM ${MAKE_OPTIONS}
 			
 			suffix=-${cm}-${lock}
 			echo "## RTM ${suffix} compiled"
 			
 			compile_stamp_apps
 			compile_microbench_apps
-			rm -f $TSX_RTM/Makefile
+			rm -f $HTM/Makefile
 		done # FOR EACH LOCK
+	done #FOR EACH CM
+
+}
+
+function compile_with_powerTM {
+
+	test -z "$_HTM_CMS"     && _HTM_CMS=$HTM_CMS
+				
+	for cm in ${_HTM_CMS}; do
+		lock=simple_lock
+		sed -e "/# DEFINES += -D${lock^^}/s|# ||"  \
+				-e "/${!cm}/s|# ||"                    \
+				$HTM/Makefile.template > $HTM/Makefile
+		touch $HTM/Makefile
+		make -C $HTM clean ${MAKE_OPTIONS}
+		make -C $HTM ${MAKE_OPTIONS}
+		
+		suffix=-${cm}-${lock}
+		echo "## powerTM ${suffix} compiled"
+		
+		compile_stamp_apps
+		compile_microbench_apps
+		rm -f $HTM/Makefile
 	done #FOR EACH CM
 
 }
@@ -174,8 +198,10 @@ function compile_seq {
 function compile {
 	
 	echo 'starting compilation...'
-	
-	make -C $MSRDIR clean $MAKE_OPTIONS && make -C $MSRDIR $MAKE_OPTIONS
+
+	if [ $(uname -m) == "x86_64" ];  then
+		make -C $MSRDIR clean $MAKE_OPTIONS && make -C $MSRDIR $MAKE_OPTIONS
+	fi
 
 	test -z "$_BUILDS"                && _BUILDS=$BUILDS
 	test "$_STAMP_APPS" == "ALL"      && _STAMP_APPS=$STAMP_APPS
@@ -204,6 +230,9 @@ function compile {
 			hle)
 				compile_with_hle
 				;;
+			powerTM)
+				compile_with_powerTM
+				;;
 			lock)
 				compile_with_lock
 				;;
@@ -223,8 +252,8 @@ do
 		b) _BUILDS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
-		D) _rtm_CMS=$OPTARG ;;
-		l) _tsx_LOCKS=$OPTARG ;;
+		D) _HTM_CMS=$OPTARG ;;
+		l) _TSX_LOCKS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;
 		P) case $OPTARG in

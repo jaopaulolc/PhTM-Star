@@ -1,13 +1,13 @@
 #TMBUILD ?= norec
 
 # ======== Defines ========
-CC       := g++-4.8.3
+CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DSTM -DSTM_API_STAMP
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-LD       := g++-4.8.3
+LD       := $(CXX)
 LDFLAGS  += -lpthread
 
 TMLIBDIR ?= ../../../NOrec

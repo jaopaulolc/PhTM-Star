@@ -14,7 +14,6 @@
 #include "tm.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -28,7 +27,9 @@ unsigned int **coreSTM_counter;
 
 MAIN(argc, argv)
 {
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     GOTO_REAL();
 
@@ -160,7 +161,9 @@ MAIN(argc, argv)
     computeGraphArgs.GPtr       = G;
     computeGraphArgs.SDGdataPtr = SDGdata;
 
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(start);
 
     GOTO_SIM();
@@ -177,7 +180,9 @@ MAIN(argc, argv)
     TIMER_READ(stop);
 
     time = TIMER_DIFF_SECONDS(start, stop);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
     totalTime += time;
 
     printf("\n\tcomputeGraph() completed execution.\n");
@@ -514,7 +519,9 @@ MAIN(argc, argv)
     P_FREE(G);
     P_FREE(SDGdata);
 
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

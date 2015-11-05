@@ -16,7 +16,6 @@
 #include "util.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -79,7 +78,9 @@ MAIN(argc, argv)
     float   threshold = 0.00001;
     int     opt;
 		
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     GOTO_REAL();
 
@@ -205,7 +206,9 @@ MAIN(argc, argv)
     cluster_assign = (int*)SEQ_MALLOC(numObjects * sizeof(int));
     assert(cluster_assign);
 		
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
 
     nloops = 1;
     /* len = max_nclusters - min_nclusters + 1; */
@@ -232,7 +235,9 @@ MAIN(argc, argv)
 
     }
 
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
 
 #ifdef GNUPLOT_OUTPUT
     {
@@ -306,7 +311,9 @@ MAIN(argc, argv)
     SEQ_FREE(cluster_centres);
     SEQ_FREE(buf);
 		
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     GOTO_SIM();

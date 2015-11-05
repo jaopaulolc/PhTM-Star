@@ -10,7 +10,6 @@
 #include "types.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -136,7 +135,9 @@ MAIN(argc, argv)
     /*
      * Initialization
      */
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     parseArgs(argc, (char** const)argv);
     long numThread = global_params[PARAM_THREAD];
@@ -161,7 +162,9 @@ MAIN(argc, argv)
      */
     router_solve_arg_t routerArg = {routerPtr, mazePtr, pathVectorListPtr};
     TIMER_T startTime;
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(startTime);
     GOTO_SIM();
 #ifdef OTM
@@ -175,7 +178,9 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T stopTime;
     TIMER_READ(stopTime);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
 
     long numPathRouted = 0;
     list_iter_t it;
@@ -208,7 +213,9 @@ MAIN(argc, argv)
     }
     list_free(pathVectorListPtr);
 		
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

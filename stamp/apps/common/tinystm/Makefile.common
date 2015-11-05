@@ -2,13 +2,13 @@
 #TMBUILD ?= tinystm
 
 # ======== Defines ========
-CC       := gcc-4.8.3
-#CPPFLAGS += -DNDEBUG
+#CC       := gcc
+CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DSTM
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-LD       := gcc-4.8.3
+#LD       := gcc
 LDFLAGS  += -lpthread
 
 TMLIBDIR ?= ../../../tinySTM

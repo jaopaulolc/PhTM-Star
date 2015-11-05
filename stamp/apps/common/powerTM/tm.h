@@ -13,11 +13,17 @@
 #define P_MEMORY_STARTUP(numThread)   /* nothing */
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
-#include <rtm.h>
-#include <msr.h>
-#include <pmu.h>
+#include <htm.h>
 #include <assert.h>
 #include <locale.h>
+
+#if defined(__x86_64__) || defined(__i386)
+#include <msr.h>
+#include <pmu.h>
+#else
+#define msrInitialize()         			/* nothing */
+#define msrTerminate()          			/* nothing */
+#endif
 
 #define TM_ARG                        /* nothing */
 #define TM_ARG_ALONE                  /* nothing */
@@ -31,7 +37,7 @@
 
 #define TM_STARTUP(numThread)         msrInitialize();                               \
 																			pmuStartup(NUMBER_OF_TRANSACTIONS);            \
-																			HTM_STARTUP(numThread);                        \
+																		  HTM_STARTUP(numThread);                        \
 																			pmuAddCustomCounter(0, RTM_TX_STARTED);        \
 																			pmuAddCustomCounter(1, RTM_TX_COMMITED);       \
 																			pmuAddCustomCounter(2, HLE_TX_STARTED);        \
@@ -133,7 +139,7 @@
 
 #endif /* NO PROFILING */
 
-#define TM_RESTART()                  _xabort(0xab)
+#define TM_RESTART()                  htm_abort()
 #define TM_EARLY_RELEASE(var)         /* nothing */
 
 

@@ -17,8 +17,13 @@
 #include <mod_mem.h>
 #include <mod_stats.h>
 
+#if defined(__x86_64__) || defined(__i386)
 #include <msr.h>
 #include <pmu.h>
+#else
+#define msrInitialize()         		/* nothing */
+#define msrTerminate()          		/* nothing */
+#endif
 
 #define TM_ARG                      /* nothing */
 #define TM_ARG_ALONE                /* nothing */

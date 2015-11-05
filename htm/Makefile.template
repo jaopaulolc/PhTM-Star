@@ -1,0 +1,48 @@
+#!/usr/bin/make
+
+target = libhtm.a
+
+DEFINES = -D_GNU_SOURCE
+
+ifdef THRESHOLD
+  DEFINES += -DRTM_MAX_RETRIES=$(THRESHOLD)
+endif
+
+# DEFINES += -DSIMPLE_LOCK
+
+# DEFINES += -DHLE_LOCK
+
+# DEFINES += -DHTM_CM_GLOCK
+
+# DEFINES += -DHTM_CM_AUXLOCK
+
+# DEFINES += -DHTM_CM_BACKOFF
+
+# DEFINES += -DHTM_CM_DIEGUES -DFALLBACK_PROB=10
+
+CFLAGS = -O3 -Wall -I. $(DEFINES)
+
+ARCH = $(shell uname -m)
+
+ifeq ($(ARCH), x86_64)
+  # Intel RTM
+  CFLAGS += -mrtm
+else
+  ifeq ($(ARCH), ppc64le)
+    # IBM PowerTM
+    CFLAGS += -mhtm
+  else
+	  $(error unsupported architecture)
+  endif
+endif
+
+all: $(target)
+
+$(target): htm.o
+	$(AR) cr $@ $<
+
+htm.o: htm.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	$(RM) *.a *.o

@@ -21,6 +21,11 @@
 #define STM_CPU_X86
 /* #undef STM_CPU_SPARC */
 
+// Defined when we want to optimize for SSE execution
+#if defined(__x86_64__) || defined(__i386)
+#define STM_USE_SSE
+#endif
+
 // Target compiler
 #define STM_CC_GCC
 /* #undef STM_CC_SUN */
@@ -58,8 +63,5 @@
 // Configured options
 /* #undef STM_PROTECT_STACK */
 /* #undef STM_ABORT_ON_THROW */
-
-// Defined when we want to optimize for SSE execution
-#define STM_USE_SSE
 
 #endif // RSTM_STM_INCLUDE_CONFIG_H

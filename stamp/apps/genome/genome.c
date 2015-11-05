@@ -13,7 +13,6 @@
 #include "vector.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -145,7 +144,9 @@ MAIN (argc,argv)
     P_MEMORY_STARTUP(numThread);
     thread_startup(numThread);
 		
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     random_t* randomPtr = random_alloc();
     assert(randomPtr != NULL);
@@ -171,7 +172,9 @@ MAIN (argc,argv)
     /* Benchmark */
     printf("Sequencing gene... ");
     fflush(stdout);
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -184,7 +187,9 @@ MAIN (argc,argv)
 #endif
     GOTO_REAL();
     TIMER_READ(stop);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
     puts("done.");
     printf("Time = %lf\n", TIMER_DIFF_SECONDS(start, stop));
     fflush(stdout);
@@ -212,7 +217,9 @@ MAIN (argc,argv)
     puts("done.");
     fflush(stdout);
 
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

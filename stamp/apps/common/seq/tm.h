@@ -13,8 +13,14 @@
 #define P_MEMORY_STARTUP(numThread)   /* nothing */
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
-#include <msr.h>
 #include <assert.h>
+
+#if defined(__x86_64__) || defined(__i386)
+#include <msr.h>
+#else
+#define msrInitialize()         			/* nothing */
+#define msrTerminate()          			/* nothing */
+#endif
 
 #define TM_ARG                        /* nothing */
 #define TM_ARG_ALONE                  /* nothing */
@@ -24,7 +30,7 @@
 #define TM_SAFE                       /* nothing */
 
 #define TM_STARTUP(numThread)         msrInitialize()
-#define TM_SHUTDOWN()                 msrTerminate();
+#define TM_SHUTDOWN()                 msrTerminate()
 
 #define TM_THREAD_ENTER()             /* nothing */
 #define TM_THREAD_EXIT()              /* nothing */

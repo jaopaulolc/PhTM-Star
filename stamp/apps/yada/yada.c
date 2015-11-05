@@ -11,7 +11,6 @@
 #include "tm.h"
 
 #ifdef STM
-#include <locale.h> // needed to modify printf number format
 #ifdef COMMIT_RATE_PROFILING
 unsigned int **coreSTM_commits;
 unsigned int **coreSTM_aborts;
@@ -258,7 +257,9 @@ process (void *arg)
 MAIN(argc, argv)
 {
 
+#if defined(__x86_64__) || defined(__i386)
 		unsigned int counterBefore,counterAfter;
+#endif /* Intel RAPL */
 
     GOTO_REAL();
 
@@ -292,7 +293,9 @@ MAIN(argc, argv)
      */
 
     TIMER_T start;
+#if defined(__x86_64__) || defined(__i386)
 		counterBefore = msrGetCounter();
+#endif /* Intel RAPL */
     TIMER_READ(start);
     GOTO_SIM();
 #ifdef OTM
@@ -306,7 +309,9 @@ MAIN(argc, argv)
     GOTO_REAL();
     TIMER_T stop;
     TIMER_READ(stop);
+#if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
+#endif /* Intel RAPL */
 
     puts(" done.");
     printf("Time                            = %0.3lf\n",
@@ -335,7 +340,9 @@ MAIN(argc, argv)
      * TODO: deallocate mesh and work heap
      */
 
+#if defined(__x86_64__) || defined(__i386)
 		printf("\nEnergy = %lf J\n",msrDiffCounter(counterBefore,counterAfter));
+#endif /* Intel RAPL */
 
     TM_SHUTDOWN();
     P_MEMORY_SHUTDOWN();

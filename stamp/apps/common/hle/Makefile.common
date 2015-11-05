@@ -2,13 +2,13 @@
 # TMBUILD ?= seq
 
 # ======== Defines ========
-CC       := gcc-4.8.3
-#CPPFLAGS += -DNDEBUG
-CPPFLAGS += -I../lib -I../common/$(TMBUILD) -I../../../tsx/hle -DHLE
+#CC       := gcc
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -I../../../htm/haswell -DHLE
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-LD       := gcc-4.8.3
+#LD       := gcc
 LDFLAGS  += -lpthread
 LIBDEPS  += 
 

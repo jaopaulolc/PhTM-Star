@@ -1,12 +1,16 @@
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
-/* Requires TSX support in the CPU */
-#include <rtm.h>
+#include <locks.h>
+#include <htm.h>
 
 long nthreads;
 long num_iterations;
 long x = 0;
+
+static lock_t global_lock = 0;
 
 void *foo(void *args){
 
@@ -15,9 +19,9 @@ void *foo(void *args){
 
 	long i;
 	for(i = 0; i < my_num_iterations; i++){
-		TX_START(); /* Start transaction */
+		TX_START();
 			x = x + 1;
-		TX_END();		/* Try to commit transaction */
+		TX_END();
 	}
 
 	return NULL;
@@ -35,7 +39,7 @@ int main(int argc,char** argv){
 
 	pthread_t *thread_handles = (pthread_t *)malloc(sizeof(pthread_t)*nthreads);
 
-	TSX_START(nthreads);
+	HTM_STARTUP(nthreads);
 	long i;
 	for(i=0; i < nthreads; i++){
 		if(pthread_create(&thread_handles[i],NULL,foo,(void*)i) != 0){
@@ -50,7 +54,7 @@ int main(int argc,char** argv){
 	}
 	free(thread_handles);
 	
-	TSX_FINISH();
+	HTM_SHUTDOWN();
 	printf("\nx = %ld (verification = %s)\n",x,(x==num_iterations) ? "PASSED" : "FAILED");
 
 	return 0;

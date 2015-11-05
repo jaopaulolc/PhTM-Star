@@ -15,8 +15,13 @@
 #define P_MEMORY_STARTUP(numThread)   /* nothing */
 #define P_MEMORY_SHUTDOWN()           /* nothing */
 
+#if defined(__x86_64__) || defined(__i386)
 #include <msr.h>
 #include <pmu.h>
+#else
+#define msrInitialize()         			/* nothing */
+#define msrTerminate()          			/* nothing */
+#endif
 
 #include <string.h>
 /* The API is specific for STAMP. */
