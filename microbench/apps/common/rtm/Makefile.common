@@ -4,7 +4,7 @@ CC       := gcc-4.8.3
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DRTM
 CFLAGS   += -Wall -Wextra
-CFLAGS   += -O3 -mrtm
+CFLAGS   += -O0 -ggdb3 -mrtm
 
 LD       := gcc-4.8.3
 LDFLAGS  += -lpthread

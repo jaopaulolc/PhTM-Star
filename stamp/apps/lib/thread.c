@@ -114,6 +114,8 @@ void set_affinity(long id){
 		perror("pthread_setaffinity_np");
 		exit(EXIT_FAILURE);
 	}
+
+	while( id != sched_getcpu() );
 }
 
 

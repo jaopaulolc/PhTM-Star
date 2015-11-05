@@ -24,15 +24,17 @@
 #define PARAM_DEFAULT_NUMTHREADS (1L)
 #define PARAM_DEFAULT_CONTENTION (100L)
 
-static pthread_t *threads;
-static long nThreads     = PARAM_DEFAULT_NUMTHREADS;
-static uint64_t pWrites  = PARAM_DEFAULT_CONTENTION;
+#define __ALIGN__ __attribute__((aligned(0x1000)))
+
+static pthread_t *threads __ALIGN__;
+static long nThreads __ALIGN__ = PARAM_DEFAULT_NUMTHREADS;
+static long pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
 
 static long volatile lastChoice;
 
-static uint64_t *global_array;
-static int volatile stop = 0;
-static pthread_barrier_t sync_barrier;
+static uint64_t *global_array __ALIGN__;
+static int volatile stop __ALIGN__ = 0;
+static pthread_barrier_t sync_barrier __ALIGN__ ;
 
 void randomly_init_ushort_array(unsigned short *s, long n);
 void parseArgs(int argc, char** argv);
@@ -49,13 +51,11 @@ void *readers_function(void *args){
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 	
-	uint64_t sum = 0;
 	while(!stop){
 		
-		uint64_t setIndex = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
-		//uint64_t setIndex = nrand48(seed) % 8;
-		uint64_t j, i = setIndex*L1_SET_BLOCK_OFFSET;
-		lastChoice = i;
+		uint64_t blockIndex __ALIGN__ = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
+		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
+		__atomic_store_n(&lastChoice, i, __ATOMIC_RELEASE);
 		TM_START(tid, RO);
 			for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
 				TM_LOAD(&global_array[j]);
@@ -64,10 +64,10 @@ void *readers_function(void *args){
 	}
 
   TM_EXIT_THREAD(tid);
-	return (void *)(sum*tid);
+	return (void *)(tid);
 }
 
-void *writer_function(void *args){
+void *writers_function(void *args){
 	
 	uint64_t const tid = (uint64_t)args;
 	uint64_t const blocksPerThread = L1_BLOCKS_PER_SET/nThreads;
@@ -77,17 +77,15 @@ void *writer_function(void *args){
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 
-	uint64_t sum = 0;
 	while(!stop){
 
-		uint64_t volatile op = nrand48(seed) % 101;
-		uint64_t setIndex = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
-		//uint64_t setIndex = nrand48(seed) % 8;
-		uint64_t j, i = setIndex*L1_SET_BLOCK_OFFSET;
+		uint64_t volatile op __ALIGN__ = nrand48(seed) % 101;
+		uint64_t blockIndex __ALIGN__ = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
+		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
 		uint64_t const value = nrand48(seed) % (L1_CACHE_SIZE*L1_CACHE_SIZE);
 		
 		if(op < pWrites){
-			i = lastChoice;
+			i = __atomic_load_n(&lastChoice, __ATOMIC_ACQUIRE);
 			TM_START(tid, RW);
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
 					TM_STORE(&global_array[j], value);
@@ -95,6 +93,7 @@ void *writer_function(void *args){
 			TM_COMMIT;
 		}
 		else {
+			__atomic_store_n(&lastChoice, i, __ATOMIC_RELEASE);
 			TM_START(tid, RO);
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
 					TM_LOAD(&global_array[j]);
@@ -104,7 +103,7 @@ void *writer_function(void *args){
 	}
 
   TM_EXIT_THREAD(tid);
-	return (void *)(sum*tid);
+	return (void *)(tid);
 }
 
 
@@ -117,36 +116,22 @@ int main(int argc, char** argv){
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 	global_array = (uint64_t*)memalign(0x1000, L1_CACHE_SIZE);
 
-	uint64_t set;
-	for (set=0; set < L1_NUM_SETS; set++){
-		uint64_t word;
-		for (word=0; word < L1_BLOCK_SIZE/sizeof(long); word++){
-			uint64_t block;
-			for (block=0; block < L1_BLOCKS_PER_SET; block++){
-				uint64_t addr = (uint64_t)&global_array[block*512 + word + set*8];
-				uint64_t set_n = (addr >> 6) & 0x3F;
-				if(set_n != set) {
-					fprintf(stderr,"error: set != set_n!\n");
-					exit(EXIT_FAILURE);
-				}
-				global_array[block*512 + word + set*8] = rand() % L1_CACHE_SIZE;
-			}
-		}
-	}
-
+	long nWriters = (nThreads  > 1) ? 2 : 1;
 	TM_INIT(nThreads);
 	
 	long i;
-	for(i=1; i < nThreads; i++){
-		if(pthread_create(&threads[i],NULL,readers_function,(void*)i)){
+	for(i=0; i < nThreads; i++){
+		int status;
+		if(nWriters){
+			nWriters--;
+			status = pthread_create(&threads[i],NULL,writers_function,(void*)i);
+		} else {
+			status = pthread_create(&threads[i],NULL,readers_function,(void*)i);
+		}
+		if(status != 0){
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}
-	}
-
-	if(pthread_create(&threads[0],NULL,writer_function,(void*)0)){
-		perror("pthread_create");
-		exit(EXIT_FAILURE);
 	}
 
 	pthread_barrier_wait(&sync_barrier);
@@ -227,4 +212,6 @@ void set_affinity(long id){
 		perror("pthread_setaffinity_np");
 		exit(EXIT_FAILURE);
 	}
+	
+	while( id != sched_getcpu() );
 }

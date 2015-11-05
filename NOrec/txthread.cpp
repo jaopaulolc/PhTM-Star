@@ -217,6 +217,7 @@ namespace stm
       uint32_t txn_count    = 0;                // total txns
       uint32_t rw_txns      = 0;                // rw commits
       uint32_t ro_txns      = 0;                // ro commits
+			uint64_t numStarts    = 0;                // total starts
       uint64_t numCommits   = 0;                // total commits
       uint64_t numAborts    = 0;                // aborts
       for (uint32_t i = 0; i < threadcount.val; i++) {
@@ -239,9 +240,11 @@ namespace stm
 
       std::cout << "Total nontxn work:\t" << nontxn_count << std::endl;
 
-			printf("#commits   : %lu\n", numCommits);
-			printf("#conflicts : %lu (%lf)\n", numAborts, 100.0*((float)numAborts/(float)(numCommits+numAborts)));
-			printf("#capacity  : %lu (%lf)\n", 0L, 0.0);
+			numStarts = numCommits + numAborts;
+			printf("#starts    : %12lu\n", numStarts);
+			printf("#commits   : %12lu %6.2f\n", numCommits, 100.0*((float)numCommits/(float)numStarts));
+			printf("#conflicts : %12lu %6.2f\n", numAborts, 100.0*((float)numAborts/(float)numStarts));
+			printf("#capacity  : %12lu\n", 0L);
 
       // if we ever switched to ProfileApp, then we should print out the
       // ProfileApp custom output.
