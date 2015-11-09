@@ -24,12 +24,12 @@ function usage {
 	
 	echo
 	echo '-D <RTM CM>'
-	echo "${rtm_CMS// / | }"
+	echo "${HTM_CMS// / | }"
 	echo 'default = ALL'
 	
 	echo
 	echo '-l <TSX lock>'
-	echo "${tsx_LOCKS// / | }"
+	echo "${TSX_LOCKS// / | }"
 	echo 'default = ALL'
 	
 	echo
@@ -78,17 +78,26 @@ function usage {
 }
 
 function execute_stamp_apps {
+	
+	test "$_STAMP_APPS" == "ALL"  && local _STAMP_APPS=$STAMP_APPS
+	test -z "$_WORK_SIZES"        && local _WORK_SIZES='large'
+	test "$_WORK_SIZES" == "ALL"  && local _WORK_SIZES=$WORK_SIZES
 
 	for app in ${_STAMP_APPS}; do
 		for work in ${_WORK_SIZES}; do
 			eval exec_flags=\$EXEC_FLAG_${app}_$work
 			appRunPath="$STAMP/$build/$app/$app-$suffix"
 			for t in $NUMTHREADS; do
-				outputLog="$LOGDIR/$app-$suffix-$memalloc-$t.log"
+				local s=$(echo $suffix | sed 's|seq|seq-'$(uname -m)'|')
+				outputLog="$LOGDIR/$app-$s-$memalloc-$t.log"
 				rm -f $outputLog
 				for j in $(seq 1 ${_NEXEC}); do
-					echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($work)"	
-					sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
+					echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($work)"
+					if [ $HOSTNAME == node03 ]; then
+						sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
+					else
+						LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
+					fi
 				done # FOR EACH EXECUTION
 			done # FOR EACH NUMBER OF THREADS
 		done # FOR EACH WORK SIZE
@@ -96,6 +105,10 @@ function execute_stamp_apps {
 }
 
 function execute_microbench_apps {
+	
+	test "$_MICROBENCH_APPS" == "ALL" && local _MICROBENCH_APPS=$MICROBENCH_APPS
+	test -z "$_INITSIZES"             && local _INITSIZES=$INITSIZES
+	test -z "$_UPDATERATES"           && local _UPDATERATES=$UPDATERATES
 
 	local i="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
 	local u="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
@@ -114,7 +127,11 @@ function execute_microbench_apps {
 			rm -f $outputLog
 			for j in $(seq 1 ${_NEXEC}); do
 				echo "execution $j: $appRunPath -${exec_flags//-/ -} ($memalloc)"	
-				sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
+				if [ $HOSTNAME == node03 ]; then
+					sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
+				else
+					LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
+				fi
 			done # FOR EACH EXECUTION
 		done # FOR EACH EXEC FLAGS
 	done # FOR EACH APPS
@@ -133,14 +150,8 @@ function execute {
 	test -z "$_tinySTM_CMS"       && _tinySTM_CMS=$tinySTM_CMS
 	test -z "$_ORT_HASHES"        && _ORT_HASHES='ORIGINAL'
 	test "$_ORT_HASHES" == "ALL"  && _ORT_HASHES=$ORT_HASHES
-	test "$_STAMP_APPS" == "ALL"  && _STAMP_APPS=$STAMP_APPS
-	test -z "$_WORK_SIZES"        && _WORK_SIZES='large'
-	test "$_WORK_SIZES" == "ALL"  && _WORK_SIZES=$WORK_SIZES
-	test -z "$_rtm_CMS"           && _rtm_CMS=$rtm_CMS
-	test -z "$_tsx_LOCKS"         && _tsx_LOCKS=$tsx_LOCKS
-	test "$_MICROBENCH_APPS" == "ALL" && _MICROBENCH_APPS=$MICROBENCH_APPS
-	test -z "$_INITSIZES"         && _INITSIZES=$INITSIZES
-	test -z "$_UPDATERATES"       && _UPDATERATES=$UPDATERATES
+	test -z "$_HTM_CMS"           && _HTM_CMS=$HTM_CMS
+	test -z "$_TSX_LOCKS"         && _TSX_LOCKS=$TSX_LOCKS
 	
 	echo 'starting execution...'
 
@@ -149,7 +160,9 @@ function execute {
 		[ $build == 'tinystm' ] && \
 			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
 		[ $build == 'rtm' ] && \
-			SUFFIXES="$(cross_product $build "${_rtm_CMS}" "${_tsx_LOCKS}")"
+			SUFFIXES="$(cross_product $build "${_HTM_CMS}" "${_TSX_LOCKS}")"
+		[ $build == 'powerTM' ] && \
+			SUFFIXES="$(cross_product $build "${_HTM_CMS}" "simple_lock")"
 		NUMTHREADS=$_NTHREADS
 		[ $build == "seq" ] && NUMTHREADS='1'
 		for suffix in $SUFFIXES; do
@@ -169,8 +182,8 @@ do
 		b) _BUILDS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
-		D) _rtm_CMS=$OPTARG ;;
-		l) _tsx_LOCKS=$OPTARG ;;
+		D) _HTM_CMS=$OPTARG ;;
+		l) _TSX_LOCKS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		w) _WORK_SIZES=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;
