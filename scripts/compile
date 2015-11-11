@@ -125,8 +125,10 @@ function compile_with_norec {
 
 function compile_with_rtm {
 
-	test -z "$_HTM_CMS"     && _HTM_CMS=$HTM_CMS
-	test -z "$_TSX_LOCKS"   && _TSX_LOCKS=$TSX_LOCKS
+	test -z "$_HTM_CMS"         && _HTM_CMS='glock'
+	test "$_HTM_CMS" == "ALL"   && _HTM_CMS=$HTM_CMS
+	test -z "$_TSX_LOCKS"       && _TSX_LOCKS='simple_lock'
+	test "$_TSX_LOCKS" == "ALL" && _TSX_LOCKS=$TSX_LOCKS
 				
 	for cm in ${_HTM_CMS}; do
 		for lock in ${_TSX_LOCKS}; do
@@ -150,7 +152,8 @@ function compile_with_rtm {
 
 function compile_with_powerTM {
 
-	test -z "$_HTM_CMS"     && _HTM_CMS=$HTM_CMS
+	test -z "$_HTM_CMS"         && _HTM_CMS='glock'
+	test "$_HTM_CMS" == "ALL"   && _HTM_CMS=$HTM_CMS
 				
 	for cm in ${_HTM_CMS}; do
 		lock=simple_lock

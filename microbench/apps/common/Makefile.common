@@ -11,3 +11,5 @@ ifeq ($(ARCH), x86_64)
     CPPFLAGS += -DPROFILING=$(PROFILING)
   endif
 endif
+
+CPPFLAGS += -D_GNU_SOURCE

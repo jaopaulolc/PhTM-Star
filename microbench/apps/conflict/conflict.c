@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -8,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <sched.h>
+#include <math.h>
 
 #include <tm.h>
 
@@ -17,23 +17,25 @@
 #define L1_CACHE_SIZE   (32*1024)
 #define L1_BLOCK_SIZE         64 // 64 bytes per block/line
 #define L1_BLOCKS_PER_SET      8 // 8-way set associative
+#define L1_WORDS_PER_BLOCK     8
 #define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
 #define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
 
 
 #define PARAM_DEFAULT_NUMTHREADS (1L)
-#define PARAM_DEFAULT_CONTENTION (100L)
+#define PARAM_DEFAULT_CONTENTION (0L)
 
 #define __ALIGN__ __attribute__((aligned(0x1000)))
 
 static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__ = PARAM_DEFAULT_NUMTHREADS;
-static long pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
+static uint64_t pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
+static long nWriters __ALIGN__;
 
-static long volatile lastChoice;
+static volatile long lastReader;
 
 static uint64_t *global_array __ALIGN__;
-static int volatile stop __ALIGN__ = 0;
+static volatile int stop __ALIGN__ = 0;
 static pthread_barrier_t sync_barrier __ALIGN__ ;
 
 void randomly_init_ushort_array(unsigned short *s, long n);
@@ -43,9 +45,9 @@ double getTimeSeconds();
 
 void *readers_function(void *args){
 	
-	uint64_t const tid = (uint64_t)args;
-	uint64_t const blocksPerThread = L1_BLOCKS_PER_SET/nThreads;
-	unsigned short seed[3];
+	uint64_t const tid __ALIGN__ = (uint64_t)args;
+	uint64_t const blocksPerThread __ALIGN__ = L1_BLOCKS_PER_SET/nThreads;
+	unsigned short seed[3] __ALIGN__;
 	randomly_init_ushort_array(seed, 3);
 
   TM_INIT_THREAD(tid);
@@ -53,9 +55,10 @@ void *readers_function(void *args){
 	
 	while(!stop){
 		
-		uint64_t blockIndex __ALIGN__ = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
+		uint64_t blockIndex __ALIGN__ = tid*blocksPerThread;
 		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
-		__atomic_store_n(&lastChoice, i, __ATOMIC_RELEASE);
+
+		__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
 		TM_START(tid, RO);
 			for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
 				TM_LOAD(&global_array[j]);
@@ -69,9 +72,9 @@ void *readers_function(void *args){
 
 void *writers_function(void *args){
 	
-	uint64_t const tid = (uint64_t)args;
-	uint64_t const blocksPerThread = L1_BLOCKS_PER_SET/nThreads;
-	unsigned short seed[3];
+	uint64_t const tid __ALIGN__ = (uint64_t)args;
+	uint64_t const blocksPerThread __ALIGN__ = L1_BLOCKS_PER_SET/nThreads;
+	unsigned short seed[3] __ALIGN__;
 	randomly_init_ushort_array(seed,3);
 	
   TM_INIT_THREAD(tid);
@@ -79,27 +82,39 @@ void *writers_function(void *args){
 
 	while(!stop){
 
-		uint64_t volatile op __ALIGN__ = nrand48(seed) % 101;
-		uint64_t blockIndex __ALIGN__ = (nrand48(seed) % blocksPerThread) + tid*blocksPerThread;
-		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
-		uint64_t const value = nrand48(seed) % (L1_CACHE_SIZE*L1_CACHE_SIZE);
+		uint64_t op __ALIGN__ = nrand48(seed) % 100;
+		uint64_t i, j, blockIndex __ALIGN__;
+		uint64_t value __ALIGN__ = nrand48(seed) % (L1_CACHE_SIZE*L1_CACHE_SIZE);
 		
 		if(op < pWrites){
-			i = __atomic_load_n(&lastChoice, __ATOMIC_ACQUIRE);
+			uint64_t idx __ALIGN__ = __atomic_load_n(&lastReader, __ATOMIC_SEQ_CST);
+			blockIndex = idx*blocksPerThread;
+			i = blockIndex*L1_SET_BLOCK_OFFSET;
+			__atomic_store_n(&lastReader, nrand48(seed) % nThreads , __ATOMIC_SEQ_CST);
+			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
+
+			__asm__ volatile ("":::"memory");
+
 			TM_START(tid, RW);
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
 		}
 		else {
-			__atomic_store_n(&lastChoice, i, __ATOMIC_RELEASE);
-			TM_START(tid, RO);
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+			blockIndex = tid*blocksPerThread;
+			i = blockIndex*L1_SET_BLOCK_OFFSET;
+			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
+
+			__asm__ volatile ("":::"memory");
+
+			TM_START(tid, RW);
+				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;
-		} 
+		}
+
 	}
 
   TM_EXIT_THREAD(tid);
@@ -116,14 +131,14 @@ int main(int argc, char** argv){
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 	global_array = (uint64_t*)memalign(0x1000, L1_CACHE_SIZE);
 
-	long nWriters = (nThreads  > 1) ? 2 : 1;
+	long nWriters = nThreads;
+	if (pWrites <= 30) nWriters = 1;
 	TM_INIT(nThreads);
 	
 	long i;
 	for(i=0; i < nThreads; i++){
 		int status;
-		if(nWriters){
-			nWriters--;
+		if(i < nWriters){
 			status = pthread_create(&threads[i],NULL,writers_function,(void*)i);
 		} else {
 			status = pthread_create(&threads[i],NULL,readers_function,(void*)i);

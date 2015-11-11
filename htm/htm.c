@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <math.h>
+#include <string.h>
 
 static __thread long __tx_status;  // _xbegin() return status
 static __thread long __tx_id;  // tx thread id
@@ -35,6 +36,20 @@ static __thread unsigned long __thread_seed; /* Random generated seed */
 #endif /* HTM_CM_BACKOFF */
 
 static lock_t __htm_global_lock = LOCK_INITIALIZER;
+
+#define MAX_THREADS 8
+#define NUM_PROF_COUNTERS 7
+static enum abort_tag {
+	ABORT_EXPLICIT_IDX=0,
+	ABORT_TX_CONFLICT_IDX,
+	ABORT_CAPACITY_IDX,
+	ABORT_ILLEGAL_IDX,
+	ABORT_NESTED_IDX,
+	ABORTED_IDX,
+	COMMITED_IDX,
+
+} aborts;
+static uint64_t profCounters[MAX_THREADS][NUM_PROF_COUNTERS] __attribute__((aligned(0x1000)));
 
 void TX_START(){
 	
@@ -68,7 +83,23 @@ void TX_START(){
 				else __tx_retries = 4;
 			}
 		#else /* !HTM_CM_DIEGUES */
+			profCounters[__tx_id][ABORTED_IDX]++;
 			uint32_t abort_reason = htm_abort_reason(__tx_status);
+			if(abort_reason & ABORT_EXPLICIT){
+				profCounters[__tx_id][ABORT_EXPLICIT_IDX]++;
+			}
+			if(abort_reason & ABORT_TX_CONFLICT){
+				profCounters[__tx_id][ABORT_TX_CONFLICT_IDX]++;
+			}
+			if(abort_reason & ABORT_CAPACITY){
+				profCounters[__tx_id][ABORT_CAPACITY_IDX]++;
+			}
+			if(abort_reason & ABORT_ILLEGAL){
+				profCounters[__tx_id][ABORT_ILLEGAL_IDX]++;
+			}
+			if(abort_reason & ABORT_NESTED){
+				profCounters[__tx_id][ABORT_NESTED_IDX]++;
+			}
 			switch(abort_reason){
 				default: // unknown reason (spurious?)
 				case ABORT_EXPLICIT:
@@ -120,6 +151,7 @@ void TX_END(){
 #ifdef HTM_CM_DIEGUES
 	if (__tx_retries > 0) {
 		htm_end();
+		profCounters[__tx_id][COMMITED_IDX]++;
 		if (__tx_retries <= 2) {
 			unlock(&__aux_lock);
 			__aux_lock_owner = 0;
@@ -135,6 +167,7 @@ void TX_END(){
 	}
 	else{
 		htm_end();
+		profCounters[__tx_id][COMMITED_IDX]++;
 	}
 	#if HTM_CM_AUXLOCK
 		if(__aux_lock_owner == 1){
@@ -147,9 +180,39 @@ void TX_END(){
 
 
 void HTM_STARTUP(long numThreads){
+	memset(&profCounters,0, MAX_THREADS*NUM_PROF_COUNTERS*sizeof(uint64_t));
 }
 
 void HTM_SHUTDOWN(){
+	
+	uint64_t starts = 0;
+	uint64_t commits = 0;
+	uint64_t aborts = 0;
+	uint64_t explicit = 0;
+	uint64_t conflict = 0;
+	uint64_t capacity = 0;
+	uint64_t illegal = 0;
+	uint64_t nested = 0;
+
+	int i;
+	for (i=0; i < MAX_THREADS; i++){
+		commits  += profCounters[i][COMMITED_IDX];
+		aborts   += profCounters[i][ABORTED_IDX];
+		explicit += profCounters[i][ABORT_EXPLICIT_IDX];
+		conflict += profCounters[i][ABORT_TX_CONFLICT_IDX];
+		capacity += profCounters[i][ABORT_CAPACITY_IDX];
+		illegal  += profCounters[i][ABORT_ILLEGAL_IDX];
+		nested   += profCounters[i][ABORT_NESTED_IDX];
+	}
+	starts = commits + aborts;
+	printf("#starts    : %12ld\n", starts);
+	printf("#commits   : %12ld %6.2f\n", commits, 100.0*((float)commits/(float)starts));
+	printf("#aborts    : %12ld %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));
+	printf("#explicit  : %12ld %6.2f\n", explicit, 100.0*((float)explicit/(float)aborts));
+	printf("#conflicts : %12ld %6.2f\n", conflict, 100.0*((float)conflict/(float)aborts));
+	printf("#capacity  : %12ld %6.2f\n", capacity, 100.0*((float)capacity/(float)aborts));
+	printf("#illegal   : %12ld %6.2f\n", illegal, 100.0*((float)illegal/(float)aborts));
+	printf("#nested    : %12ld %6.2f\n", nested, 100.0*((float)nested/(float)aborts));
 }
 
 void TX_INIT(long id){

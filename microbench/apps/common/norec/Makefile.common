@@ -1,6 +1,6 @@
 # TMBUILD = norec
 # ======== Defines ========
-#CC       := g++
+CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DSTM
 CFLAGS   += -Wall -Wextra

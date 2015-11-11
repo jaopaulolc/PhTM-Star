@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -40,33 +39,34 @@ void set_affinity(long id);
 
 void *writers_function(void *args){
 	
-	uint64_t tid = (uint64_t)args;
+	uint64_t const tid  = (uint64_t)args;
 	uint64_t const step = (L1_BLOCK_SIZE/sizeof(uint64_t))*L1_NUM_SETS;
 	uint64_t const setStart = tid*(L1_NUM_SETS/nThreads);
 	
-	unsigned short seed[3];
+	unsigned short seed[3] __ALIGN__;
 	randomly_init_ushort_array(seed,3);
 	
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 	
 	uint64_t const set = ((nrand48(seed) % L1_NUM_SETS)/nThreads + setStart)*8;
-	uint64_t const blockOffset  = nrand48(seed) % L1_WORDS_PER_BLOCK;
+	uint64_t const blockOffset = nrand48(seed) % L1_WORDS_PER_BLOCK;
 
 	while(!stop){
 
-		uint64_t op = nrand48(seed) % 101;
+		uint64_t op __ALIGN__ = nrand48(seed) % 101;
+		uint64_t i __ALIGN__;
+
+		__asm__ volatile ("":::"memory");
 		
 		if(op < pOverflow) {
 			TM_START(tid, RW);
-				uint64_t i;
 				for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
 					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
 			TM_COMMIT;
 		} else {
 			TM_START(tid, RW);
-				uint64_t i;
 				for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
 					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
@@ -83,15 +83,12 @@ int main(int argc, char** argv){
 
 	parseArgs(argc, argv);
 	
+	struct timespec timeout = { .tv_sec  = 1 , .tv_nsec = 0	};
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 	global_array = (long*)memalign(0x1000, 2*L1_CACHE_SIZE);
 	memset(global_array, 0, 2*L1_CACHE_SIZE);
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 
-	struct timespec timeout = { 
-		.tv_sec  = 1 ,
-		.tv_nsec = 0
-	};
 
 	TM_INIT(nThreads);
 	
