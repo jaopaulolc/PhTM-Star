@@ -8,7 +8,7 @@ CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DPOWERTM
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3 -mhtm
 
-#LD       := gcc-4.8.3
+LD       := $(CC)
 LDFLAGS  += -lpthread
 
 TMLIBDIR ?= ../../../htm
