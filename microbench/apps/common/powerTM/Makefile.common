@@ -1,0 +1,17 @@
+# TMBUILD = rtm
+# ======== Defines ========
+#CC       := gcc
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../common/$(TMBUILD) -DPOWERTM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3 -mhtm
+
+LD       := $(CC)
+LDFLAGS  += -lpthread
+
+LIBDIR   = ../../../htm
+CPPFLAGS += -I$(LIBDIR)
+LDFLAGS  += -L$(LIBDIR) -lhtm
+TMLIB     = $(LIBDIR)/libhtm.a
+
+include ../common/Makefile.common

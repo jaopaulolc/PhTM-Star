@@ -78,7 +78,25 @@ void set_affinity(long id){
 	
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(id, &cpuset);
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+	int hw_tid = (id%4)*8 + id/4;
+  // 4 cores, 8 threads per core
+	/* core | hw_thread
+	 *  0   |    0..7
+	 *  1   |   8..15
+	 *  2   |  16..23
+	 *  3   |  24..31 */
+	CPU_SET(hw_tid, &cpuset);
+#else /* Haswell */
+	int hw_tid = id;
+  // 4 cores, 2 threads per core
+	/* core | hw_thread
+	 *  0   |   0,4
+	 *  1   |   1,5
+	 *  2   |   2,6
+	 *  3   |   3,7 */
+	CPU_SET(hw_tid, &cpuset);
+#endif /* Haswell*/
 
 	pthread_t current_thread = pthread_self();
 	if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset)){
@@ -86,7 +104,7 @@ void set_affinity(long id){
 		exit(EXIT_FAILURE);
 	}
 
-	while( id != sched_getcpu() );
+	while( hw_tid != sched_getcpu() );
 }
 
 
