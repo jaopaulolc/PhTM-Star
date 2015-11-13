@@ -13,17 +13,29 @@
 #define RO	1
 #define RW	0
 
-#define L1_CACHE_SIZE    32*1024 
-#define L1_BLOCK_SIZE         64 // 64 bytes per block/line
-#define L1_BLOCKS_PER_SET      8 // 8-way set associative
-#define L1_WORDS_PER_BLOCK     8
-#define L1_NUM_SETS      (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+#if defined(__x86_64__) || defined(__i386)
+	#define L1_CACHE_SIZE   (32*1024)
+	#define L1_BLOCK_SIZE           64 // 64 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
+	#define L1_WORDS_PER_BLOCK       8
+	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
+	#define CACHE_ALIGNMENT		   (L1_NUM_SETS*L1_BLOCK_SIZE)
+#else /* PowerPC */
+	#define L1_CACHE_SIZE   (512*1024)
+	#define L1_BLOCK_SIZE          128 // 128 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
+	#define L1_WORDS_PER_BLOCK      16
+	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
+	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)
+#endif /* PowerPC */
 
+#define __ALIGN__ __attribute__((aligned(CACHE_ALIGNMENT)))
 
 #define PARAM_DEFAULT_NUMTHREADS   (1L)
 #define PARAM_DEFAULT_OVERFLOWPROB (10L)
 
-#define __ALIGN__ __attribute__((aligned(0x1000)))
 
 static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__  = PARAM_DEFAULT_NUMTHREADS;
@@ -49,7 +61,7 @@ void *writers_function(void *args){
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
 	
-	uint64_t const set = ((nrand48(seed) % L1_NUM_SETS)/nThreads + setStart)*8;
+	uint64_t const set = ((nrand48(seed) % L1_NUM_SETS)/nThreads + setStart)*L1_BLOCKS_PER_SET;
 	uint64_t const blockOffset = nrand48(seed) % L1_WORDS_PER_BLOCK;
 
 	while(!stop){
@@ -85,7 +97,7 @@ int main(int argc, char** argv){
 	
 	struct timespec timeout = { .tv_sec  = 1 , .tv_nsec = 0	};
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-	global_array = (long*)memalign(0x1000, 2*L1_CACHE_SIZE);
+	global_array = (long*)memalign(CACHE_ALIGNMENT, 2*L1_CACHE_SIZE);
 	memset(global_array, 0, 2*L1_CACHE_SIZE);
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 

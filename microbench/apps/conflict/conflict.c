@@ -14,25 +14,37 @@
 #define RO	1
 #define RW	0
 
-#define L1_CACHE_SIZE   (32*1024)
-#define L1_BLOCK_SIZE         64 // 64 bytes per block/line
-#define L1_BLOCKS_PER_SET      8 // 8-way set associative
-#define L1_WORDS_PER_BLOCK     8
-#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
-#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
+#if defined(__x86_64__) || defined(__i386)
+	#define L1_CACHE_SIZE   (32*1024)
+	#define L1_BLOCK_SIZE           64 // 64 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
+	#define L1_WORDS_PER_BLOCK       8
+	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
+	#define CACHE_ALIGNMENT		   (L1_NUM_SETS*L1_BLOCK_SIZE)
+#else /* PowerPC */
+	#define L1_CACHE_SIZE   (512*1024)
+	#define L1_BLOCK_SIZE          128 // 128 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
+	#define L1_WORDS_PER_BLOCK      16
+	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
+	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
+	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)
+#endif /* PowerPC */
+
+#define __ALIGN__ __attribute__((aligned(CACHE_ALIGNMENT)))
 
 
 #define PARAM_DEFAULT_NUMTHREADS (1L)
 #define PARAM_DEFAULT_CONTENTION (0L)
 
-#define __ALIGN__ __attribute__((aligned(0x1000)))
 
 static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__ = PARAM_DEFAULT_NUMTHREADS;
 static uint64_t pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
 static long nWriters __ALIGN__;
 
-static volatile long lastReader;
+static volatile long lastReader = 0;
 
 static uint64_t *global_array __ALIGN__;
 static volatile int stop __ALIGN__ = 0;
@@ -57,10 +69,14 @@ void *readers_function(void *args){
 		
 		uint64_t blockIndex __ALIGN__ = tid*blocksPerThread;
 		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
+		uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
 
 		__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
+		
+		__asm__ volatile ("":::"memory");
+
 		TM_START(tid, RO);
-			for(j=i; j < (i + L1_SET_BLOCK_OFFSET);j++){
+			for(j=start; j < (i + L1_SET_BLOCK_OFFSET);j+=L1_WORDS_PER_BLOCK){
 				TM_LOAD(&global_array[j]);
 			}
 		TM_COMMIT;
@@ -90,13 +106,16 @@ void *writers_function(void *args){
 			uint64_t idx __ALIGN__ = __atomic_load_n(&lastReader, __ATOMIC_SEQ_CST);
 			blockIndex = idx*blocksPerThread;
 			i = blockIndex*L1_SET_BLOCK_OFFSET;
-			__atomic_store_n(&lastReader, nrand48(seed) % nThreads , __ATOMIC_SEQ_CST);
 			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
 
 			__asm__ volatile ("":::"memory");
 
 			TM_START(tid, RW);
+#if defined(__x86_64__) || defined(__i386)
 				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
+#else /* PowerPC */
+				for(j=start; j < (i + L1_SET_BLOCK_OFFSET/16); j+=L1_WORDS_PER_BLOCK){
+#endif /* PowerPC */
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
@@ -105,11 +124,16 @@ void *writers_function(void *args){
 			blockIndex = tid*blocksPerThread;
 			i = blockIndex*L1_SET_BLOCK_OFFSET;
 			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
+			__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
 
 			__asm__ volatile ("":::"memory");
 
 			TM_START(tid, RW);
+#if defined(__x86_64__) || defined(__i386)
 				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
+#else /* PowerPC */
+				for(j=start; j < (i + L1_SET_BLOCK_OFFSET/16); j+=L1_WORDS_PER_BLOCK){
+#endif /* PowerPC */
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;
@@ -129,10 +153,12 @@ int main(int argc, char** argv){
 	struct timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-	global_array = (uint64_t*)memalign(0x1000, L1_CACHE_SIZE);
+	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, L1_CACHE_SIZE);
 
 	long nWriters = nThreads;
+#if defined(__x86_64__) || defined(__i386)
 	if (pWrites <= 30) nWriters = 1;
+#endif
 	TM_INIT(nThreads);
 	
 	long i;
