@@ -69,14 +69,13 @@ void *readers_function(void *args){
 		
 		uint64_t blockIndex __ALIGN__ = tid*blocksPerThread;
 		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
-		uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
 
 		__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
 		
 		__asm__ volatile ("":::"memory");
 
 		TM_START(tid, RO);
-			for(j=start; j < (i + L1_SET_BLOCK_OFFSET);j+=L1_WORDS_PER_BLOCK){
+			for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK);j++){
 				TM_LOAD(&global_array[j]);
 			}
 		TM_COMMIT;
@@ -106,16 +105,11 @@ void *writers_function(void *args){
 			uint64_t idx __ALIGN__ = __atomic_load_n(&lastReader, __ATOMIC_SEQ_CST);
 			blockIndex = idx*blocksPerThread;
 			i = blockIndex*L1_SET_BLOCK_OFFSET;
-			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
 
 			__asm__ volatile ("":::"memory");
 
 			TM_START(tid, RW);
-#if defined(__x86_64__) || defined(__i386)
-				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
-#else /* PowerPC */
-				for(j=start; j < (i + L1_SET_BLOCK_OFFSET/16); j+=L1_WORDS_PER_BLOCK){
-#endif /* PowerPC */
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
@@ -123,17 +117,12 @@ void *writers_function(void *args){
 		else {
 			blockIndex = tid*blocksPerThread;
 			i = blockIndex*L1_SET_BLOCK_OFFSET;
-			uint64_t start __ALIGN__ = i + (nrand48(seed) % L1_WORDS_PER_BLOCK);
 			__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
 
 			__asm__ volatile ("":::"memory");
 
 			TM_START(tid, RW);
-#if defined(__x86_64__) || defined(__i386)
-				for(j=start; j < (i + L1_SET_BLOCK_OFFSET); j+=L1_WORDS_PER_BLOCK){
-#else /* PowerPC */
-				for(j=start; j < (i + L1_SET_BLOCK_OFFSET/16); j+=L1_WORDS_PER_BLOCK){
-#endif /* PowerPC */
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;
@@ -156,9 +145,6 @@ int main(int argc, char** argv){
 	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, L1_CACHE_SIZE);
 
 	long nWriters = nThreads;
-#if defined(__x86_64__) || defined(__i386)
-	if (pWrites <= 30) nWriters = 1;
-#endif
 	TM_INIT(nThreads);
 	
 	long i;
