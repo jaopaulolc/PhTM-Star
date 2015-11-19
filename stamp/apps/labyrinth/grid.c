@@ -81,7 +81,9 @@
 
 
 /* ??? Cacheline size is fixed (set to 64 bytes for x86_64). */
-const unsigned long CACHE_LINE_SIZE = 64UL;
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64UL
+#endif
 
 
 /* =============================================================================

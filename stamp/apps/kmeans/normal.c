@@ -251,7 +251,7 @@ normal_exec (int       nthreads,
         int cluster_size = sizeof(long) + sizeof(float) * nfeatures;
         /* ??? it assumes a fixed cacheline size for all arch. */
         /* ??? Cacheline size set to 64 bytes long to be safe with x86_64). */
-        const int cacheLineSize = 64;
+        const int cacheLineSize = CACHE_LINE_SIZE;
         cluster_size += (cacheLineSize-1) - ((cluster_size-1) % cacheLineSize);
         alloc_memory = calloc(nclusters, cluster_size);
         new_centers_len = (long**) SEQ_MALLOC(nclusters * sizeof(long*));

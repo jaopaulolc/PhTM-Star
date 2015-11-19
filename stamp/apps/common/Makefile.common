@@ -5,12 +5,16 @@ ARCH = $(shell uname -m)
 ifeq ($(ARCH), x86_64)
   MSR = ../../../msr
 
-  CPPFLAGS += -I$(MSR)
+  CPPFLAGS += -I$(MSR) -DCACHE_LINE_SIZE=64
   LDFLAGS  += -L$(MSR) -lmsr -lm
 
   ifdef PROFILING
     CPPFLAGS += -D$(PROFILING)
   endif
+endif
+
+ifeq ($(ARCH), ppc64le)
+  CPPFLAGS += -DCACHE_LINE_SIZE=128
 endif
 
 # ======== Rules ========
