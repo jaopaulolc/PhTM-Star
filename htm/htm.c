@@ -13,7 +13,7 @@
 static __thread long __tx_status;  // _xbegin() return status
 static __thread long __tx_id;  // tx thread id
 #ifndef HTM_MAX_RETRIES
-#define HTM_MAX_RETRIES 5
+#define HTM_MAX_RETRIES 16
 #endif
 static __thread long __tx_retries; // current number of retries
 
@@ -124,26 +124,13 @@ void TX_START(){
 			if(abort_reason & ABORT_NESTED){
 				profCounters[__tx_id][ABORT_NESTED_IDX]++;
 			}
-			switch(abort_reason){
-				default: // unknown reason (spurious?)
-				case ABORT_EXPLICIT:
-#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-				case ABORT_SUSPENDED_CONFLICT:
-				case ABORT_NON_TX_CONFLICT:
-				case ABORT_TLB_CONFLICT:
-				case ABORT_FETCH_CONFLICT:
-				case ABORT_IMPL_SPECIFIC:
-#endif /* PowerTM */
-				case ABORT_TX_CONFLICT:
-					__tx_retries++;
-					break;
-				case ABORT_CAPACITY: /* ++ */
-				case ABORT_ILLEGAL:  /* ++ */
-				case ABORT_NESTED:   /* ++ */
-				//++ transaction will not commit on future attempts
-					__tx_retries = HTM_MAX_RETRIES;
-					break;
+
+			if (htm_abort_persistent(abort_reason)){
+				__tx_retries = HTM_MAX_RETRIES;
+			} else {
+				__tx_retries++;
 			}
+		
 		#ifdef HTM_CM_AUXLOCK
 			if(__aux_lock_owner == 0 && htm_abort_reason(__tx_status) == ABORT_CONFLICT){
 				lock(&__aux_lock);

@@ -180,6 +180,7 @@ MAIN(argc, argv)
     TIMER_READ(stop);
 
     time = TIMER_DIFF_SECONDS(start, stop);
+    printf("\nTime = %9.6f\n\n", time);
 #if defined(__x86_64__) || defined(__i386)
 		counterAfter = msrGetCounter();
 #endif /* Intel RAPL */
@@ -441,7 +442,6 @@ MAIN(argc, argv)
 
 #endif /* ENABLE_KERNEL4 */
 
-    printf("\nTime = %9.6f\n\n", totalTime);
 
     /* -------------------------------------------------------------------------
      * Cleanup

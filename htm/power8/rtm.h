@@ -10,6 +10,7 @@
 #define htm_has_started(s) (s != 0)
 
 // See section 5.4.2 Power ISA v2.07
+#define ABORT_PERSISTENT		      (1 << (31-7))
 #define ABORT_ILLEGAL		          (1 << (31-8))
 #define ABORT_NESTED		          (1 << (31-9))
 #define ABORT_CAPACITY	          (1 << (31-10))
@@ -21,10 +22,12 @@
 #define ABORT_FETCH_CONFLICT	    (1 << (31-16))
 #define ABORT_EXPLICIT	          (1 << (31-31))
 
+#define htm_abort_persistent(s)   (s & ABORT_PERSISTENT)
+
 #define htm_abort_reason(s) ( ((uint32_t)__builtin_get_texasru())  \
-															& (ABORT_ILLEGAL | ABORT_NESTED      \
-															| ABORT_CAPACITY | ABORT_TX_CONFLICT \
-															| ABORT_EXPLICIT))
+															& (ABORT_PERSISTENT | ABORT_ILLEGAL  \
+															| ABORT_NESTED      | ABORT_CAPACITY \
+															| ABORT_TX_CONFLICT | ABORT_EXPLICIT))
 
 
 #endif /* _RTM_INCLUDE */
