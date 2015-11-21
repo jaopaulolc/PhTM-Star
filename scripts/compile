@@ -11,12 +11,12 @@ function usage {
 	echo
 	echo '-d <tinySTM DESIGN>'
 	echo "${tinySTM_DESIGNS// / | }"
-	echo 'default = ALL'
+	echo 'default = ETL'
 
 	echo
 	echo '-m <tinySTM CM>'
 	echo "${tinySTM_CMS// / | }"
-	echo 'default = ALL'
+	echo 'default = SUICIDE'
 	
 	echo
 	echo '-H <ORT hash>'
@@ -24,14 +24,9 @@ function usage {
 	echo 'default = ORIGINAL'
 	
 	echo
-	echo '-D <HTM CM>'
-	echo "${HTM_CMS// / | }"
-	echo 'default = ALL'
-	
-	echo
 	echo '-l <TSX lock>'
 	echo "${TSX_LOCKS// / | }"
-	echo 'default = ALL'
+	echo 'default = simple_lock'
 
 	echo
 	echo '-s <stamp app>'
@@ -80,10 +75,12 @@ function compile_microbench_apps {
 
 function compile_with_tinystm {
 
-	test -z "$_tinySTM_DESIGNS"  && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"      && _tinySTM_CMS=$tinySTM_CMS
-	test -z "$_ORT_HASHES"       && _ORT_HASHES="ORIGINAL"
-	test "$_ORT_HASHES" == "ALL" && _ORT_HASHES=$ORT_HASHES
+	test -z "$_tinySTM_DESIGNS"       && _tinySTM_DESIGNS='ETL'
+	test "$_tinySTM_DESIGNS" == "ALL" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"           && _tinySTM_CMS='SUICIDE'
+	test "$_tinySTM_CMS" == "ALL"     && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"            && _ORT_HASHES='ORIGINAL'
+	test "$_ORT_HASHES" == "ALL"      && _ORT_HASHES=$ORT_HASHES
 			
 	for design in ${_tinySTM_DESIGNS}; do
 		for cm in ${_tinySTM_CMS}; do
@@ -125,53 +122,41 @@ function compile_with_norec {
 
 function compile_with_rtm {
 
-	test -z "$_HTM_CMS"         && _HTM_CMS='glock'
-	test "$_HTM_CMS" == "ALL"   && _HTM_CMS=$HTM_CMS
 	test -z "$_TSX_LOCKS"       && _TSX_LOCKS='simple_lock'
 	test "$_TSX_LOCKS" == "ALL" && _TSX_LOCKS=$TSX_LOCKS
 				
-	for cm in ${_HTM_CMS}; do
-		for lock in ${_TSX_LOCKS}; do
-			sed -e "/# DEFINES += -D${lock^^}/s|# ||"  \
-					-e "/${!cm}/s|# ||"                    \
-					$HTM/Makefile.template > $HTM/Makefile
-			touch $HTM/Makefile
-			make -C $HTM clean ${MAKE_OPTIONS}
-			make -C $HTM ${MAKE_OPTIONS}
-			
-			suffix=-${cm}-${lock}
-			echo "## RTM ${suffix} compiled"
-			
-			compile_stamp_apps
-			compile_microbench_apps
-			rm -f $HTM/Makefile
-		done # FOR EACH LOCK
-	done #FOR EACH CM
-
-}
-
-function compile_with_powerTM {
-
-	test -z "$_HTM_CMS"         && _HTM_CMS='glock'
-	test "$_HTM_CMS" == "ALL"   && _HTM_CMS=$HTM_CMS
-				
-	for cm in ${_HTM_CMS}; do
-		lock=simple_lock
+	for lock in ${_TSX_LOCKS}; do
 		sed -e "/# DEFINES += -D${lock^^}/s|# ||"  \
-				-e "/${!cm}/s|# ||"                    \
 				$HTM/Makefile.template > $HTM/Makefile
 		touch $HTM/Makefile
 		make -C $HTM clean ${MAKE_OPTIONS}
 		make -C $HTM ${MAKE_OPTIONS}
 		
-		suffix=-${cm}-${lock}
-		echo "## powerTM ${suffix} compiled"
+		suffix=-${lock}
+		echo "## RTM ${suffix} compiled"
 		
 		compile_stamp_apps
 		compile_microbench_apps
 		rm -f $HTM/Makefile
-	done #FOR EACH CM
+	done # FOR EACH LOCK
 
+}
+
+function compile_with_powerTM {
+
+	lock=simple_lock
+	sed -e "/# DEFINES += -D${lock^^}/s|# ||"  \
+			$HTM/Makefile.template > $HTM/Makefile
+	touch $HTM/Makefile
+	make -C $HTM clean ${MAKE_OPTIONS}
+	make -C $HTM ${MAKE_OPTIONS}
+	
+	suffix=-${lock}
+	echo "## powerTM ${suffix} compiled"
+	
+	compile_stamp_apps
+	compile_microbench_apps
+	rm -f $HTM/Makefile
 }
 
 function compile_with_hle {

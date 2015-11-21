@@ -12,12 +12,12 @@
 
 #define htm_abort_reason(s) (s & 0x3E)
 
-#define htm_abort_persistent(s) ((s & _XABORT_RETRY) == 0)
-
 #define ABORT_EXPLICIT	  _XABORT_EXPLICIT
 #define ABORT_TX_CONFLICT	_XABORT_CONFLICT
 #define ABORT_CAPACITY	  _XABORT_CAPACITY
 #define ABORT_ILLEGAL		  _XABORT_DEBUG
 #define ABORT_NESTED		  _XABORT_NESTED
+
+#define htm_abort_persistent(s) (0)
 
 #endif /* _RTM_INCLUDE */

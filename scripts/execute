@@ -5,17 +5,17 @@ source $PWD/scripts/scripts.cfg
 
 function usage {
 	
-	echo $0' <flags below>'
+	echo $0' <flags bellow>'
 
 	echo
 	echo '-d <tinySTM DESIGN>'
 	echo "${tinySTM_DESIGNS// / | }"
-	echo 'default = ALL'
+	echo 'default = ETL'
 
 	echo
 	echo '-m <tinySTM CM>'
 	echo "${tinySTM_CMS// / | }"
-	echo 'default = ALL'
+	echo 'default = SUICIDE'
 	
 	echo
 	echo '-H <ORT hash>'
@@ -23,14 +23,9 @@ function usage {
 	echo 'default = ORIGINAL'
 	
 	echo
-	echo '-D <RTM CM>'
-	echo "${HTM_CMS// / | }"
-	echo 'default = ALL'
-	
-	echo
 	echo '-l <TSX lock>'
 	echo "${TSX_LOCKS// / | }"
-	echo 'default = ALL'
+	echo 'default = simple_lock'
 	
 	echo
 	echo '-i <intset app>'
@@ -141,17 +136,22 @@ function execute {
 
 	test -e $LOGDIR || mkdir -p $LOGDIR
 
-	test -z "$_BUILDS"            && _BUILDS=$BUILDS
-	test -z "$_NEXEC"             && _NEXEC=$NEXEC
-	test -z "$_NTHREADS"          && _NTHREADS=$NTHREADS
-	test -z "$_MEMALLOCS"         && _MEMALLOCS='ptmalloc'
-	test "$_MEMALLOCS" == "ALL"   && _MEMALLOCS=$MEMALLOCS
-	test -z "$_tinySTM_DESIGNS"   && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"       && _tinySTM_CMS=$tinySTM_CMS
-	test -z "$_ORT_HASHES"        && _ORT_HASHES='ORIGINAL'
-	test "$_ORT_HASHES" == "ALL"  && _ORT_HASHES=$ORT_HASHES
-	test -z "$_HTM_CMS"           && _HTM_CMS=$HTM_CMS
-	test -z "$_TSX_LOCKS"         && _TSX_LOCKS=$TSX_LOCKS
+	############################ GLOBAL ##################################
+	test -z "$_BUILDS"                && _BUILDS=$BUILDS
+	test -z "$_NEXEC"                 && _NEXEC=$NEXEC
+	test -z "$_NTHREADS"              && _NTHREADS=$NTHREADS
+	test -z "$_MEMALLOCS"             && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL"       && _MEMALLOCS=$MEMALLOCS
+	############################# STM ####################################
+	test -z "$_tinySTM_DESIGNS"       && _tinySTM_DESIGNS='ETL'
+	test "$_tinySTM_DESIGNS" == "ALL" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"           && _tinySTM_CMS='SUICIDE'
+	test "$_tinySTM_CMS" == "ALL"     && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"            && _ORT_HASHES='ORIGINAL'
+	test "$_ORT_HASHES" == "ALL"      && _ORT_HASHES=$ORT_HASHES
+	############################# HTM ####################################
+	test -z "$_TSX_LOCKS"             && _TSX_LOCKS='simple_lock'
+	test "$_TSX_LOCKS" == "ALL"       && _TSX_LOCKS=$TSX_LOCKS
 	
 	echo 'starting execution...'
 
@@ -160,9 +160,9 @@ function execute {
 		[ $build == 'tinystm' ] && \
 			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
 		[ $build == 'rtm' ] && \
-			SUFFIXES="$(cross_product $build "${_HTM_CMS}" "${_TSX_LOCKS}")"
+			SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
 		[ $build == 'powerTM' ] && \
-			SUFFIXES="$(cross_product $build "${_HTM_CMS}" "simple_lock")"
+			SUFFIXES="$(cross_product $build "simple_lock")"
 		NUMTHREADS=$_NTHREADS
 		[ $build == "seq" ] && NUMTHREADS='1'
 		for suffix in $SUFFIXES; do
@@ -176,13 +176,12 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:d:m:D:l:s:w:i:z:u:t:n:M:H:h" opt;
+while getopts "b:d:m:l:s:w:i:z:u:t:n:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
-		D) _HTM_CMS=$OPTARG ;;
 		l) _TSX_LOCKS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		w) _WORK_SIZES=$OPTARG ;;
