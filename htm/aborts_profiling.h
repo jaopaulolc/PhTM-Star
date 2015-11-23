@@ -21,7 +21,7 @@ static enum {
 	COMMITED_IDX,
 };
 
-static uint64_t **profCounters;
+static uint64_t **profCounters __ALIGN__;
 
 static void __init_prof_counters(long nThreads){
 
