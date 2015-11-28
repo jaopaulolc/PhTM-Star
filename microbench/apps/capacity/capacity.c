@@ -14,18 +14,18 @@
 #define RW	0
 
 #if defined(__x86_64__) || defined(__i386)
-	#define L1_CACHE_SIZE   (32*1024)
-	#define L1_BLOCK_SIZE           64 // 64 bytes per block/line
-	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
-	#define L1_WORDS_PER_BLOCK       8
+	#define L1_CACHE_SIZE   (32L*1024L)
+	#define L1_BLOCK_SIZE           64L // 64 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8L // 8-way set associative
+	#define L1_WORDS_PER_BLOCK       8L
 	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
 	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
 	#define CACHE_ALIGNMENT		   (L1_NUM_SETS*L1_BLOCK_SIZE)
 #else /* PowerPC */
-	#define L1_CACHE_SIZE   (512*1024)
-	#define L1_BLOCK_SIZE          128 // 128 bytes per block/line
-	#define L1_BLOCKS_PER_SET        8 // 8-way set associative
-	#define L1_WORDS_PER_BLOCK      16
+	#define L1_CACHE_SIZE   (512L*1024L)
+	#define L1_BLOCK_SIZE          128L // 128 bytes per block/line
+	#define L1_BLOCKS_PER_SET        8L // 8-way set associative
+	#define L1_WORDS_PER_BLOCK      16L
 	#define L1_NUM_SETS          (L1_CACHE_SIZE/(L1_BLOCK_SIZE*L1_BLOCKS_PER_SET))
 	#define L1_SET_BLOCK_OFFSET  ((L1_NUM_SETS*L1_BLOCK_SIZE)/sizeof(long))
 	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)

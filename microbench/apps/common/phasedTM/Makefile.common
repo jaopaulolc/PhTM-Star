@@ -14,6 +14,23 @@ CPPFLAGS += -I$(LIBDIR)/include
 LDFLAGS  += -L$(LIBDIR)/lib -lstm
 TMLIB    += $(LIBDIR)/lib/libstm.a
 
+ARCH = $(shell uname -m)
+
+ifeq ($(ARCH), x86_64)
+  # Intel RTM
+  CFLAGS += -mrtm
+else
+  ifeq ($(ARCH), ppc64le)
+    # IBM PowerTM
+    CFLAGS += -mhtm
+  else
+	  $(error unsupported architecture)
+  endif
+endif
+ 
+ifdef PROFILING
+  CPPFLAGS += -DPROFILING=$(PROFILING)
+endif
 
 CPPFLAGS += -I../ -I../../../htm -I../../../phasedTM
 LDFLAGS  += -L../../../phasedTM/ -lphTM
