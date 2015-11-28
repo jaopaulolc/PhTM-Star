@@ -96,7 +96,8 @@ function compile_with_tinystm {
 				make -C $tinySTM ${MAKE_OPTIONS}
 				
 				suffix=-${design}-${cm}-${ort_hash}
-				echo "## tinySTM ${suffix} compiled"
+				local buildname="$(sed 's/\(s\?\)\(tm\|TM\)/\U\1\U\2/' <<<$build)"
+				echo "## $buildname ${suffix} compiled"
 			
 				compile_stamp_apps
 				compile_microbench_apps
@@ -104,6 +105,13 @@ function compile_with_tinystm {
 		done # FOR EACH CM
 	done # FOR EACH DESIGN
 
+}
+
+function compile_with_phasedTM {
+	
+	make -C $phasedTM clean ${MAKE_OPTIONS}
+	make -C $phasedTM ${MAKE_OPTIONS}
+	compile_with_tinystm
 }
 
 function compile_with_norec {
@@ -202,6 +210,9 @@ function compile {
 				;;
 			tinystm)
 				compile_with_tinystm
+				;;
+			phasedTM)
+				compile_with_phasedTM
 				;;
 			norec)
 				compile_with_norec

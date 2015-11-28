@@ -157,7 +157,7 @@ function execute {
 
 	for build in $_BUILDS; do
 		SUFFIXES=$build
-		[ $build == 'tinystm' ] && \
+		[ $build == 'tinystm' -o $build == 'phasedTM' ] && \
 			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
 		[ $build == 'rtm' ] && \
 			SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"

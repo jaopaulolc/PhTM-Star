@@ -32,7 +32,9 @@
 	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)
 #endif /* PowerPC */
 
+#ifndef __ALIGN__
 #define __ALIGN__ __attribute__((aligned(CACHE_ALIGNMENT)))
+#endif /* __ALIGN__ */
 
 
 #define PARAM_DEFAULT_NUMTHREADS (1L)
@@ -42,7 +44,6 @@
 static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__ = PARAM_DEFAULT_NUMTHREADS;
 static uint64_t pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
-static long nWriters __ALIGN__;
 
 static volatile long lastReader = 0;
 
@@ -55,6 +56,7 @@ void parseArgs(int argc, char** argv);
 void set_affinity(long id);
 double getTimeSeconds();
 
+#if 0
 void *readers_function(void *args){
 	
 	uint64_t const tid __ALIGN__ = (uint64_t)args;
@@ -75,15 +77,17 @@ void *readers_function(void *args){
 		__asm__ volatile ("":::"memory");
 
 		TM_START(tid, RO);
-			for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK);j++){
+			for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
 				TM_LOAD(&global_array[j]);
 			}
 		TM_COMMIT;
+
 	}
 
   TM_EXIT_THREAD(tid);
 	return (void *)(tid);
 }
+#endif
 
 void *writers_function(void *args){
 	
@@ -108,26 +112,54 @@ void *writers_function(void *args){
 
 			__asm__ volatile ("":::"memory");
 
+#ifdef phasedTM
+		IF_HTM_MODE
+			START_HTM_MODE
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+					global_array[j] = value;
+				}
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+					TM_STORE(&global_array[j], value);
+				}
+			COMMIT_STM_MODE
+#else /* !phasedTM */
 			TM_START(tid, RW);
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
-		}
-		else {
+#endif /* !phasedTM */
+		} else {
 			blockIndex = tid*blocksPerThread;
 			i = blockIndex*L1_SET_BLOCK_OFFSET;
 			__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
 
 			__asm__ volatile ("":::"memory");
 
+#ifdef phasedTM
+		IF_HTM_MODE
+			START_HTM_MODE
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+					global_array[j];
+				}
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+					TM_LOAD(&global_array[j]);
+				}
+			COMMIT_STM_MODE
+#else /* !phasedTM */
 			TM_START(tid, RW);
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;
+#endif /* !phasedTM */
 		}
-
 	}
 
   TM_EXIT_THREAD(tid);
@@ -144,17 +176,12 @@ int main(int argc, char** argv){
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
 	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, L1_CACHE_SIZE);
 
-	long nWriters = nThreads;
 	TM_INIT(nThreads);
 	
 	long i;
 	for(i=0; i < nThreads; i++){
 		int status;
-		if(i < nWriters){
-			status = pthread_create(&threads[i],NULL,writers_function,(void*)i);
-		} else {
-			status = pthread_create(&threads[i],NULL,readers_function,(void*)i);
-		}
+		status = pthread_create(&threads[i],NULL,writers_function,(void*)i);
 		if(status != 0){
 			perror("pthread_create");
 			exit(EXIT_FAILURE);

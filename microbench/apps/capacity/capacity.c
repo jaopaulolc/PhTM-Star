@@ -31,7 +31,9 @@
 	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)
 #endif /* PowerPC */
 
+#ifndef __ALIGN__
 #define __ALIGN__ __attribute__((aligned(CACHE_ALIGNMENT)))
+#endif
 
 #define PARAM_DEFAULT_NUMTHREADS   (1L)
 #define PARAM_DEFAULT_OVERFLOWPROB (10L)
@@ -72,17 +74,47 @@ void *writers_function(void *args){
 		__asm__ volatile ("":::"memory");
 		
 		if(op < pOverflow) {
+#ifdef phasedTM
+			IF_HTM_MODE
+				START_HTM_MODE
+					for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
+						global_array[i*step + blockOffset + set] = 42;
+					}
+				COMMIT_HTM_MODE
+			ELSE_STM_MODE
+				START_STM_MODE
+					for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
+						TM_STORE(&global_array[i*step + blockOffset + set], 42);
+					}
+				COMMIT_STM_MODE
+#else /* !phasedTM */
 			TM_START(tid, RW);
 				for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
 					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
 			TM_COMMIT;
+#endif /* !phasedTM */
 		} else {
+#ifdef phasedTM
+			IF_HTM_MODE
+				START_HTM_MODE
+					for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
+						global_array[i*step + blockOffset + set] = 42;
+					}
+				COMMIT_HTM_MODE
+			ELSE_STM_MODE
+				START_STM_MODE
+					for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
+						TM_STORE(&global_array[i*step + blockOffset + set], 42);
+					}
+				COMMIT_STM_MODE
+#else /* !phasedTM */
 			TM_START(tid, RW);
 				for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
 					TM_STORE(&global_array[i*step + blockOffset + set], 42);
 				}
 			TM_COMMIT;
+#endif /* !phasedTM */
 		}
 	}
 

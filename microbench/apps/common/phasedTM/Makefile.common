@@ -1,0 +1,23 @@
+# TMBUILD = phasedTM
+# ======== Defines ========
+#CC       := gcc
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../common/$(TMBUILD) -DphasedTM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := $(CC)
+LDFLAGS  += -lpthread
+
+LIBDIR   ?= ../../../tinySTM
+CPPFLAGS += -I$(LIBDIR)/include 
+LDFLAGS  += -L$(LIBDIR)/lib -lstm
+TMLIB    += $(LIBDIR)/lib/libstm.a
+
+
+CPPFLAGS += -I../ -I../../../htm -I../../../phasedTM
+LDFLAGS  += -L../../../phasedTM/ -lphTM
+TMLIB    += ../../../phasedTM/libphTM.a
+
+
+include ../common/Makefile.common
