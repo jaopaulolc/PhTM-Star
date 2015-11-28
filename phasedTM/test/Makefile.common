@@ -1,0 +1,25 @@
+
+#CC       := gcc
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I. -DSTM -DTinySTM
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := $(CC)
+LDFLAGS  += -lpthread
+
+TMLIBDIR ?= ../../tinySTM
+CPPFLAGS += -I$(TMLIBDIR)/include 
+# The atomic_ops include path is only required for tinySTM 1.0.3 and previous
+#CPPFLAGS += -I$(TMLIBDIR)/src/atomic_ops
+LDFLAGS  += -L$(TMLIBDIR)/lib -lstm
+LIBDEPS  += $(TMLIBDIR)/lib/libstm.a
+
+CPPFLAGS += -I../ -I../../htm
+LIBDEPS += ../libphTM.a
+
+ifdef PROFILING
+  CPPFLAGS += -DPROFILING=$(PROFILING)
+endif
+
+CPPFLAGS += -D_GNU_SOURCE
