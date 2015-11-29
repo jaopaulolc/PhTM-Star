@@ -156,13 +156,30 @@ function execute {
 	echo 'starting execution...'
 
 	for build in $_BUILDS; do
-		SUFFIXES=$build
-		[ $build == 'tinystm' -o $build == 'phasedTM' ] && \
-			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-		[ $build == 'rtm' ] && \
-			SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
-		[ $build == 'powerTM' ] && \
-			SUFFIXES="$(cross_product $build "simple_lock")"
+		case build in
+			tinystm)
+				SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+			phasedTM)
+				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+				SUFFIXES="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+				;;
+			rtm)
+				SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
+				;;
+			powerTM)
+				SUFFIXES="$(cross_product $build "simple_lock")"
+				;;
+			\?)
+				SUFFIXES=$build
+				;;
+		esac
+#		SUFFIXES=$build
+#		[ $build == 'tinystm' -o $build == 'phasedTM' ] && \
+#			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+#		[ $build == 'rtm' ] && \
+#			SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
+#		[ $build == 'powerTM' ] && \
+#			SUFFIXES="$(cross_product $build "simple_lock")"
 		NUMTHREADS=$_NTHREADS
 		[ $build == "seq" ] && NUMTHREADS='1'
 		for suffix in $SUFFIXES; do

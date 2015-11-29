@@ -96,6 +96,10 @@ function compile_with_tinystm {
 				make -C $tinySTM ${MAKE_OPTIONS}
 				
 				suffix=-${design}-${cm}-${ort_hash}
+				if [ $build == 'phasedTM' ]; then
+					local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+					suffix="_$s$suffix"
+				fi
 				local buildname="$(sed 's/\(s\?\)\(tm\|TM\)/\U\1\U\2/' <<<$build)"
 				echo "## $buildname ${suffix} compiled"
 			
