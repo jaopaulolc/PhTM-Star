@@ -156,9 +156,11 @@ function execute {
 	echo 'starting execution...'
 
 	for build in $_BUILDS; do
-		case build in
+		case $build in
 			tinystm)
-				SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+				local s=$(uname -m)
+				SUFFIXES="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+				;;
 			phasedTM)
 				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
 				SUFFIXES="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
