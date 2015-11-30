@@ -48,7 +48,6 @@
 #define TM_FREE(addr)                      stm_free(addr, sizeof(*addr))
 #define TM_FREE2(addr, size)               stm_free(addr, size)
 
-#ifdef PROFILING
 static unsigned int **coreSTM_commits;
 static unsigned int **coreSTM_aborts;
 
@@ -76,7 +75,8 @@ static unsigned int **coreSTM_aborts;
 										printf("#capacity  : %12lu\n", 0L);                                            }     \
 																					 stm_exit()              
 
-#define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid)
+#define TM_INIT_THREAD(tid)                set_affinity(tid); \
+																					stm_init_thread(NUMBER_OF_TRANSACTIONS)
 #define TM_EXIT_THREAD(tid)                \
 										if(stm_get_stats("nb_commits",&coreSTM_commits[tid]) == 0){                 \
 											fprintf(stderr,"error: get nb_commits failed!\n");                        \
@@ -85,15 +85,6 @@ static unsigned int **coreSTM_aborts;
 											fprintf(stderr,"error: get nb_aborts failed!\n");                         \
 										}                                                                           \
 																					stm_exit_thread()
-
-#else
-
-#define TM_INIT(nThreads)                  stm_init(); mod_mem_init(0); mod_ab_init(0, NULL)
-#define TM_EXIT(nThreads)                  stm_exit()
-#define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid)
-#define TM_EXIT_THREAD(tid)                stm_exit_thread()
-
-#endif
 
 #define TM_ARGDECL_ALONE               /* Nothing */
 #define TM_ARGDECL                     /* Nothing */

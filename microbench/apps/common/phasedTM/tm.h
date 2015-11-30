@@ -55,7 +55,6 @@
 #define TM_FREE(addr)                      stm_free(addr, sizeof(*addr))
 #define TM_FREE2(addr, size)               stm_free(addr, size)
 
-#ifdef PROFILING
 static unsigned int **coreSTM_commits;
 static unsigned int **coreSTM_aborts;
 
@@ -64,28 +63,12 @@ static unsigned int **coreSTM_aborts;
 										coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads); \
 								    coreSTM_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads)
 
-#define TM_EXIT(nThreads)   phTM_term(nThreads); \
-														{                                                                       \
-										uint64_t starts = 0, aborts = 0, commits = 0;                                   \
-										long ii;                                                                        \
-										for(ii=0; ii < nThreads; ii++){                                                 \
-											long i;                                                                       \
-											for(i=0; i < NUMBER_OF_TRANSACTIONS; i++){                                    \
-												aborts  += coreSTM_aborts[ii][i];                                           \
-												commits += coreSTM_commits[ii][i];                                          \
-											}                                                                             \
-											free(coreSTM_aborts[ii]); free(coreSTM_commits[ii]);                          \
-										}                                                                               \
-										starts = commits + aborts;                                                      \
-										free(coreSTM_aborts); free(coreSTM_commits);                                    \
-										printf("#starts    : %12lu\n", starts);                                              \
-										printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts)); \
-										printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));   \
-										printf("#conflicts : %12lu\n", aborts);                                              \
-										printf("#capacity  : %12lu\n", 0L);                                            }     \
-																					 stm_exit()              
+#define TM_EXIT(nThreads)   phTM_term(nThreads, NUMBER_OF_TRANSACTIONS, coreSTM_commits, coreSTM_aborts); \
+													  stm_exit()              
 
-#define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid); phTM_thread_init(tid)
+#define TM_INIT_THREAD(tid)                set_affinity(tid);                       \
+																					 stm_init_thread(NUMBER_OF_TRANSACTIONS); \
+																					 phTM_thread_init(tid)
 #define TM_EXIT_THREAD(tid)                \
 										if(stm_get_stats("nb_commits",&coreSTM_commits[tid]) == 0){                 \
 											fprintf(stderr,"error: get nb_commits failed!\n");                        \
@@ -95,13 +78,11 @@ static unsigned int **coreSTM_aborts;
 										}                                                                           \
 																					stm_exit_thread()
 
-#else
-
+#if 0
 #define TM_INIT(nThreads)                  stm_init(); mod_mem_init(0); mod_ab_init(0, NULL); phTM_init(nThreads)
 #define TM_EXIT(nThreads)                  stm_exit(); phTM_term(nThreads)
 #define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid); phTM_thread_init(tid)
 #define TM_EXIT_THREAD(tid)                stm_exit_thread()
-
 #endif
 
 #define IF_HTM_MODE			while(1){ \

@@ -114,8 +114,11 @@ function execute_microbench_apps {
 		case $app in
 			intset_*)
 				local EXEC_FLAGS="$(cross_product "$i" "$u" "$n")" ;;
-			conflict|capacity)
+			conflict | capacity)
 				local EXEC_FLAGS="$(cross_product "$u" "$n")" ;;
+			phased)
+				local EXEC_FLAGS="$(cross_product "$n")"
+				;;
 		esac
 		for exec_flags in ${EXEC_FLAGS}; do
 			outputLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.log"
@@ -175,13 +178,6 @@ function execute {
 				SUFFIXES=$build
 				;;
 		esac
-#		SUFFIXES=$build
-#		[ $build == 'tinystm' -o $build == 'phasedTM' ] && \
-#			SUFFIXES="$(cross_product $build "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-#		[ $build == 'rtm' ] && \
-#			SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
-#		[ $build == 'powerTM' ] && \
-#			SUFFIXES="$(cross_product $build "simple_lock")"
 		NUMTHREADS=$_NTHREADS
 		[ $build == "seq" ] && NUMTHREADS='1'
 		for suffix in $SUFFIXES; do

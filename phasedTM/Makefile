@@ -2,7 +2,7 @@
 
 target = libphTM.a
 
-DEFINES = -D_GNU_SOURCE -DNDEBUG
+DEFINES = -D_GNU_SOURCE -DNDEBUG -DPHASEDTM
 
 CFLAGS = -O3 -Wall -I. -I../htm $(DEFINES)
 

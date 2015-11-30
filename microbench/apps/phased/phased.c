@@ -54,13 +54,14 @@ void parseArgs(int argc, char** argv);
 void set_affinity(long id);
 double getTimeSeconds();
 
-void conflict_function(const long tid, const uint64_t pWrites, volatile long repeat){
+static __thread unsigned short seed[3] __ALIGN__;
+
+inline static
+void conflict_function(const long tid, const uint64_t pWrites, long repeat){
 	
 	uint64_t const blocksPerThread __ALIGN__ = L1_BLOCKS_PER_SET/nThreads;
-	unsigned short seed[3] __ALIGN__;
-	randomly_init_ushort_array(seed,3);
 	
-	pthread_barrier_wait(&sync_barrier);
+	//pthread_barrier_wait(&sync_barrier);
 
 	while(--repeat){
 
@@ -84,13 +85,17 @@ void conflict_function(const long tid, const uint64_t pWrites, volatile long rep
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
 			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
 					TM_STORE(&global_array[j], value);
 				}
 			COMMIT_STM_MODE
 #else /* !phasedTM */
 			TM_START(tid, RW);
+#if STM
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
+#else
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+#endif
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
@@ -111,13 +116,17 @@ void conflict_function(const long tid, const uint64_t pWrites, volatile long rep
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
 			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
 					TM_LOAD(&global_array[j]);
 				}
 			COMMIT_STM_MODE
 #else /* !phasedTM */
 			TM_START(tid, RW);
+#if STM
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
+#else
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+#endif
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;
@@ -129,6 +138,7 @@ void conflict_function(const long tid, const uint64_t pWrites, volatile long rep
 void *work(void *arg){
 
 	const long tid = (long)arg;
+	randomly_init_ushort_array(seed,3);
 
   TM_INIT_THREAD(tid);
 	

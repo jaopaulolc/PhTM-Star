@@ -121,13 +121,17 @@ void *writers_function(void *args){
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
 			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
 					TM_STORE(&global_array[j], value);
 				}
 			COMMIT_STM_MODE
 #else /* !phasedTM */
 			TM_START(tid, RW);
+#if STM	
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
+#else
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+#endif
 					TM_STORE(&global_array[j], value);
 				}
 			TM_COMMIT;
@@ -148,13 +152,17 @@ void *writers_function(void *args){
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
 			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
 					TM_LOAD(&global_array[j]);
 				}
 			COMMIT_STM_MODE
 #else /* !phasedTM */
 			TM_START(tid, RW);
+#if STM
+				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
+#else
 				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
+#endif
 					TM_LOAD(&global_array[j]);
 				}
 			TM_COMMIT;

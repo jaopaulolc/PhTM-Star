@@ -32,7 +32,17 @@ static void __init_prof_counters(long nThreads){
 	}
 }
 
+#ifdef PHASEDTM
+void __term_prof_counters(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
+#else
 static void __term_prof_counters(long nThreads){
+#endif
+
+#ifdef PHASEDTM
+	uint64_t stm_starts  = 0;
+	uint64_t stm_commits = 0;
+	uint64_t stm_aborts  = 0;
+#endif /* PHASEDTM */
 	
 	uint64_t starts = 0;
 	uint64_t commits = 0;
@@ -65,6 +75,14 @@ static void __term_prof_counters(long nThreads){
 		illegal  += profCounters[i][ABORT_ILLEGAL_IDX];
 		nested   += profCounters[i][ABORT_NESTED_IDX];
 
+#ifdef PHASEDTM
+		long j;
+		for (j=0; j < nTxs; j++) {
+			stm_commits += stmCommits[i][j];
+			stm_aborts  += stmAborts[i][j];
+		}
+#endif /* PHASEDTM */
+
 		free(profCounters[i]);
 	}
 	free(profCounters);
@@ -73,19 +91,38 @@ static void __term_prof_counters(long nThreads){
 	         + tlb_conflict + fetch_conflict;
 #endif /* PowerTM */
 	starts = commits + aborts;
+
+#define RATIO(a,b) (100.0F*((float)a/(float)b))
+
+#ifdef PHASEDTM
+	stm_starts = stm_commits + stm_aborts;
+	uint64_t tStarts  = starts + stm_starts;
+	uint64_t tCommits = commits + stm_commits;
+	uint64_t tAborts  = aborts + stm_aborts;
+	printf("#starts    : %12ld %6.2f %6.2f\n", tStarts , RATIO(starts,tStarts)
+	                                                   , RATIO(stm_starts,tStarts));
+	printf("#commits   : %12ld %6.2f %6.2f %6.2f\n", tCommits, RATIO(tCommits,tStarts)
+	                                                         , RATIO(commits,starts) 
+																													 , RATIO(stm_commits,stm_starts));
+	printf("#aborts    : %12ld %6.2f %6.2f %6.2f\n", tAborts , RATIO(tAborts,tStarts)
+	                                                         , RATIO(aborts,starts)
+																													 , RATIO(stm_aborts,stm_starts));
+#else /* !PHASEDTM */
 	printf("#starts    : %12ld\n", starts);
-	printf("#commits   : %12ld %6.2f\n", commits, 100.0*((float)commits/(float)starts));
-	printf("#aborts    : %12ld %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));
-	printf("#explicit  : %12ld %6.2f\n", explicit, 100.0*((float)explicit/(float)aborts));
-	printf("#illegal   : %12ld %6.2f\n", illegal, 100.0*((float)illegal/(float)aborts));
-	printf("#nested    : %12ld %6.2f\n", nested, 100.0*((float)nested/(float)aborts));
-	printf("#capacity  : %12ld %6.2f\n", capacity, 100.0*((float)capacity/(float)aborts));
-	printf("#conflicts : %12ld %6.2f\n", conflict, 100.0*((float)conflict/(float)aborts));
+	printf("#commits   : %12ld %6.2f\n", commits, RATIO(commits,starts));
+	printf("#aborts    : %12ld %6.2f\n", aborts , RATIO(aborts,starts));
+#endif /* !PHASEDTM */
+	
+	printf("#conflicts : %12ld %6.2f\n", conflict, RATIO(conflict,aborts));
+	printf("#capacity  : %12ld %6.2f\n", capacity, RATIO(capacity,aborts));
+	printf("#explicit  : %12ld %6.2f\n", explicit, RATIO(explicit,aborts));
+	printf("#illegal   : %12ld %6.2f\n", illegal , RATIO(illegal,aborts));
+	printf("#nested    : %12ld %6.2f\n", nested  , RATIO(nested,aborts));
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-	printf("#suspended_conflicts : %12ld %6.2f\n", suspended_conflict, 100.0*((float)suspended_conflict/(float)conflict));
-	printf("#nontx_conflicts     : %12ld %6.2f\n", nontx_conflict, 100.0*((float)nontx_conflict/(float)conflict));
-	printf("#tlb_conflicts       : %12ld %6.2f\n", tlb_conflict, 100.0*((float)tlb_conflict/(float)conflict));
-	printf("#fetch_conflicts     : %12ld %6.2f\n", fetch_conflict, 100.0*((float)fetch_conflict/(float)conflict));
+	printf("#suspended_conflicts : %12ld %6.2f\n", suspended_conflict, RATIO(suspended_conflict,conflict));
+	printf("#nontx_conflicts     : %12ld %6.2f\n", nontx_conflict    , RATIO(nontx_conflict,conflict));
+	printf("#tlb_conflicts       : %12ld %6.2f\n", tlb_conflict      , RATIO(tlb_conflict,conflict));
+	printf("#fetch_conflicts     : %12ld %6.2f\n", fetch_conflict    , RATIO(fetch_conflict,conflict));
 #endif /* PowerTM */
 }
 

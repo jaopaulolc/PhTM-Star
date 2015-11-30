@@ -159,6 +159,6 @@ phTM_thread_init(long tid){
 }
 
 void
-phTM_term(long nThreads){
-	__term_prof_counters(nThreads);
+phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
+	__term_prof_counters(nThreads, nTxs, stmCommits, stmAborts);
 }

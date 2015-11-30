@@ -35,6 +35,6 @@ void
 phTM_thread_init(long tid);
 
 void
-phTM_term(long nThreads);
+phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts);
 
 #endif /* _PHTM_H */
