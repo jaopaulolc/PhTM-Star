@@ -82,7 +82,7 @@ void *writers_function(void *args){
 					}
 				COMMIT_HTM_MODE
 			ELSE_STM_MODE
-				START_STM_MODE
+				START_STM_MODE(tid, RW)
 					for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
 						TM_STORE(&global_array[i*step + blockOffset + set], 42);
 					}
@@ -103,7 +103,7 @@ void *writers_function(void *args){
 					}
 				COMMIT_HTM_MODE
 			ELSE_STM_MODE
-				START_STM_MODE
+				START_STM_MODE(tid, RW)
 					for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
 						TM_STORE(&global_array[i*step + blockOffset + set], 42);
 					}

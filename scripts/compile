@@ -252,7 +252,7 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:d:m:D:l:s:i:P:H:h" opt;
+while getopts "b:d:m:D:l:s:i:P:H:T:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -278,6 +278,7 @@ do
 				 *) echo "error: invalid profiling mode '$OPTARG'" && exit -1 ;;
 				esac ;;
 		H) _ORT_HASHES=$OPTARG ;;
+		T) MAKE_OPTIONS="$MAKE_OPTIONS THRESHOLD=$OPTARG" ;;
 		h) usage && exit -1 ;;
 		\?) echo $0" : error - invalid option -- $OPTARG"
 			exit 1

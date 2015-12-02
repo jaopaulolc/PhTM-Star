@@ -78,33 +78,26 @@ static unsigned int **coreSTM_aborts;
 										}                                                                           \
 																					stm_exit_thread()
 
-#if 0
-#define TM_INIT(nThreads)                  stm_init(); mod_mem_init(0); mod_ab_init(0, NULL); phTM_init(nThreads)
-#define TM_EXIT(nThreads)                  stm_exit(); phTM_term(nThreads)
-#define TM_INIT_THREAD(tid)                stm_init_thread(NUMBER_OF_TRANSACTIONS); set_affinity(tid); phTM_thread_init(tid)
-#define TM_EXIT_THREAD(tid)                stm_exit_thread()
-#endif
-
-#define IF_HTM_MODE			while(1){ \
-													modeIndicator_t indicator = atomicReadModeIndicator(); \
-													if (indicator.mode == HW){
-#define START_HTM_MODE 			bool modeChanged = HTM_Start_Tx(); \
-														if (!modeChanged) {
-#define COMMIT_HTM_MODE				HTM_Commit_Tx(); \
-															break; \
-														}
-#define ELSE_STM_MODE			} else {
-#define START_STM_MODE			bool restarted = false; \
-														STM_START(tid, RW, &restarted); \
-														bool modeChanged = STM_PreStart_Tx(restarted); \
-														if (!modeChanged){
-#define COMMIT_STM_MODE				STM_COMMIT; \
-															STM_PostCommit_Tx(); \
-															break; \
-														} \
-														STM_COMMIT; \
-													} \
-												}
+#define IF_HTM_MODE							while(1){ \
+																	modeIndicator_t indicator = atomicReadModeIndicator(); \
+																	if (indicator.mode == HW){
+#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+																		if (!modeChanged) {
+#define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
+																			break; \
+																		}
+#define ELSE_STM_MODE							} else {
+#define START_STM_MODE(tid, ro)			bool restarted = false; \
+																		STM_START(tid, ro, &restarted); \
+																		bool modeChanged = STM_PreStart_Tx(restarted); \
+																		if (!modeChanged){
+#define COMMIT_STM_MODE								STM_COMMIT; \
+																			STM_PostCommit_Tx(); \
+																			break; \
+																		} \
+																		STM_COMMIT; \
+																	} \
+																}
 
 #define TM_ARGDECL_ALONE               /* Nothing */
 #define TM_ARGDECL                     /* Nothing */

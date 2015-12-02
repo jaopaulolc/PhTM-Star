@@ -32,11 +32,11 @@ void TX_START(){
 		__tx_status = htm_begin();
 		if ( htm_has_started(__tx_status) ) {
 			if( isLocked(&__htm_global_lock) ){
-				htm_end();
-				abort_lock = 1;
+				htm_abort();
 			}
 			else return;
 		}
+		abort_lock = isLocked(&__htm_global_lock);
 		// execution flow continues here on transaction abort
 		/* Avoid Lemming effect by delaying tx retry till lock is free. */
 		while( isLocked(&__htm_global_lock) ) pthread_yield();
