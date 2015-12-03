@@ -27,10 +27,6 @@ else
 	  $(error unsupported architecture)
   endif
 endif
- 
-ifdef PROFILING
-  CPPFLAGS += -DPROFILING=$(PROFILING)
-endif
 
 CPPFLAGS += -I../ -I../../../htm -I../../../phasedTM
 LDFLAGS  += -L../../../phasedTM/ -lphTM

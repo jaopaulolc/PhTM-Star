@@ -4,6 +4,10 @@ target = libphTM.a
 
 DEFINES = -D_GNU_SOURCE -DNDEBUG -DPHASEDTM
 
+ifdef PROFILING
+  DEFINES += -D$(PROFILING)
+endif
+
 CFLAGS = -O3 -Wall -I. -I../htm $(DEFINES)
 
 ARCH = $(shell uname -m)

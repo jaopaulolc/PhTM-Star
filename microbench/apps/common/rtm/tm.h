@@ -15,7 +15,7 @@
 #define TM_SAFE                       /* nothing */
 #define TM_CALLABLE                   /* nothing */
 
-#if defined(PROFILING)
+#if defined(TSX_ABORT_PROFILING)
 
 #define TM_INIT(nThreads)       HTM_STARTUP(nThreads);                          \
                                 msrInitialize();                                \
@@ -56,7 +56,7 @@
 																			pmuStartCounting(tid,0)
 #define TM_EXIT_THREAD(tid)           pmuStopCounting(tid)
 
-#else
+#else /* ! TSX_ABORT_PROFILING */
 
 #define TM_INIT(nThreads)             HTM_STARTUP(nThreads)
 #define TM_EXIT(nThreads)             HTM_SHUTDOWN()
@@ -64,7 +64,7 @@
 #define TM_INIT_THREAD(tid)           TX_INIT(tid); set_affinity(tid)
 #define TM_EXIT_THREAD                /* nothing */
 
-#endif
+#endif /* ! TSX_ABORT_PROFILING */
 
 #define TM_START(tid,ro)              TX_START()
 #define TM_START_TS(tid,ro)           TX_START()

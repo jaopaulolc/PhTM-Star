@@ -7,9 +7,10 @@ ifeq ($(ARCH), x86_64)
   CPPFLAGS += -I$(MSR)
   LDFLAGS  += -L$(MSR) -lmsr
 
-  ifdef PROFILING
-    CPPFLAGS += -DPROFILING=$(PROFILING)
-  endif
+endif
+
+ifdef PROFILING
+  CPPFLAGS += -D$(PROFILING)
 endif
 
 LDFLAGS += -lm

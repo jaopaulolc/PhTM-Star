@@ -1,3 +1,4 @@
+#ifdef HTM_STATUS_PROFILING
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 #define NUM_PROF_COUNTERS 11
@@ -164,3 +165,17 @@ static void __inc_abort_counter(long tid, uint32_t abort_reason){
 		profCounters[tid][ABORT_NESTED_IDX]++;
 	}
 }
+
+#else /* ! HTM_STATUS_PROFILING */
+
+#define __init_prof_counters(nThreads)		    /* nothing */
+#define __inc_commit_counter(tid)							/* nothing */
+#define __inc_abort_counter(tid,abort_reason)	/* nothing */
+
+#ifdef PHASEDTM
+#define __term_prof_counters(nThreads,nTxs,stmCommits,stmAborts) /* nothing */
+#else
+#define __term_prof_counters(nThreads)													 /* nothing */
+#endif
+
+#endif /* ! HTM_STATUS_PROFILING */
