@@ -122,6 +122,7 @@ function execute_microbench_apps {
 		esac
 		for exec_flags in ${EXEC_FLAGS}; do
 			outputLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.log"
+			phasedLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.transitions"
 			rm -f $outputLog
 			for j in $(seq 1 ${_NEXEC}); do
 				echo "execution $j: $appRunPath -${exec_flags//-/ -} ($memalloc)"	
@@ -130,6 +131,8 @@ function execute_microbench_apps {
 				else
 					LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
 				fi
+				local transfile="transitions.timestamp"
+				[ -e $transfile ] && cat $transfile >> $phasedLog && rm -f $transfile
 			done # FOR EACH EXECUTION
 		done # FOR EACH EXEC FLAGS
 	done # FOR EACH APPS
@@ -174,7 +177,7 @@ function execute {
 			powerTM)
 				SUFFIXES="$(cross_product $build "simple_lock")"
 				;;
-			\?)
+			*)
 				SUFFIXES=$build
 				;;
 		esac
