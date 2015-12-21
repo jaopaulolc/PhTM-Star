@@ -26,9 +26,11 @@ modeIndicator_t modeIndicator	= { .mode = HW,
 #define MAX_TRANS 1000000
 static uint64_t start_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
+#endif /* PHASE_PROFILING */
 static uint64_t capacity_abort_transitions __ALIGN__ = 0;
 static uint64_t hw_sw_transitions __ALIGN__ = 0;
 static uint64_t sw_hw_transitions __ALIGN__ = 0;
+#ifdef PHASE_PROFILING
 static uint64_t trans_timestamp[MAX_TRANS] __ALIGN__;
 
 static uint64_t getTime(){
@@ -62,13 +64,13 @@ changeMode(mode_t newMode, uint32_t htm_abort_reason) {
 			new = setMode(indicator, SW);
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success && (indicator.mode != SW));
-#ifdef PHASE_PROFILING
 		if(success){
+#ifdef PHASE_PROFILING
 			trans_timestamp[trans_index++] = getTime() - start_time;
+#endif /* PHASE_PROFILING */
 			hw_sw_transitions++;
 			if(htm_abort_reason & ABORT_CAPACITY) capacity_abort_transitions++; 
 		}
-#endif /* PHASE_PROFILING */
 	} else {
 		do {
 			indicator = atomicReadModeIndicator();
@@ -76,12 +78,12 @@ changeMode(mode_t newMode, uint32_t htm_abort_reason) {
 			new = setMode(NULL_INDICATOR, HW);
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success && (indicator.mode != HW));
-#ifdef PHASE_PROFILING
 		if(success){
+#ifdef PHASE_PROFILING
 			trans_timestamp[trans_index++] = getTime() - start_time;
+#endif /* PHASE_PROFILING */
 			sw_hw_transitions++;
 		}
-#endif /* PHASE_PROFILING */
 	}
 }
 
@@ -197,6 +199,8 @@ void
 phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
 	__term_prof_counters(nThreads, nTxs, stmCommits, stmAborts);
 
+	printf("hw->sw: %lu %6.2lf\n", hw_sw_transitions, 100.0*((double)capacity_abort_transitions/(double)hw_sw_transitions));
+	printf("sw->hw: %lu\n", sw_hw_transitions);
 #ifdef PHASE_PROFILING
 	
 	FILE *f = fopen("transitions.timestamp", "w");
@@ -204,9 +208,6 @@ phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **st
 		perror("fopen");
 	}
 
-	printf("hw->sw: %lu\n", hw_sw_transitions);
-	printf("sw->hw: %lu\n", sw_hw_transitions);
-	printf("capacity_abort_transations: %lu\n", capacity_abort_transitions);
 	
 	trans_timestamp[0] = 0;
 
