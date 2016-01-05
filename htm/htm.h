@@ -14,11 +14,19 @@
 
 #define __ALIGN__ __attribute__((aligned(__CACHE_ALIGNMENT__)))
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 void TX_START();
 void TX_END();
 void HTM_STARTUP(long numThreads);
 void HTM_SHUTDOWN();
 
 void TX_INIT(long id);
+
+#if defined(__cplusplus)
+} /* extern "C" { */
+#endif
 
 #endif /* _HTM_H */

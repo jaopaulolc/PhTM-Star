@@ -1,3 +1,5 @@
+#ifndef _TM_H
+#define _TM_H
 /*
  * File:
  *   tm.h
@@ -23,15 +25,20 @@
  * under the terms of the MIT license.
  */
 
-#include <stm.h>
-#include <mod_mem.h>
-#include <mod_ab.h>
-#include <mod_stats.h>
-
 #include <phTM.h>
 
 #define RO	1
 #define RW	0
+
+#define TinySTM 1
+#define NOrec   2
+
+#if STM == TinySTM
+
+#include <stm.h>
+#include <mod_mem.h>
+#include <mod_ab.h>
+#include <mod_stats.h>
 
 /*
  * Useful macros to work with transactions. Note that, to use nested
@@ -78,6 +85,67 @@ static unsigned int **coreSTM_aborts;
 										}                                                                           \
 																					stm_exit_thread()
 
+#define TM_ARGDECL_ALONE               /* Nothing */
+#define TM_ARGDECL                     /* Nothing */
+#define TM_ARG                         /* Nothing */
+#define TM_ARG_ALONE                   /* Nothing */
+#define TM_CALLABLE                    TM_SAFE
+
+#elif STM == NOrec
+
+#include <stdio.h>
+#include <string.h>
+#include <api/api.hpp>
+#include <stm/txthread.hpp>
+
+#undef TM_ARG
+#undef TM_ARG_ALONE 
+
+#define TM_SAFE                       /* nothing */
+#define TM_PURE                       /* nothing */
+#define TM_CALLABLE                   /* nothing */
+
+#define TM_ARG                        /* nothing */
+#define TM_ARG_ALONE                  /* nothing */
+#define TM_ARGDECL                    /* nothing */
+#define TM_ARGDECL_ALONE              /* nothing */
+
+#define TM_INIT(nThreads)	            stm::sys_init(NULL); \
+                                      phTM_init(nThreads)
+
+#define TM_EXIT(nThreads)             phTM_term(nThreads, NUMBER_OF_TRANSACTIONS, NULL, NULL); \
+																			stm::sys_shutdown()
+
+#define TM_INIT_THREAD(tid)           set_affinity(tid);   \
+																			stm::thread_init(); \
+																			phTM_thread_init(tid)
+
+#define TM_EXIT_THREAD(tid)           stm::thread_shutdown()
+
+#define TM_MALLOC(size)               TM_ALLOC(size)
+/* TM_FREE(ptr) is already defined in the file interface. */
+#define TM_FREE2(ptr,size)            TM_FREE(ptr)
+
+#define STM_START(tid, ro, restarted)               \
+    stm::TxThread* tx = (stm::TxThread*)stm::Self; \
+    jmp_buf _jmpbuf;                               \
+    uint32_t abort_flags = setjmp(_jmpbuf);        \
+    stm::begin(tx, &_jmpbuf, abort_flags);         \
+		(*restarted) = abort_flags != 0;               \
+    CFENCE; 
+
+#define STM_COMMIT         \
+    stm::commit(tx);      \
+
+#define TM_RESTART()                  stm::restart()
+
+#define TM_LOAD(addr)                 stm::stm_read((long int*)addr, (stm::TxThread*)stm::Self)
+#define TM_STORE(addr, val)           stm::stm_write((long int*)addr,(long int)val, (stm::TxThread*)stm::Self)
+
+#else
+#error "no STM selected!"
+#endif
+
 #define IF_HTM_MODE							while(1){ \
 																	modeIndicator_t indicator = atomicReadModeIndicator(); \
 																	if (indicator.mode == HW){
@@ -99,14 +167,10 @@ static unsigned int **coreSTM_aborts;
 																	} \
 																}
 
-#define TM_ARGDECL_ALONE               /* Nothing */
-#define TM_ARGDECL                     /* Nothing */
-#define TM_ARG                         /* Nothing */
-#define TM_ARG_ALONE                   /* Nothing */
-#define TM_CALLABLE                    TM_SAFE
-
 #define TM_SHARED_READ(var)            TM_LOAD(&(var))
 #define TM_SHARED_READ_P(var)          TM_LOAD(&(var))
 
 #define TM_SHARED_WRITE(var, val)      TM_STORE(&(var), val)
 #define TM_SHARED_WRITE_P(var, val)    TM_STORE(&(var), val)
+
+#endif /* _TM_H */

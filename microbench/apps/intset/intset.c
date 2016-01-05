@@ -1711,10 +1711,9 @@ int main(int argc, char **argv)
   intset_t *set;
   int i, c, val, size, ret;
   unsigned long reads, updates;
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
   char *s;
-#endif /* ! TM_COMPILER */
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
   unsigned long aborts, aborts_1, aborts_2,
     aborts_locked_read, aborts_locked_write,
     aborts_validate_read, aborts_validate_write, aborts_validate_commit,
@@ -1722,6 +1721,7 @@ int main(int argc, char **argv)
     locked_reads_ok, locked_reads_failed, max_retries;
   stm_ab_stats_t ab_stats;
 #endif /* ! TM_COMPILER */
+#endif
   thread_data_t *data;
   pthread_t *threads;
   pthread_attr_t attr;
@@ -1735,9 +1735,11 @@ int main(int argc, char **argv)
   int seed = DEFAULT_SEED;
   int update = DEFAULT_UPDATE;
   int alternate = 1;
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
   char *cm = NULL;
 #endif /* ! TM_COMPILER */
+#endif
 #ifdef USE_LINKEDLIST
   int unit_tx = 0;
 #endif /* LINKEDLIST */
@@ -1747,9 +1749,11 @@ int main(int argc, char **argv)
   while(1) {
     i = 0;
     c = getopt_long(argc, argv, "ha"
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
                     "c:"
 #endif /* ! TM_COMPILER */
+#endif
                     "d:i:n:r:s:u:"
 #ifdef USE_LINKEDLIST
                     "x"
@@ -1811,11 +1815,13 @@ int main(int argc, char **argv)
      case 'a':
        alternate = 0;
        break;
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
      case 'c':
        cm = optarg;
        break;
 #endif /* ! TM_COMPILER */
+#endif
      case 'd':
        duration = atoi(optarg);
        break;
@@ -1865,9 +1871,11 @@ int main(int argc, char **argv)
 #elif defined(USE_HASHSET)
   printf("Set type     : hash set\n");
 #endif /* defined(USE_HASHSET) */
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
   printf("CM           : %s\n", (cm == NULL ? "DEFAULT" : cm));
 #endif /* ! TM_COMPILER */
+#endif
   printf("Duration     : %d\n", duration);
   printf("Initial size : %d\n", initial);
   printf("Nb threads   : %d\n", nb_threads);
@@ -1911,7 +1919,7 @@ int main(int argc, char **argv)
   /* Init STM */
   printf("Initializing STM\n");
   TM_INIT(nb_threads);
-
+#if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
   if (stm_get_parameter("compile_flags", &s))
     printf("STM flags    : %s\n", s);
@@ -1921,6 +1929,7 @@ int main(int argc, char **argv)
       printf("WARNING: cannot set contention manager \"%s\"\n", cm);
   }
 #endif /* ! TM_COMPILER */
+#endif
   if (alternate == 0 && range != initial * 2)
     printf("WARNING: range is not twice the initial set size\n");
 

@@ -6,21 +6,21 @@
 #include <htm.h>
 #include <types.h>
 
-inline
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 modeIndicator_t
 atomicReadModeIndicator();
 
 void
 changeMode(mode_t newMode);
 
-inline
 bool
 HTM_Start_Tx();
 
-inline
 void
 HTM_Commit_Tx();
-
 
 bool
 STM_PreStart_Tx(bool restarted);
@@ -36,5 +36,9 @@ phTM_thread_init(long tid);
 
 void
 phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts);
+
+#if defined(__cplusplus)
+} /* extern "C" { */
+#endif
 
 #endif /* _PHTM_H */

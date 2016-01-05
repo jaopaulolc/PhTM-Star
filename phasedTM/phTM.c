@@ -10,27 +10,32 @@
 const modeIndicator_t NULL_INDICATOR = { .value = 0 } ;
 
 #define HTM_MAX_RETRIES 16
-static __thread long __tx_tid;
-static __thread long htm_retries;
-static __thread bool deferredTx = false;
+#ifndef MAX_CAPACITY_ABORTS
+#define MAX_CAPACITY_ABORTS 1
+#endif
 
-modeIndicator_t modeIndicator	= { .mode = HW,
+modeIndicator_t modeIndicator	__ALIGN__ = { .mode = HW,
 																	.deferredCount = 0,
 										  						.undeferredCount = 0
 																};
 
+static __thread long __tx_tid __ALIGN__;
+static __thread long htm_retries __ALIGN__;
+static __thread long htm_capacity_aborts __ALIGN__;
+static __thread bool deferredTx __ALIGN__ = false;
+
 #include <utils.h>
 
-#ifdef PHASE_PROFILING
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
 #define MAX_TRANS 1000000
 static uint64_t start_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
-#endif /* PHASE_PROFILING */
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 static uint64_t capacity_abort_transitions __ALIGN__ = 0;
 static uint64_t hw_sw_transitions __ALIGN__ = 0;
 static uint64_t sw_hw_transitions __ALIGN__ = 0;
-#ifdef PHASE_PROFILING
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 static uint64_t trans_timestamp[MAX_TRANS] __ALIGN__;
 
 static uint64_t getTime(){
@@ -38,8 +43,7 @@ static uint64_t getTime(){
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
 }
-
-#endif /* PHASE_PROFILING */
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 
 static
 void
@@ -65,9 +69,9 @@ changeMode(mode_t newMode, uint32_t htm_abort_reason) {
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success && (indicator.mode != SW));
 		if(success){
-#ifdef PHASE_PROFILING
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 			trans_timestamp[trans_index++] = getTime() - start_time;
-#endif /* PHASE_PROFILING */
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			hw_sw_transitions++;
 			if(htm_abort_reason & ABORT_CAPACITY) capacity_abort_transitions++; 
 		}
@@ -79,9 +83,9 @@ changeMode(mode_t newMode, uint32_t htm_abort_reason) {
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success && (indicator.mode != HW));
 		if(success){
-#ifdef PHASE_PROFILING
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 			trans_timestamp[trans_index++] = getTime() - start_time;
-#endif /* PHASE_PROFILING */
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			sw_hw_transitions++;
 		}
 	}
@@ -92,6 +96,7 @@ bool
 HTM_Start_Tx() {
 	
 	htm_retries = 0;
+	htm_capacity_aborts = 0;
 
 	while (true) {
 		uint32_t status = htm_begin();
@@ -112,8 +117,10 @@ HTM_Start_Tx() {
 			return true;
 		}
 		
-		htm_retries++;
-		if (htm_retries >= HTM_MAX_RETRIES || abort_reason & ABORT_CAPACITY) {
+		if ( abort_reason & ABORT_CAPACITY )
+			htm_capacity_aborts++;
+		else htm_retries++;
+		if (htm_retries >= HTM_MAX_RETRIES || htm_capacity_aborts >= MAX_CAPACITY_ABORTS) {
 			changeMode(SW, abort_reason);
 			return true;
 		}
@@ -184,15 +191,16 @@ STM_PostCommit_Tx() {
 
 void
 phTM_init(long nThreads){
+	printf("MAX_CAPACITY_ABORTS: %d\n", MAX_CAPACITY_ABORTS);
 	__init_prof_counters(nThreads);
 }
 
 void
 phTM_thread_init(long tid){
 	__tx_tid = tid;
-#ifdef PHASE_PROFILING
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	start_time = getTime();
-#endif /* PHASE_PROFILING */
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void
@@ -211,12 +219,38 @@ phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **st
 	
 	trans_timestamp[0] = 0;
 
-	uint64_t i;
+	uint64_t i, ttime = 0;
 	for (i=1; i < trans_index; i++){
 		uint64_t dx = trans_timestamp[i] - trans_timestamp[i-1];
+		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
+		ttime += dx;
+	}
+	if(ttime < (uint64_t)1.0e9){
+		uint64_t dx = ((uint64_t)1.0e9) - trans_timestamp[i-1];
 		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
 	}
 	fprintf(f, "\n\n");
 	fclose(f);
-#endif /* PHASE_PROFILING */
+/* PHASE_PROFILING */
+#elif defined(TIME_MODE_PROFILING)
+	trans_timestamp[0] = 0;
+
+	uint64_t i, hw_time = 0, sw_time = 0, ttime = 0;
+	for (i=1; i < trans_index; i++){
+		uint64_t dx = trans_timestamp[i] - trans_timestamp[i-1];
+		if( i % 2 == 1 ){ hw_time += dx; }
+		else { sw_time += dx; }
+		ttime += dx;
+	}
+
+	if(ttime < (uint64_t)1.0e9){
+		uint64_t dx = ((uint64_t)1.0e9) - trans_timestamp[i-1];
+		if( i % 2 == 1 ){ hw_time += dx; }
+		else { sw_time += dx; }
+		ttime += dx;
+	}
+
+	printf("hw, sw: %6.2lf %6.2lf\n", 100.0*((double)hw_time/(double)ttime), 100.0*((double)sw_time/(double)ttime));
+	
+#endif /* TIME_MODE_PROFILING */
 }

@@ -4,11 +4,16 @@ target = libphTM.a
 
 DEFINES = -D_GNU_SOURCE -DNDEBUG -DPHASEDTM
 
+ifdef MAX_CAPACITY_ABORTS
+  DEFINES += -DMAX_CAPACITY_ABORTS=$(MAX_CAPACITY_ABORTS)
+endif
+
 ifdef PROFILING
   DEFINES += -D$(PROFILING)
 endif
 
-CFLAGS = -O3 -Wall -I. -I../htm $(DEFINES)
+CPPFLAGS = $(DEFINES)
+CFLAGS = -O3 -Wall -I. -I../htm
 
 ARCH = $(shell uname -m)
 

@@ -75,6 +75,8 @@ function compile_microbench_apps {
 
 function compile_with_tinystm {
 
+	local max_cap_aborts="$1"
+
 	test -z "$_tinySTM_DESIGNS"       && _tinySTM_DESIGNS='ETL'
 	test "$_tinySTM_DESIGNS" == "ALL" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
 	test -z "$_tinySTM_CMS"           && _tinySTM_CMS='SUICIDE'
@@ -98,13 +100,12 @@ function compile_with_tinystm {
 				suffix=-${design}-${cm}-${ort_hash}
 				if [ $build == 'phasedTM' ]; then
 					local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-					suffix="_$s$suffix"
+					suffix="_$s$suffix-$max_cap_aborts"
 				else
 					local s=$(uname -m)
 					suffix="_$s$suffix"
 				fi
-				local buildname="$(sed 's/\(s\?\)\(tm\|TM\)/\U\1\U\2/' <<<$build)"
-				echo "## $buildname ${suffix} compiled"
+				echo "## $build ${suffix} compiled"
 			
 				compile_stamp_apps
 				compile_microbench_apps
@@ -115,13 +116,25 @@ function compile_with_tinystm {
 }
 
 function compile_with_phasedTM {
-	
-	make -C $phasedTM clean ${MAKE_OPTIONS}
-	make -C $phasedTM ${MAKE_OPTIONS}
-	compile_with_tinystm
+
+	test -z "$_MAX_CAPACITY_ABORTS" && _MAX_CAPACITY_ABORTS=1
+	test -z "$_PHASEDTM_STMS"       && _PHASEDTM_STMS='tinystm'
+
+	local MAKE_OPTIONS_copy="$MAKE_OPTIONS"
+	for stm in ${_PHASEDTM_STMS}; do
+		MAKE_OPTIONS="${MAKE_OPTIONS_copy} PHASED_STM=$stm"
+		for max_capacity_aborts in ${_MAX_CAPACITY_ABORTS}; do
+			make -C $PhasedTM clean ${MAKE_OPTIONS}
+			make -C $PhasedTM ${MAKE_OPTIONS} MAX_CAPACITY_ABORTS=$max_capacity_aborts
+			compile_with_$stm "cap_aborts_$max_capacity_aborts"
+		done # FOR EACH MAX CAPACITY ABORT
+	done # FOR EACH STM
+	MAKE_OPTIONS="$MAKE_OPTIONS_copy"
 }
 
 function compile_with_norec {
+	
+	local max_cap_aborts="$1"
 	
 	sed	-e "s|# DUMMY COMMENT||"               \
 	    -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
@@ -129,8 +142,15 @@ function compile_with_norec {
 			$NOrec/Makefile.template > $NOrec/Makefile
 	make -C $NOrec clean ${MAKE_OPTIONS}
 	make -C $NOrec ${MAKE_OPTIONS}
-	echo "## ${!build} STM compiled"
 	suffix=""
+	if [ $build == 'phasedTM' ]; then
+		local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+		suffix="_$s-norec-$max_cap_aborts"
+	else
+		local s=$(uname -m)
+		suffix="_$s"
+	fi
+	echo "## $build ${suffix} compiled"
 	compile_stamp_apps
 	compile_microbench_apps
 }
@@ -259,16 +279,18 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:d:m:D:l:s:i:P:H:T:h" opt;
+while getopts "b:S:d:m:D:l:s:i:a:P:H:T:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
+		S) _PHASEDTM_STMS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
 		D) _HTM_CMS=$OPTARG ;;
 		l) _TSX_LOCKS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;
+		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
 		P) case $OPTARG in
 				ORT_PROFILING)
 					ORT_PROFILING='# DEFINES += -DORT_PROFILING' ;;
@@ -284,6 +306,8 @@ do
 					MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=HTM_STATUS_PROFILING" ;;
 				PHASE_PROFILING)
 					MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=PHASE_PROFILING" ;;
+				TIME_MODE_PROFILING)
+					MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=TIME_MODE_PROFILING" ;;
 				 [0-9])
 				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=$OPTARG" ;;
 				 *) echo "error: invalid profiling mode '$OPTARG'" && exit -1 ;;

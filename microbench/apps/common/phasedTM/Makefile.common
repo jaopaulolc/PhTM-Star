@@ -1,18 +1,29 @@
 # TMBUILD = phasedTM
 # ======== Defines ========
-#CC       := gcc
+CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DphasedTM
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
-LD       := $(CC)
+LD       := $(CXX)
 LDFLAGS  += -lpthread
 
+ifeq ($(PHASED_STM), tinystm)
 LIBDIR   ?= ../../../tinySTM
-CPPFLAGS += -I$(LIBDIR)/include 
+CPPFLAGS += -DSTM=TinySTM -I$(LIBDIR)/include 
 LDFLAGS  += -L$(LIBDIR)/lib -lstm
 TMLIB    += $(LIBDIR)/lib/libstm.a
+else
+  ifeq ($(PHASED_STM), norec)
+    LIBDIR ?= ../../../NOrec
+    CPPFLAGS += -DSTM=NOrec -I$(LIBDIR)/include 
+    LDFLAGS  += -L$(LIBDIR) -lnorec
+    TMLIB    += $(LIBDIR)/libnorec.a
+  else
+	  $(error no STM specified!)
+  endif
+endif
 
 ARCH = $(shell uname -m)
 

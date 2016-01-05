@@ -2,7 +2,7 @@
 # ======== Defines ========
 #CC       := gcc
 CPPFLAGS += -DNDEBUG
-CPPFLAGS += -I$(TMBUILD)
+CPPFLAGS += -I../common/$(TMBUILD)
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 

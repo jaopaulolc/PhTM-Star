@@ -29,8 +29,11 @@ function clean {
 				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean
 				;;
 			phasedTM)
+				test -e $tinySTM/Makefile && rm $tinySTM/Makefile
 				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean
-				make $MAKE_OPTIONS -C $phasedTM/ -f Makefile clean
+				test -e $NOrec/Makefile && rm $NOrec/Makefile
+				make $MAKE_OPTIONS -C $NOrec -f Makefile.template clean
+				make $MAKE_OPTIONS -C $PhasedTM/ -f Makefile clean
 				;;
 			rtm | powerTM)
 				test -e $HTM/Makefile && rm $HTM/Makefile

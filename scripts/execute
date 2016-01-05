@@ -158,6 +158,10 @@ function execute {
 	############################# HTM ####################################
 	test -z "$_TSX_LOCKS"             && _TSX_LOCKS='simple_lock'
 	test "$_TSX_LOCKS" == "ALL"       && _TSX_LOCKS=$TSX_LOCKS
+	########################### phasedTM #################################
+	test -z "$_MAX_CAPACITY_ABORTS"   && _MAX_CAPACITY_ABORTS="1"
+	test -z "$_PHASEDTM_STMS"         && _PHASEDTM_STMS='tinystm'
+
 	
 	echo 'starting execution...'
 
@@ -169,13 +173,27 @@ function execute {
 				;;
 			phasedTM)
 				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-				SUFFIXES="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+				for stm in ${_PHASEDTM_STMS}; do
+					case $stm in
+						tinystm)
+							local tinystm_suffixes="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+							tinystm_suffixes="$(cross_product "${tinystm_suffixes}" "$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")")"
+							;;
+						norec)
+							local norec_suffixes="$(cross_product ${build}_$s-norec "$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")")"
+							;;
+					esac
+				done
+				SUFFIXES="$tinystm_suffixes $norec_suffixes"
 				;;
 			rtm)
 				SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
 				;;
 			powerTM)
 				SUFFIXES="$(cross_product $build "simple_lock")"
+				;;
+			norec)
+				SUFFIXES="${build}_$(uname -m)"
 				;;
 			*)
 				SUFFIXES=$build
@@ -194,10 +212,11 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:d:m:l:s:w:i:z:u:t:n:M:H:h" opt;
+while getopts "b:S:d:m:l:s:w:i:z:u:t:n:a:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
+		S) _PHASEDTM_STMS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
 		l) _TSX_LOCKS=$OPTARG ;;
@@ -208,6 +227,7 @@ do
 		u) _UPDATERATES=$OPTARG ;;
 		t) _NTHREADS=$OPTARG ;;
 		n) _NEXEC=$OPTARG ;;
+		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
 		H) _ORT_HASHES=$OPTARG ;;
 		h) usage && exit -1 ;;
