@@ -7,7 +7,7 @@ CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
 LD       := $(CXX)
-LDFLAGS  += -lpthread
+LDFLAGS  += -lpthread -ldl
 
 LIBDIR    = ../../../NOrec
 CPPFLAGS += -I$(LIBDIR)/include 

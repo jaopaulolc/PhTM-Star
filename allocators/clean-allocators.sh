@@ -2,6 +2,11 @@
 
 MAKE_OPTIONS="--quiet"
 
+# IBMmalloc
+cd IBMmalloc
+make clean ${MAKE_OPTIONS} 2>&1 > /dev/null
+cd ..
+
 # Hoard
 cd hoard-20151222/src
 make clean ${MAKE_OPTIONS} 2>&1 > /dev/null

@@ -224,9 +224,10 @@ function compile {
 
 	if [ $(uname -m) == "x86_64" ];  then
 		make -C $MSRDIR clean $MAKE_OPTIONS && make -C $MSRDIR $MAKE_OPTIONS
-		if [ ! -e $ALLOCSDIR/$(readlink ${hoard}) ]    || \
-		   [ ! -e $ALLOCSDIR/$(readlink ${tcmalloc}) ] || \
-			 [ ! -e $ALLOCSDIR/$(readlink ${tbbmalloc}) ]; then
+		if [ ! -e $ALLOCSDIR/$(readlink ${hoard}) ]     || \
+		   [ ! -e $ALLOCSDIR/$(readlink ${tcmalloc}) ]  || \
+			 [ ! -e $ALLOCSDIR/$(readlink ${tbbmalloc}) ] || \
+			 [ ! -e $ALLOCSDIR/$(readlink ${ibmmalloc}) ]; then
 			cd $ALLOCSDIR
 			./gen-allocators.sh
 			cd ..

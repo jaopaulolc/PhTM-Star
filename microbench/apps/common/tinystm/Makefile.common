@@ -7,7 +7,7 @@ CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
 LD       := $(CC)
-LDFLAGS  += -lpthread
+LDFLAGS  += -lpthread -ldl
 
 LIBDIR ?= ../../../tinySTM
 CPPFLAGS += -I$(LIBDIR)/include 

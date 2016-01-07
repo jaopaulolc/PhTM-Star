@@ -4,6 +4,18 @@ MAKE_OPTIONS="--quiet"
 
 ./clean-allocators.sh
 
+# IBMmalloc
+echo "Compiling IBMmalloc..."
+cd IBMmalloc
+make ${MAKE_OPTIONS} 2>&1 > /dev/null
+if [ $? -eq 0 ]; then
+	echo "IBMmalloc compilation succeded!"
+else
+	echo "IBMmalloc compilation failed!"
+fi
+cd ..
+
+
 # Hoard
 echo "Compiling Hoard..."
 cd hoard-20151222/src

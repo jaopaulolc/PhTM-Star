@@ -7,7 +7,7 @@ CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3 -mhtm
 
 LD       := $(CC)
-LDFLAGS  += -lpthread
+LDFLAGS  += -lpthread -ldl
 
 LIBDIR   = ../../../htm
 CPPFLAGS += -I$(LIBDIR)
