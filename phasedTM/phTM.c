@@ -54,10 +54,14 @@ changeMode(uint64_t newMode, uint32_t htm_abort_reason) {
 	modeIndicator_t expected;
 	modeIndicator_t new;
 
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+	uint64_t t = 0;
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
+
 	switch(newMode) {
 		case SW:
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-			uint64_t  t = getTime();
+			t = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			do {
 				indicator = atomicReadModeIndicator();
@@ -84,7 +88,7 @@ changeMode(uint64_t newMode, uint32_t htm_abort_reason) {
 			break;
 		case HW:
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-			uint64_t  t = getTime();
+			t = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			do {
 				indicator = atomicReadModeIndicator();
