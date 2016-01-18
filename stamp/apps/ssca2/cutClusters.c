@@ -529,10 +529,24 @@ cutClusters (void* argPtr)
             global_iter = iter;
         }
 
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        long tmp_cliqueSize = (long)global_cliqueSize;
+        global_cliqueSize = tmp_cliqueSize + cliqueSize;
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+	    TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         long tmp_cliqueSize = (long)TM_SHARED_READ(global_cliqueSize);
         TM_SHARED_WRITE(global_cliqueSize, (tmp_cliqueSize + cliqueSize));
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+	    TM_END();
+	#endif /* !HW_SW_PATHS */
 
         thread_barrier_wait();
 
@@ -601,10 +615,24 @@ cutClusters (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+    	long tmp_cutSetIndex = (long)global_cutSetIndex;
+    	global_cutSetIndex = tmp_cutSetIndex + cutSetIndex;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    long tmp_cutSetIndex = (long)TM_SHARED_READ(global_cutSetIndex);
-    TM_SHARED_WRITE(global_cutSetIndex, (tmp_cutSetIndex + cutSetIndex));
+#endif /* !HW_SW_PATHS */
+    	long tmp_cutSetIndex = (long)TM_SHARED_READ(global_cutSetIndex);
+    	TM_SHARED_WRITE(global_cutSetIndex, (tmp_cutSetIndex + cutSetIndex));
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 

@@ -291,6 +291,39 @@ TMmesh_remove (TM_ARGDECL  mesh_t* meshPtr, element_t* elementPtr)
     }
 }
 
+void
+mesh_remove (mesh_t* meshPtr, element_t* elementPtr)
+{
+    assert(!element_isGarbage(elementPtr));
+
+    /*
+     * If removing root, a new root is selected on the next mesh_insert, which
+     * always follows a call a mesh_remove.
+     */
+    if ((element_t*)meshPtr->rootElementPtr == elementPtr) {
+        meshPtr->rootElementPtr = (element_t *)NULL;
+    }
+
+    /*
+     * Remove from neighbors
+     */
+    list_iter_t it;
+    list_t* neighborListPtr = element_getNeighborListPtr(elementPtr);
+    list_iter_reset(&it, neighborListPtr);
+    while (list_iter_hasNext(&it, neighborListPtr)) {
+        element_t* neighborPtr =
+            (element_t*)list_iter_next(&it, neighborListPtr);
+        list_t* neighborNeighborListPtr = element_getNeighborListPtr(neighborPtr);
+        bool_t status = list_remove(neighborNeighborListPtr, elementPtr);
+        assert(status);
+    }
+
+    element_setIsGarbage(elementPtr, TRUE);
+
+    if (!element_isReferenced(elementPtr)) {
+        element_free(elementPtr);
+    }
+}
 
 /* =============================================================================
  * TMmesh_insertBoundary
@@ -301,6 +334,12 @@ bool_t
 TMmesh_insertBoundary (TM_ARGDECL  mesh_t* meshPtr, edge_t* boundaryPtr)
 {
     return TMSET_INSERT(meshPtr->boundarySetPtr, boundaryPtr);
+}
+
+bool_t
+mesh_insertBoundary (mesh_t* meshPtr, edge_t* boundaryPtr)
+{
+    return SET_INSERT(meshPtr->boundarySetPtr, boundaryPtr);
 }
 
 
@@ -315,6 +354,11 @@ TMmesh_removeBoundary (TM_ARGDECL  mesh_t* meshPtr, edge_t* boundaryPtr)
     return TMSET_REMOVE(meshPtr->boundarySetPtr, boundaryPtr);
 }
 
+bool_t
+mesh_removeBoundary (mesh_t* meshPtr, edge_t* boundaryPtr)
+{
+    return SET_REMOVE(meshPtr->boundarySetPtr, boundaryPtr);
+}
 
 /* =============================================================================
  * createElement

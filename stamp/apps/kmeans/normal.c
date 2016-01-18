@@ -165,7 +165,19 @@ work (void* argPtr)
             membership[i] = index;
 
             /* Update new cluster centers : sum of objects located within */
-            TM_BEGIN();
+			#ifdef HW_SW_PATHS
+				IF_HTM_MODE
+					START_HTM_MODE
+            (*new_centers_len[index]) = (*new_centers_len[index]) + 1;
+            for (j = 0; j < nfeatures; j++) {
+                new_centers[index][j] = new_centers[index][j] + feature[i][j];
+            }
+					COMMIT_HTM_MODE
+				ELSE_STM_MODE
+					START_STM_MODE(RW)
+			#else /* !HW_SW_PATHS */
+          TM_BEGIN();
+			#endif /* !HW_SW_PATHS */
             TM_SHARED_WRITE(*new_centers_len[index],
                             TM_SHARED_READ(*new_centers_len[index]) + 1);
             for (j = 0; j < nfeatures; j++) {
@@ -174,23 +186,54 @@ work (void* argPtr)
                     (TM_SHARED_READ_F(new_centers[index][j]) + feature[i][j])
                 );
             }
-            TM_END();
+			#ifdef HW_SW_PATHS
+					COMMIT_STM_MODE
+			#else /* !HW_SW_PATHS */
+          TM_END();
+			#endif /* !HW_SW_PATHS */
         }
 
         /* Update task queue */
         if (start + CHUNK < npoints) {
+				#ifdef HW_SW_PATHS
+					IF_HTM_MODE
+						START_HTM_MODE
+            	start = (int)global_i;
+            	global_i = (long)(start + CHUNK);
+						COMMIT_HTM_MODE
+					ELSE_STM_MODE
+						START_STM_MODE(RW)
+				#else /* !HW_SW_PATHS */
             TM_BEGIN();
-            start = (int)TM_SHARED_READ(global_i);
-            TM_SHARED_WRITE(global_i, (long)(start + CHUNK));
+				#endif /* !HW_SW_PATHS */
+            	start = (int)TM_SHARED_READ(global_i);
+            	TM_SHARED_WRITE(global_i, (long)(start + CHUNK));
+				#ifdef HW_SW_PATHS
+						COMMIT_STM_MODE
+				#else /* !HW_SW_PATHS */
             TM_END();
+				#endif /* !HW_SW_PATHS */
         } else {
             break;
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+    	global_delta = global_delta + delta;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TM_SHARED_WRITE_F(global_delta, TM_SHARED_READ_F(global_delta) + delta);
+#endif /* !HW_SW_PATHS */
+    	TM_SHARED_WRITE_F(global_delta, TM_SHARED_READ_F(global_delta) + delta);
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     TM_THREAD_EXIT();
 }

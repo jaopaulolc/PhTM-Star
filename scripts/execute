@@ -159,8 +159,11 @@ function execute {
 	test -z "$_TSX_LOCKS"             && _TSX_LOCKS='simple_lock'
 	test "$_TSX_LOCKS" == "ALL"       && _TSX_LOCKS=$TSX_LOCKS
 	########################### phasedTM #################################
-	test -z "$_MAX_CAPACITY_ABORTS"   && _MAX_CAPACITY_ABORTS="1"
-	test -z "$_PHASEDTM_STMS"         && _PHASEDTM_STMS='tinystm'
+	test -z "$_MAX_CAPACITY_ABORTS"    && _MAX_CAPACITY_ABORTS="1"
+	test -z "$_PHASEDTM_STMS"          && _PHASEDTM_STMS='tinystm'
+	test "$_PHASEDTM_STMS" == "ALL"    && _PHASEDTM_STMS=$PHASEDTM_STMS
+	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
+	test "$_PHASEDTM_DESIGNS" == "ALL" && _PHASEDTM_DESIGNS=$PHASEDTM_DESIGNS
 
 	
 	echo 'starting execution...'
@@ -173,18 +176,20 @@ function execute {
 				;;
 			phasedTM)
 				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+				local c="$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")"
+				local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}" "$c")"
 				for stm in ${_PHASEDTM_STMS}; do
 					case $stm in
 						tinystm)
-							local tinystm_suffixes="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-							tinystm_suffixes="$(cross_product "${tinystm_suffixes}" "$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")")"
+							local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+							SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
 							;;
 						norec)
-							local norec_suffixes="$(cross_product ${build}_$s-norec "$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")")"
+							local tmp="norec"
+							SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
 							;;
 					esac
 				done
-				SUFFIXES="$tinystm_suffixes $norec_suffixes"
 				;;
 			rtm)
 				SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
@@ -212,10 +217,11 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:S:d:m:l:s:w:i:z:u:t:n:a:M:H:h" opt;
+while getopts "b:v:S:d:m:l:s:w:i:z:u:t:n:a:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
+		v) _PHASEDTM_DESIGNS=$OPTARG ;;
 		S) _PHASEDTM_STMS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;

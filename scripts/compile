@@ -75,7 +75,7 @@ function compile_microbench_apps {
 
 function compile_with_tinystm {
 
-	local max_cap_aborts="$1"
+	local phasedTMsuffix="$1"
 
 	test -z "$_tinySTM_DESIGNS"       && _tinySTM_DESIGNS='ETL'
 	test "$_tinySTM_DESIGNS" == "ALL" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
@@ -87,11 +87,12 @@ function compile_with_tinystm {
 	for design in ${_tinySTM_DESIGNS}; do
 		for cm in ${_tinySTM_CMS}; do
 			for ort_hash in ${_ORT_HASHES}; do
-				sed -e "/${!design}/s|# ||;/${!cm}/s|# ||" \
-						-e "/${ORT_PROFILING}/s|# ||"          \
-						-e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
-						-e "/${RW_SET_PROFILING}/s|# ||"       \
-						-e "/${ort_hash}/s|# ||"      				 \
+				sed -e "/${!design}/s|# ||;/${!cm}/s|# ||"   \
+						-e "/${ORT_PROFILING}/s|# ||"            \
+						-e "/${COMMIT_RATE_PROFILING}/s|# ||"    \
+						-e "/${RW_SET_PROFILING}/s|# ||"         \
+						-e "/${NO_DUPLICATES_IN_RW_SETS}/s|# ||" \
+						-e "/${ort_hash}/s|# ||"      				   \
 						$tinySTM/Makefile.template > $tinySTM/Makefile
 				touch $tinySTM/Makefile
 				make -C $tinySTM clean ${MAKE_OPTIONS}
@@ -100,7 +101,7 @@ function compile_with_tinystm {
 				suffix=-${design}-${cm}-${ort_hash}
 				if [ $build == 'phasedTM' ]; then
 					local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-					suffix="_$s$suffix-$max_cap_aborts"
+					suffix="_$s-$phasedTMsuffix$suffix"
 				else
 					local s=$(uname -m)
 					suffix="_$s$suffix"
@@ -117,24 +118,32 @@ function compile_with_tinystm {
 
 function compile_with_phasedTM {
 
-	test -z "$_MAX_CAPACITY_ABORTS" && _MAX_CAPACITY_ABORTS=1
-	test -z "$_PHASEDTM_STMS"       && _PHASEDTM_STMS='tinystm'
+	test -z "$_MAX_CAPACITY_ABORTS"    && _MAX_CAPACITY_ABORTS=1
+	test -z "$_PHASEDTM_STMS"          && _PHASEDTM_STMS='tinystm'
+	test "$_PHASEDTM_STMS" == "ALL"    && _PHASEDTM_STMS=$PHASEDTM_STMS
+	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
+	test "$_PHASEDTM_DESIGNS" == "ALL" && _PHASEDTM_DESIGNS=$PHASEDTM_DESIGNS
 
 	local MAKE_OPTIONS_copy="$MAKE_OPTIONS"
 	for stm in ${_PHASEDTM_STMS}; do
 		MAKE_OPTIONS="${MAKE_OPTIONS_copy} PHASED_STM=$stm"
-		for max_capacity_aborts in ${_MAX_CAPACITY_ABORTS}; do
-			make -C $PhasedTM clean ${MAKE_OPTIONS}
-			make -C $PhasedTM ${MAKE_OPTIONS} MAX_CAPACITY_ABORTS=$max_capacity_aborts
-			compile_with_$stm "cap_aborts_$max_capacity_aborts"
-		done # FOR EACH MAX CAPACITY ABORT
+		for design in ${_PHASEDTM_DESIGNS}; do
+			sed -e "/${!design}/s|# ||" \
+				$PhasedTM/Makefile.template > $PhasedTM/Makefile
+			touch $PhasedTM/Makefile
+			for max_capacity_aborts in ${_MAX_CAPACITY_ABORTS}; do
+				make -C $PhasedTM clean ${MAKE_OPTIONS}
+				make -C $PhasedTM ${MAKE_OPTIONS} MAX_CAPACITY_ABORTS=$max_capacity_aborts
+				compile_with_$stm "$design-cap_aborts_$max_capacity_aborts"
+			done # FOR EACH MAX CAPACITY ABORT
+		done # FOR EACH PHASEDTM DESIGN
 	done # FOR EACH STM
 	MAKE_OPTIONS="$MAKE_OPTIONS_copy"
 }
 
 function compile_with_norec {
 	
-	local max_cap_aborts="$1"
+	local phasedTMsuffix="$1"
 	
 	sed	-e "s|# DUMMY COMMENT||"               \
 	    -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
@@ -145,7 +154,7 @@ function compile_with_norec {
 	suffix=""
 	if [ $build == 'phasedTM' ]; then
 		local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-		suffix="_$s-norec-$max_cap_aborts"
+		suffix="_$s-$phasedTMsuffix-norec"
 	else
 		local s=$(uname -m)
 		suffix="_$s"
@@ -227,7 +236,7 @@ function compile {
 		if [ ! -e $ALLOCSDIR/$(readlink ${hoard}) ]     || \
 		   [ ! -e $ALLOCSDIR/$(readlink ${tcmalloc}) ]  || \
 			 [ ! -e $ALLOCSDIR/$(readlink ${tbbmalloc}) ] || \
-			 [ ! -e $ALLOCSDIR/$(readlink ${ibmmalloc}) ]; then
+			 [ ! -e $ALLOCSDIR/$(readlink ${ibmptmalloc}) ]; then
 			cd $ALLOCSDIR
 			./gen-allocators.sh
 			cd ..
@@ -280,10 +289,11 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:S:d:m:D:l:s:i:a:P:H:T:h" opt;
+while getopts "b:v:S:d:m:D:l:s:i:a:P:H:T:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
+		v) _PHASEDTM_DESIGNS=$OPTARG ;;
 		S) _PHASEDTM_STMS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
@@ -302,6 +312,7 @@ do
 				 	MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=COMMIT_RATE_PROFILING" ;;
 				RW_SET_PROFILING)
 					RW_SET_PROFILING='# DEFINES += -DRW_SET_PROFILING' 
+					NO_DUPLICATES_IN_RW_SETS='# DEFINES += -DNO_DUPLICATES_IN_RW_SETS'
 					MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=RW_SET_PROFILING" ;;
 				HTM_STATUS_PROFILING)
 					MAKE_OPTIONS="$MAKE_OPTIONS PROFILING=HTM_STATUS_PROFILING" ;;

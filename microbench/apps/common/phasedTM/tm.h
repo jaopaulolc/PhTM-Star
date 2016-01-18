@@ -45,15 +45,54 @@
  * transactions, one should check the environment returned by
  * stm_get_env() and only call sigsetjmp() if it is not null.
  */
-#define STM_START(tid, ro, restarted)       { stm_tx_attr_t _a = {{.id = tid, .read_only = ro}}; \
-                                              sigjmp_buf *_e = stm_start(_a,0);           \
-																							int status = 0;                             \
-                                              if (_e != NULL) status = sigsetjmp(*_e, 0); \
-																							(*restarted) = status != 0;                 \
-																						}
-
+#if STM_VERSION_NB <= 103
+# define STM_START(tid, ro, tx_count, restarted)                      \
+																		do {                              \
+                                      sigjmp_buf *_e;                 \
+                                      stm_tx_attr_t _a = {tid, ro};   \
+                                      _e = stm_start(&_a, tx_count);  \
+                                      int status = sigsetjmp(*_e, 0); \
+																			(*restarted) = status != 0;     \
+                                    } while (0)
+#else /* STM_VERSION_NB > 103 */
+# define STM_START(tid, ro, tx_count, restarted)			\
+																		do { \
+                                      sigjmp_buf *_e; \
+                                      stm_tx_attr_t _a = {{.id = (unsigned int)tid,          \
+																			                     .read_only = (unsigned int)ro,    \
+																													 .visible_reads = (unsigned int)0, \
+																													 .no_retry = (unsigned int)0,      \
+																													 .no_extend = (unsigned int)0,     \
+																													}}; \
+                                      _e = stm_start(_a, tx_count); \
+                                      int status = sigsetjmp(*_e, 0); \
+																			(*restarted) = status != 0; \
+                                    } while (0)
+#endif /* STM_VERSION_NB > 103 */
 
 #define STM_COMMIT                          stm_commit()
+
+#define IF_HTM_MODE							while(1){ \
+																	uint64_t mode = getMode(); \
+																	if (mode == HW){
+#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+																		if (!modeChanged) {
+#define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
+																			break; \
+																		}
+#define ELSE_STM_MODE							} else {
+#define START_STM_MODE(tid, ro)			bool restarted = false; \
+																		STM_START(tid, ro, __COUNTER__, &restarted); \
+																		bool modeChanged = STM_PreStart_Tx(restarted); \
+																		if (!modeChanged){
+#define COMMIT_STM_MODE								STM_COMMIT; \
+																			STM_PostCommit_Tx(); \
+																			break; \
+																		} \
+																		STM_COMMIT; \
+																	} \
+																}
+
 
 #define TM_LOAD(addr)                      stm_load((stm_word_t *)addr)
 #define TM_STORE(addr, value)              stm_store((stm_word_t *)addr, (stm_word_t)value)
@@ -120,22 +159,42 @@ static unsigned int **coreSTM_aborts;
 																			stm::thread_init(); \
 																			phTM_thread_init(tid)
 
-#define TM_EXIT_THREAD(tid)           stm::thread_shutdown()
+#define TM_EXIT_THREAD(tid)           stm::thread_shutdown(); \
+																			phTM_thread_exit()
 
 #define TM_MALLOC(size)               TM_ALLOC(size)
 /* TM_FREE(ptr) is already defined in the file interface. */
 #define TM_FREE2(ptr,size)            TM_FREE(ptr)
 
-#define STM_START(tid, ro, restarted)               \
+#define STM_START(tid, ro, abort_flags)            \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
-    jmp_buf _jmpbuf;                               \
-    uint32_t abort_flags = setjmp(_jmpbuf);        \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-		(*restarted) = abort_flags != 0;               \
     CFENCE; 
 
 #define STM_COMMIT         \
     stm::commit(tx);      \
+
+#define IF_HTM_MODE							while(1){ \
+																	uint64_t mode = getMode(); \
+																	if (mode == HW){
+#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+																		if (!modeChanged) {
+#define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
+																			break; \
+																		}
+#define ELSE_STM_MODE							} else {
+#define START_STM_MODE(tid, ro)			jmp_buf _jmpbuf; \
+																		uint32_t abort_flags = setjmp(_jmpbuf); \
+																		bool restarted = abort_flags != 0; \
+																		bool modeChanged = STM_PreStart_Tx(restarted); \
+																		if (!modeChanged){ \
+																			STM_START(tid, ro, abort_flags);
+#define COMMIT_STM_MODE								STM_COMMIT; \
+																			STM_PostCommit_Tx(); \
+																			break; \
+																		} \
+																	} \
+																}
 
 #define TM_RESTART()                  stm::restart()
 
@@ -145,27 +204,6 @@ static unsigned int **coreSTM_aborts;
 #else
 #error "no STM selected!"
 #endif
-
-#define IF_HTM_MODE							while(1){ \
-																	modeIndicator_t indicator = atomicReadModeIndicator(); \
-																	if (indicator.mode == HW){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
-																		if (!modeChanged) {
-#define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
-																			break; \
-																		}
-#define ELSE_STM_MODE							} else {
-#define START_STM_MODE(tid, ro)			bool restarted = false; \
-																		STM_START(tid, ro, &restarted); \
-																		bool modeChanged = STM_PreStart_Tx(restarted); \
-																		if (!modeChanged){
-#define COMMIT_STM_MODE								STM_COMMIT; \
-																			STM_PostCommit_Tx(); \
-																			break; \
-																		} \
-																		STM_COMMIT; \
-																	} \
-																}
 
 #define TM_SHARED_READ(var)            TM_LOAD(&(var))
 #define TM_SHARED_READ_P(var)          TM_LOAD(&(var))

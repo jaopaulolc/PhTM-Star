@@ -140,9 +140,22 @@ processPackets (void* argPtr)
     while (1) {
 
         char* bytes;
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        bytes = stream_getPacket(streamPtr);
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         bytes = TMSTREAM_GETPACKET(streamPtr);
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (!bytes) {
             break;
         }
@@ -151,11 +164,26 @@ processPackets (void* argPtr)
         long flowId = packetPtr->flowId;
 
         error_t error;
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        error = decoder_process(decoderPtr,
+                                  bytes,
+                                  (PACKET_HEADER_LENGTH + packetPtr->length));
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         error = TMDECODER_PROCESS(decoderPtr,
                                   bytes,
                                   (PACKET_HEADER_LENGTH + packetPtr->length));
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (error) {
             /*
              * Currently, stream_generate() does not create these errors.
@@ -167,9 +195,22 @@ processPackets (void* argPtr)
 
         char* data;
         long decodedFlowId;
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        data = decoder_getComplete(decoderPtr, &decodedFlowId);
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         data = TMDECODER_GETCOMPLETE(decoderPtr, &decodedFlowId);
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (data) {
             error_t error = PDETECTOR_PROCESS(detectorPtr, data);
             P_FREE(data);

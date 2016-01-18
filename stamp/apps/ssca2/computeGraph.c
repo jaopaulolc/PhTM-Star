@@ -180,11 +180,26 @@ computeGraph (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+    	long tmp_maxNumVertices = (long)global_maxNumVertices;
+    	long new_maxNumVertices = MAX(tmp_maxNumVertices, maxNumVertices + 1);
+    	global_maxNumVertices = (unsigned long)new_maxNumVertices;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    long tmp_maxNumVertices = (long)TM_SHARED_READ(global_maxNumVertices);
-    long new_maxNumVertices = MAX(tmp_maxNumVertices, maxNumVertices + 1);
-    TM_SHARED_WRITE(global_maxNumVertices, (unsigned long)new_maxNumVertices);
+#endif /* !HW_SW_PATHS */
+    	long tmp_maxNumVertices = (long)TM_SHARED_READ(global_maxNumVertices);
+    	long new_maxNumVertices = MAX(tmp_maxNumVertices, maxNumVertices + 1);
+    	TM_SHARED_WRITE(global_maxNumVertices, (unsigned long)new_maxNumVertices);
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 
@@ -296,12 +311,25 @@ computeGraph (void* argPtr)
 
     thread_barrier_wait();
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+      global_outVertexListSize = (long)global_outVertexListSize + outVertexListSize;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TM_SHARED_WRITE(
-        global_outVertexListSize,
-        ((long)TM_SHARED_READ(global_outVertexListSize) + outVertexListSize)
-    );
+#endif /* !HW_SW_PATHS */
+    	TM_SHARED_WRITE(
+      	  global_outVertexListSize,
+        	((long)TM_SHARED_READ(global_outVertexListSize) + outVertexListSize)
+    	);
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 
@@ -472,7 +500,34 @@ computeGraph (void* argPtr)
                 }
             }
             if (k == GPtr->outVertexIndex[v]+GPtr->outDegree[v]) {
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                /* Add i to the impliedEdgeList of v */
+                long inDegree = (long)GPtr->inDegree[v];
+                GPtr->inDegree[v] = (inDegree + 1);
+                if (inDegree < MAX_CLUSTER_SIZE) {
+                    impliedEdgeList[v*MAX_CLUSTER_SIZE+inDegree] = (unsigned long)i;
+                } else {
+                    /* Use auxiliary array to store the implied edge */
+                    /* Create an array if it's not present already */
+                    ULONGINT_T* a = NULL;
+                    if ((inDegree % MAX_CLUSTER_SIZE) == 0) {
+                        a = (ULONGINT_T*)malloc(MAX_CLUSTER_SIZE
+                                                * sizeof(ULONGINT_T));
+                        assert(a);
+                        auxArr[v] =  a;
+                    } else {
+                        a = auxArr[v];
+                    }
+                    a[inDegree % MAX_CLUSTER_SIZE] = (unsigned long)i;
+                }
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+					    TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 /* Add i to the impliedEdgeList of v */
                 long inDegree = (long)TM_SHARED_READ(GPtr->inDegree[v]);
                 TM_SHARED_WRITE(GPtr->inDegree[v], (inDegree + 1));
@@ -493,7 +548,11 @@ computeGraph (void* argPtr)
                     }
                     TM_SHARED_WRITE(a[inDegree % MAX_CLUSTER_SIZE], (unsigned long)i);
                 }
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+					    TM_END();
+					#endif /* !HW_SW_PATHS */
             }
         }
     } /* for i */

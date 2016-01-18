@@ -808,11 +808,26 @@ genScalData (void* argPtr)
         long t1 = PRANDOM_GENERATE(stream);
         long t = i + t1 % (TOT_VERTICES - i);
         if (t != i) {
-            TM_BEGIN();
+			#ifdef HW_SW_PATHS
+				IF_HTM_MODE
+					START_HTM_MODE
+            unsigned long t2 = (unsigned long)permV[t];
+            permV[t] = permV[i];
+            permV[i] = t2;
+					COMMIT_HTM_MODE
+				ELSE_STM_MODE
+					START_STM_MODE(RW)
+			#else /* !HW_SW_PATHS */
+			    TM_BEGIN();
+			#endif /* !HW_SW_PATHS */
             unsigned long t2 = (unsigned long)TM_SHARED_READ(permV[t]);
             TM_SHARED_WRITE(permV[t], TM_SHARED_READ(permV[i]));
             TM_SHARED_WRITE(permV[i], t2);
-            TM_END();
+			#ifdef HW_SW_PATHS
+					COMMIT_STM_MODE
+			#else /* !HW_SW_PATHS */
+			    TM_END();
+			#endif /* !HW_SW_PATHS */
         }
     }
 
@@ -1096,10 +1111,23 @@ genScalData (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+	    global_edgeNum = (long)global_edgeNum + i_edgePtr;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TM_SHARED_WRITE(global_edgeNum,
+#endif /* !HW_SW_PATHS */
+	    TM_SHARED_WRITE(global_edgeNum,
                     ((long)TM_SHARED_READ(global_edgeNum) + i_edgePtr));
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 
@@ -1314,10 +1342,23 @@ genScalData (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+	    global_edgeNum = (long)global_edgeNum + i_edgePtr;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TM_SHARED_WRITE(global_edgeNum,
+#endif /* !HW_SW_PATHS */
+    	TM_SHARED_WRITE(global_edgeNum,
                     ((long)TM_SHARED_READ(global_edgeNum) + i_edgePtr));
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
 
     thread_barrier_wait();
@@ -1396,10 +1437,23 @@ genScalData (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+    	global_numStrWtEdges = (long)global_numStrWtEdges + numStrWtEdges;
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TM_SHARED_WRITE(global_numStrWtEdges,
+#endif /* !HW_SW_PATHS */
+    	TM_SHARED_WRITE(global_numStrWtEdges,
                     ((long)TM_SHARED_READ(global_numStrWtEdges) + numStrWtEdges));
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 

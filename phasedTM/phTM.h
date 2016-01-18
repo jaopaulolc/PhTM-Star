@@ -2,19 +2,18 @@
 #define _PHTM_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include <htm.h>
-#include <types.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-modeIndicator_t
-atomicReadModeIndicator();
+enum { HW=0, SW=1 };
 
-void
-changeMode(mode_t newMode);
+uint64_t
+getMode();
 
 bool
 HTM_Start_Tx();
@@ -32,10 +31,13 @@ void
 phTM_init(long nThreads);
 
 void
+phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts);
+
+void
 phTM_thread_init(long tid);
 
 void
-phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts);
+phTM_thread_exit(void);
 
 #if defined(__cplusplus)
 } /* extern "C" { */

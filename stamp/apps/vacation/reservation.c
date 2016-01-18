@@ -86,6 +86,9 @@ static TM_SAFE
 void
 checkReservation (TM_ARGDECL  reservation_t* reservationPtr);
 
+static void
+checkReservation_seq (reservation_t* reservationPtr);
+
 /* =============================================================================
  * reservation_info_alloc
  * -- Returns NULL on failure
@@ -106,6 +109,21 @@ reservation_info_alloc (TM_ARGDECL  reservation_type_t type, long id, long price
     return reservationInfoPtr;
 }
 
+reservation_info_t*
+reservation_info_alloc_seq (reservation_type_t type, long id, long price)
+{
+    reservation_info_t* reservationInfoPtr;
+
+    reservationInfoPtr = (reservation_info_t*)malloc(sizeof(reservation_info_t));
+    if (reservationInfoPtr != NULL) {
+        reservationInfoPtr->type = type;
+        reservationInfoPtr->id = id;
+        reservationInfoPtr->price = price;
+    }
+
+    return reservationInfoPtr;
+}
+
 
 /* =============================================================================
  * reservation_info_free
@@ -115,6 +133,12 @@ TM_SAFE void
 reservation_info_free (TM_ARGDECL  reservation_info_t* reservationInfoPtr)
 {
     TM_FREE(reservationInfoPtr);
+}
+
+void
+reservation_info_free_seq (reservation_info_t* reservationInfoPtr)
+{
+    free(reservationInfoPtr);
 }
 
 
@@ -175,12 +199,29 @@ checkReservation (TM_ARGDECL  reservation_t* reservationPtr)
 static void
 checkReservation_seq (reservation_t* reservationPtr)
 {
-    assert(reservationPtr->numUsed >= 0);
-    assert(reservationPtr->numFree >= 0);
-    assert(reservationPtr->numTotal >= 0);
-    assert((reservationPtr->numUsed + reservationPtr->numFree) ==
-           (reservationPtr->numTotal));
-    assert(reservationPtr->price >= 0);
+    long numUsed = (long)reservationPtr->numUsed;
+    if (numUsed < 0) {
+        TM_RESTART();
+    }
+    
+    long numFree = (long)reservationPtr->numFree;
+    if (numFree < 0) {
+        TM_RESTART();
+    }
+
+    long numTotal = (long)reservationPtr->numTotal;
+    if (numTotal < 0) {
+        TM_RESTART();
+    }
+
+    if ((numUsed + numFree) != numTotal) {
+        TM_RESTART();
+    }
+
+    long price = (long)reservationPtr->price;
+    if (price < 0) {
+        TM_RESTART();
+    }
 }
 
 
@@ -415,6 +456,12 @@ TM_SAFE void
 reservation_free (TM_ARGDECL  reservation_t* reservationPtr)
 {
     TM_FREE(reservationPtr);
+}
+
+void
+reservation_free_seq (reservation_t* reservationPtr)
+{
+    free(reservationPtr);
 }
 
 

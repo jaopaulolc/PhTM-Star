@@ -119,12 +119,28 @@ getStartLists (void* argPtr)
         }
     }
 
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+	    long tmp_maxWeight = (long)global_maxWeight;
+	    if (maxWeight > tmp_maxWeight) {
+	        global_maxWeight = maxWeight;
+	    }
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    long tmp_maxWeight = (long)TM_SHARED_READ(global_maxWeight);
-    if (maxWeight > tmp_maxWeight) {
-        TM_SHARED_WRITE(global_maxWeight, maxWeight);
-    }
+#endif /* !HW_SW_PATHS */
+	    long tmp_maxWeight = (long)TM_SHARED_READ(global_maxWeight);
+	    if (maxWeight > tmp_maxWeight) {
+	        TM_SHARED_WRITE(global_maxWeight, maxWeight);
+	    }
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     thread_barrier_wait();
 

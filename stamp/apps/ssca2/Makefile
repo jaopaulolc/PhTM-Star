@@ -5,11 +5,11 @@ PROG := ssca2
 SRCS += \
 	alg_radix_smp.c \
 	computeGraph.c \
-	createPartition.c \
+	genScalData.c \
 	cutClusters.c \
 	findSubGraphs.c \
-	genScalData.c \
 	getStartLists.c \
+	createPartition.c \
 	getUserParameters.c \
 	globals.c \
 	ssca2.c

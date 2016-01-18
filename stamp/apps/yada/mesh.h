@@ -125,6 +125,8 @@ TM_SAFE
 void
 TMmesh_remove (TM_ARGDECL  mesh_t* meshPtr, element_t* elementPtr);
 
+void
+mesh_remove (mesh_t* meshPtr, element_t* elementPtr);
 
 /* =============================================================================
  * TMmesh_insertBoundary
@@ -134,6 +136,8 @@ TM_SAFE
 bool_t
 TMmesh_insertBoundary (TM_ARGDECL  mesh_t* meshPtr, edge_t* boundaryPtr);
 
+bool_t
+mesh_insertBoundary (mesh_t* meshPtr, edge_t* boundaryPtr);
 
 /* =============================================================================
  * TMmesh_removeBoundary
@@ -143,6 +147,8 @@ TM_SAFE
 bool_t
 TMmesh_removeBoundary (TM_ARGDECL  mesh_t* meshPtr, edge_t* boundaryPtr);
 
+bool_t
+mesh_removeBoundary (mesh_t* meshPtr, edge_t* boundaryPtr);
 
 /* =============================================================================
  * mesh_read

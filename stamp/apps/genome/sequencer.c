@@ -283,7 +283,25 @@ sequencer_run (void* argPtr)
     }
 
     for (i = i_start; i < i_stop; i+=CHUNK_STEP1) {
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        {
+            long ii;
+            long ii_stop = MIN(i_stop, (i+CHUNK_STEP1));
+            for (ii = i; ii < ii_stop; ii++) {
+                void* segment = vector_at(segmentsContentsPtr, ii);
+                hashtable_insert(uniqueSegmentsPtr,
+                                   segment,
+                                   segment);
+            } /* ii */
+        }
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         {
             long ii;
             long ii_stop = MIN(i_stop, (i+CHUNK_STEP1));
@@ -294,7 +312,11 @@ sequencer_run (void* argPtr)
                                    segment);
             } /* ii */
         }
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
     }
 
     thread_barrier_wait();
@@ -356,13 +378,30 @@ sequencer_run (void* argPtr)
             bool_t status;
 
             /* Find an empty constructEntries entry */
-            TM_BEGIN();
+			#ifdef HW_SW_PATHS
+				IF_HTM_MODE
+					START_HTM_MODE
+            while (((void*)constructEntries[entryIndex].segment) != NULL) {
+                entryIndex = (entryIndex + 1) % numUniqueSegment; /* look for empty */
+            }
+            constructEntryPtr = &constructEntries[entryIndex];
+            constructEntryPtr->segment = segment;
+					COMMIT_HTM_MODE
+				ELSE_STM_MODE
+					START_STM_MODE(RW)
+			#else /* !HW_SW_PATHS */
+		      TM_BEGIN();
+			#endif /* !HW_SW_PATHS */
             while (((void*)TM_SHARED_READ_P(constructEntries[entryIndex].segment)) != NULL) {
                 entryIndex = (entryIndex + 1) % numUniqueSegment; /* look for empty */
             }
             constructEntryPtr = &constructEntries[entryIndex];
             TM_SHARED_WRITE_P(constructEntryPtr->segment, segment);
-            TM_END();
+			#ifdef HW_SW_PATHS
+					COMMIT_STM_MODE
+			#else /* !HW_SW_PATHS */
+		      TM_END();
+			#endif /* !HW_SW_PATHS */
             entryIndex = (entryIndex + 1) % numUniqueSegment;
 
             /*
@@ -382,11 +421,26 @@ sequencer_run (void* argPtr)
             for (j = 1; j < segmentLength; j++) {
                 startHash = (ulong_t)segment[j-1] +
                             (startHash << 6) + (startHash << 16) - startHash;
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                status = table_insert(startHashToConstructEntryTables[j],
+                                      (ulong_t)startHash,
+                                      (void*)constructEntryPtr );
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+				      TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 status = TMTABLE_INSERT(startHashToConstructEntryTables[j],
                                         (ulong_t)startHash,
                                         (void*)constructEntryPtr );
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+				      TM_END();
+					#endif /* !HW_SW_PATHS */
                 assert(status);
             }
 
@@ -395,11 +449,26 @@ sequencer_run (void* argPtr)
              */
             startHash = (ulong_t)segment[j-1] +
                         (startHash << 6) + (startHash << 16) - startHash;
-            TM_BEGIN();
+			#ifdef HW_SW_PATHS
+				IF_HTM_MODE
+					START_HTM_MODE
+            status = table_insert(hashToConstructEntryTable,
+                                  (ulong_t)startHash,
+                                  (void*)constructEntryPtr);
+					COMMIT_HTM_MODE
+				ELSE_STM_MODE
+					START_STM_MODE(RW)
+			#else /* !HW_SW_PATHS */
+		      TM_BEGIN();
+			#endif /* !HW_SW_PATHS */
             status = TMTABLE_INSERT(hashToConstructEntryTable,
                                     (ulong_t)startHash,
                                     (void*)constructEntryPtr);
-            TM_END();
+			#ifdef HW_SW_PATHS
+					COMMIT_STM_MODE
+			#else /* !HW_SW_PATHS */
+		      TM_END();
+			#endif /* !HW_SW_PATHS */
             assert(status);
         }
     }
@@ -458,8 +527,47 @@ sequencer_run (void* argPtr)
                 long newLength = 0;
 
                 /* endConstructEntryPtr is local except for properties startPtr/endPtr/length */
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                /* Check if matches */
+                if (startConstructEntryPtr->isStart &&
+                    (endConstructEntryPtr->startPtr != startConstructEntryPtr) &&
+                    (strncmp(startSegment,
+                             &endSegment[segmentLength - substringLength],
+                             substringLength) == 0))
+                {
+                    startConstructEntryPtr->isStart = FALSE;
 
+                    constructEntry_t* startConstructEntry_endPtr;
+                    constructEntry_t* endConstructEntry_startPtr;
+
+                    /* Update endInfo (appended something so no longer end) */
+                    endInfoEntries[entryIndex].isEnd = FALSE;
+
+                    /* Update segment chain construct info */
+                    startConstructEntry_endPtr =
+                        (constructEntry_t*)startConstructEntryPtr->endPtr;
+                    endConstructEntry_startPtr =
+                        (constructEntry_t*)endConstructEntryPtr->startPtr;
+
+                    assert(startConstructEntry_endPtr);
+                    assert(endConstructEntry_startPtr);
+                    startConstructEntry_endPtr->startPtr = endConstructEntry_startPtr;
+                    endConstructEntryPtr->nextPtr = startConstructEntryPtr;
+                    endConstructEntry_startPtr->endPtr = startConstructEntry_endPtr;
+                    endConstructEntryPtr->overlap = substringLength;
+                    newLength = (long)endConstructEntry_startPtr->length +
+                                (long)startConstructEntryPtr->length -
+                                substringLength;
+                    endConstructEntry_startPtr->length = newLength;
+                } /* if (matched) */
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+				      TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 /* Check if matches */
                 if (TM_SHARED_READ(startConstructEntryPtr->isStart) &&
                     (TM_SHARED_READ_P(endConstructEntryPtr->startPtr) != startConstructEntryPtr) &&
@@ -495,8 +603,11 @@ sequencer_run (void* argPtr)
                                 substringLength;
                     TM_SHARED_WRITE(endConstructEntry_startPtr->length, newLength);
                 } /* if (matched) */
-
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+				      TM_END();
+					#endif /* !HW_SW_PATHS */
 
                 if (!endInfoEntries[entryIndex].isEnd) { /* if there was a match */
                     break;

@@ -58,6 +58,7 @@
 #endif /* STM_VERSION_NB > 103 */
 
 #if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
+#include <locale.h>
 #ifdef COMMIT_RATE_PROFILING
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \

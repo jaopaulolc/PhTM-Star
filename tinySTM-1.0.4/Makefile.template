@@ -115,8 +115,8 @@ DEFINES += -UTM_STATISTICS2
 # same address.
 ########################################################################
 
-DEFINES += -DNO_DUPLICATES_IN_RW_SETS
-#DEFINES += -UNO_DUPLICATES_IN_RW_SETS
+# DEFINES += -DNO_DUPLICATES_IN_RW_SETS
+# DEFINES += -UNO_DUPLICATES_IN_RW_SETS
 
 ########################################################################
 # Yield the processor when waiting for a contended lock to be released.

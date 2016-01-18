@@ -137,6 +137,8 @@ TM_SAFE
 bool_t
 manager_deleteCar (TM_ARGDECL  manager_t* managerPtr, long carId, long numCar);
 
+bool_t
+manager_deleteCar_seq (manager_t* managerPtr, long carId, long numCar);
 
 /* =============================================================================
  * manager_addRoom
@@ -167,6 +169,8 @@ TM_SAFE
 bool_t
 manager_deleteRoom (TM_ARGDECL  manager_t* managerPtr, long roomId, long numRoom);
 
+bool_t
+manager_deleteRoom_seq (manager_t* managerPtr, long roomId, long numRoom);
 
 /* =============================================================================
  * manager_addFlight
@@ -195,6 +199,8 @@ TM_SAFE
 bool_t
 manager_deleteFlight (TM_ARGDECL  manager_t* managerPtr, long flightId);
 
+bool_t
+manager_deleteFlight_seq (manager_t* managerPtr, long flightId);
 
 /* =============================================================================
  * manager_addCustomer
@@ -221,6 +227,8 @@ TM_SAFE
 bool_t
 manager_deleteCustomer (TM_ARGDECL  manager_t* managerPtr, long customerId);
 
+bool_t
+manager_deleteCustomer_seq (manager_t* managerPtr, long customerId);
 
 /* =============================================================================
  * QUERY INTERFACE
@@ -238,6 +246,8 @@ TM_SAFE
 long
 manager_queryCar (TM_ARGDECL  manager_t* managerPtr, long carId);
 
+long
+manager_queryCar_seq (manager_t* managerPtr, long carId);
 
 /* =============================================================================
  * manager_queryCarPrice
@@ -248,6 +258,9 @@ manager_queryCar (TM_ARGDECL  manager_t* managerPtr, long carId);
 TM_SAFE
 long
 manager_queryCarPrice (TM_ARGDECL  manager_t* managerPtr, long carId);
+
+long
+manager_queryCarPrice_seq (manager_t* managerPtr, long carId);
 
 
 /* =============================================================================
@@ -260,6 +273,9 @@ TM_SAFE
 long
 manager_queryRoom (TM_ARGDECL  manager_t* managerPtr, long roomId);
 
+long
+manager_queryRoom_seq (manager_t* managerPtr, long roomId);
+
 
 /* =============================================================================
  * manager_queryRoomPrice
@@ -270,6 +286,9 @@ manager_queryRoom (TM_ARGDECL  manager_t* managerPtr, long roomId);
 TM_SAFE
 long
 manager_queryRoomPrice (TM_ARGDECL  manager_t* managerPtr, long roomId);
+
+long
+manager_queryRoomPrice_seq (manager_t* managerPtr, long roomId);
 
 
 /* =============================================================================
@@ -282,6 +301,8 @@ TM_SAFE
 long
 manager_queryFlight (TM_ARGDECL  manager_t* managerPtr, long flightId);
 
+long
+manager_queryFlight_seq (manager_t* managerPtr, long flightId);
 
 /* =============================================================================
  * manager_queryFlightPrice
@@ -293,6 +314,8 @@ TM_SAFE
 long
 manager_queryFlightPrice (TM_ARGDECL  manager_t* managerPtr, long flightId);
 
+long
+manager_queryFlightPrice_seq (manager_t* managerPtr, long flightId);
 
 /* =============================================================================
  * manager_queryCustomerBill
@@ -304,6 +327,8 @@ TM_SAFE
 long
 manager_queryCustomerBill (TM_ARGDECL  manager_t* managerPtr, long customerId);
 
+long
+manager_queryCustomerBill_seq (manager_t* managerPtr, long customerId);
 
 /* =============================================================================
  * RESERVATION INTERFACE
@@ -322,6 +347,8 @@ bool_t
 manager_reserveCar (TM_ARGDECL
                     manager_t* managerPtr, long customerId, long carId);
 
+bool_t
+manager_reserveCar_seq (manager_t* managerPtr, long customerId, long carId);
 
 /* =============================================================================
  * manager_reserveRoom
@@ -334,6 +361,8 @@ bool_t
 manager_reserveRoom (TM_ARGDECL
                      manager_t* managerPtr, long customerId, long roomId);
 
+bool_t
+manager_reserveRoom_seq (manager_t* managerPtr, long customerId, long roomId);
 
 /* =============================================================================
  * manager_reserveFlight
@@ -346,6 +375,8 @@ bool_t
 manager_reserveFlight (TM_ARGDECL
                        manager_t* managerPtr, long customerId, long flightId);
 
+bool_t
+manager_reserveFlight_seq (manager_t* managerPtr, long customerId, long flightId);
 
 /* =============================================================================
  * manager_cancelCar
@@ -358,6 +389,8 @@ bool_t
 manager_cancelCar (TM_ARGDECL
                    manager_t* managerPtr, long customerId, long carId);
 
+bool_t
+manager_cancelCar_seq (manager_t* managerPtr, long customerId, long carId);
 
 /* =============================================================================
  * manager_cancelRoom
@@ -370,6 +403,8 @@ bool_t
 manager_cancelRoom (TM_ARGDECL
                     manager_t* managerPtr, long customerId, long roomId);
 
+bool_t
+manager_cancelRoom_seq (manager_t* managerPtr, long customerId, long roomId);
 
 /* =============================================================================
  * manager_cancelFlight
@@ -382,6 +417,8 @@ bool_t
 manager_cancelFlight (TM_ARGDECL
                       manager_t* managerPtr, long customerId, long flightId);
 
+bool_t
+manager_cancelFlight_seq (manager_t* managerPtr, long customerId, long flightId);
 
 #define MANAGER_ADD_CAR(mgr, id, num, price) \
     manager_addCar(TM_ARG  mgr, id, num, price)

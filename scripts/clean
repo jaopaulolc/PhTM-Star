@@ -33,7 +33,8 @@ function clean {
 				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean
 				test -e $NOrec/Makefile && rm $NOrec/Makefile
 				make $MAKE_OPTIONS -C $NOrec -f Makefile.template clean
-				make $MAKE_OPTIONS -C $PhasedTM/ -f Makefile clean
+				test -e $PhasedTM/Makefile && rm $PhasedTM/Makefile
+				make $MAKE_OPTIONS -C $PhasedTM/ -f Makefile.template clean
 				;;
 			rtm | powerTM)
 				test -e $HTM/Makefile && rm $HTM/Makefile

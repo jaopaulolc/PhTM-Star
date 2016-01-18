@@ -193,7 +193,59 @@ client_run (void* argPtr)
                     ids[n] = (random_generate(randomPtr) % queryRange) + 1;
                 }
                 bool_t isFound = FALSE;
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                for (n = 0; n < numQuery; n++) {
+                    long t = types[n];
+                    long id = ids[n];
+                    long price = -1;
+                    switch (t) {
+                        case RESERVATION_CAR:
+                            if (manager_queryCar_seq(managerPtr, id) >= 0) {
+                                price = manager_queryCarPrice_seq(managerPtr, id);
+                            }
+                            break;
+                        case RESERVATION_FLIGHT:
+                            if (manager_queryFlight_seq(managerPtr, id) >= 0) {
+                                price = manager_queryFlightPrice_seq(managerPtr, id);
+                            }
+                            break;
+                        case RESERVATION_ROOM:
+                            if (manager_queryRoom_seq(managerPtr, id) >= 0) {
+                                price = manager_queryRoomPrice_seq(managerPtr, id);
+                            }
+                            break;
+                        default:
+                            assert(0);
+                    }
+                    if (price > maxPrices[t]) {
+                        maxPrices[t] = price;
+                        maxIds[t] = id;
+                        isFound = TRUE;
+                    }
+                } /* for n */
+                if (isFound) {
+                    manager_addCustomer_seq(managerPtr, customerId);
+                }
+                if (maxIds[RESERVATION_CAR] > 0) {
+                    manager_reserveCar_seq(managerPtr,
+                                        customerId, maxIds[RESERVATION_CAR]);
+                }
+                if (maxIds[RESERVATION_FLIGHT] > 0) {
+                    manager_reserveFlight_seq(managerPtr,
+                                           customerId, maxIds[RESERVATION_FLIGHT]);
+                }
+                if (maxIds[RESERVATION_ROOM] > 0) {
+                    manager_reserveRoom_seq(managerPtr,
+                                         customerId, maxIds[RESERVATION_ROOM]);
+                }
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+				      TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 for (n = 0; n < numQuery; n++) {
                     long t = types[n];
                     long id = ids[n];
@@ -238,18 +290,38 @@ client_run (void* argPtr)
                     MANAGER_RESERVE_ROOM(managerPtr,
                                          customerId, maxIds[RESERVATION_ROOM]);
                 }
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+				      TM_END();
+					#endif /* !HW_SW_PATHS */
                 break;
             }
 
             case ACTION_DELETE_CUSTOMER: {
                 long customerId = random_generate(randomPtr) % queryRange + 1;
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                long bill = manager_queryCustomerBill_seq(managerPtr, customerId);
+                if (bill >= 0) {
+                    manager_deleteCustomer_seq(managerPtr, customerId);
+                }
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+				      TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 long bill = MANAGER_QUERY_CUSTOMER_BILL(managerPtr, customerId);
                 if (bill >= 0) {
                     MANAGER_DELETE_CUSTOMER(managerPtr, customerId);
                 }
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+				      TM_END();
+					#endif /* !HW_SW_PATHS */
                 break;
             }
 
@@ -264,7 +336,50 @@ client_run (void* argPtr)
                         prices[n] = ((random_generate(randomPtr) % 5) * 10) + 50;
                     }
                 }
-                TM_BEGIN();
+					#ifdef HW_SW_PATHS
+						IF_HTM_MODE
+							START_HTM_MODE
+                for (n = 0; n < numUpdate; n++) {
+                    long t = types[n];
+                    long id = ids[n];
+                    long doAdd = ops[n];
+                    if (doAdd) {
+                        long newPrice = prices[n];
+                        switch (t) {
+                            case RESERVATION_CAR:
+                                manager_addCar_seq(managerPtr, id, 100, newPrice);
+                                break;
+                            case RESERVATION_FLIGHT:
+                                manager_addFlight_seq(managerPtr, id, 100, newPrice);
+                                break;
+                            case RESERVATION_ROOM:
+                                manager_addRoom_seq(managerPtr, id, 100, newPrice);
+                                break;
+                            default:
+                                assert(0);
+                        }
+                    } else { /* do delete */
+                        switch (t) {
+                            case RESERVATION_CAR:
+                                manager_deleteCar_seq(managerPtr, id, 100);
+                                break;
+                            case RESERVATION_FLIGHT:
+                                manager_deleteFlight_seq(managerPtr, id);
+                                break;
+                            case RESERVATION_ROOM:
+                                manager_deleteRoom_seq(managerPtr, id, 100);
+                                break;
+                            default:
+                                assert(0);
+                        }
+                    }
+                }
+							COMMIT_HTM_MODE
+						ELSE_STM_MODE
+							START_STM_MODE(RW)
+					#else /* !HW_SW_PATHS */
+				      TM_BEGIN();
+					#endif /* !HW_SW_PATHS */
                 for (n = 0; n < numUpdate; n++) {
                     long t = types[n];
                     long id = ids[n];
@@ -300,7 +415,11 @@ client_run (void* argPtr)
                         }
                     }
                 }
-                TM_END();
+					#ifdef HW_SW_PATHS
+							COMMIT_STM_MODE
+					#else /* !HW_SW_PATHS */
+				      TM_END();
+					#endif /* !HW_SW_PATHS */
                 break;
             }
 

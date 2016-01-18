@@ -108,6 +108,8 @@ TM_SAFE
 reservation_info_t*
 reservation_info_alloc (TM_ARGDECL  reservation_type_t type, long id, long price);
 
+reservation_info_t*
+reservation_info_alloc_seq (reservation_type_t type, long id, long price);
 
 /* =============================================================================
  * reservation_info_free
@@ -117,6 +119,8 @@ TM_SAFE
 void
 reservation_info_free (TM_ARGDECL  reservation_info_t* reservationInfoPtr);
 
+void
+reservation_info_free_seq (reservation_info_t* reservationInfoPtr);
 
 /* =============================================================================
  * reservation_info_compare
@@ -219,6 +223,8 @@ TM_SAFE
 void
 reservation_free (TM_ARGDECL  reservation_t* reservationPtr);
 
+void
+reservation_free_seq (reservation_t* reservationPtr);
 
 #define RESERVATION_INFO_ALLOC(type, id, price) \
     reservation_info_alloc(TM_ARG  type, id, price)

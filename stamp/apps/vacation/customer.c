@@ -155,6 +155,15 @@ customer_free (TM_ARGDECL  customer_t* customerPtr)
     TM_FREE(customerPtr);
 }
 
+void
+customer_free_seq (customer_t* customerPtr)
+{
+    list_t* reservationInfoListPtr =
+        (list_t*)customerPtr->reservationInfoListPtr;
+    list_free(reservationInfoListPtr);
+    free(customerPtr);
+}
+
 
 /* =============================================================================
  * customer_addReservationInfo
@@ -175,6 +184,20 @@ customer_addReservationInfo (TM_ARGDECL
         (list_t*)TM_SHARED_READ_P(customerPtr->reservationInfoListPtr);
 
     return TMLIST_INSERT(reservationInfoListPtr, (void*)reservationInfoPtr);
+}
+
+bool_t
+customer_addReservationInfo_seq (customer_t* customerPtr,
+                             reservation_type_t type, long id, long price)
+{
+    reservation_info_t* reservationInfoPtr;
+
+    reservationInfoPtr = reservation_info_alloc_seq(type, id, price);
+    assert(reservationInfoPtr != NULL);
+
+    list_t* reservationInfoListPtr = (list_t*)customerPtr->reservationInfoListPtr;
+
+    return list_insert(reservationInfoListPtr, (void*)reservationInfoPtr);
 }
 
 
@@ -216,6 +239,38 @@ customer_removeReservationInfo (TM_ARGDECL
     return TRUE;
 }
 
+bool_t
+customer_removeReservationInfo_seq (customer_t* customerPtr,
+                                reservation_type_t type, long id)
+{
+    reservation_info_t findReservationInfo;
+
+    findReservationInfo.type = type;
+    findReservationInfo.id = id;
+    /* price not used to compare reservation infos */
+
+    list_t* reservationInfoListPtr =
+        (list_t*)customerPtr->reservationInfoListPtr;
+
+    reservation_info_t* reservationInfoPtr =
+        (reservation_info_t*)list_find(reservationInfoListPtr,
+                                         &findReservationInfo);
+
+    if (reservationInfoPtr == NULL) {
+        return FALSE;
+    }
+
+    bool_t status = list_remove(reservationInfoListPtr,
+                                  (void*)&findReservationInfo);
+    if (status == FALSE) {
+        TM_RESTART();
+    }
+
+    reservation_info_free_seq(reservationInfoPtr);
+
+    return TRUE;
+}
+
 
 /* =============================================================================
  * customer_getBill
@@ -234,6 +289,24 @@ customer_getBill (TM_ARGDECL  customer_t* customerPtr)
     while (TMLIST_ITER_HASNEXT(&it, reservationInfoListPtr)) {
         reservation_info_t* reservationInfoPtr =
             (reservation_info_t*)TMLIST_ITER_NEXT(&it, reservationInfoListPtr);
+        bill += reservationInfoPtr->price;
+    }
+
+    return bill;
+}
+
+long
+customer_getBill_seq (customer_t* customerPtr)
+{
+    long bill = 0;
+    list_iter_t it;
+    list_t* reservationInfoListPtr =
+        (list_t*)customerPtr->reservationInfoListPtr;
+
+    list_iter_reset(&it, reservationInfoListPtr);
+    while (list_iter_hasNext(&it, reservationInfoListPtr)) {
+        reservation_info_t* reservationInfoPtr =
+            (reservation_info_t*)list_iter_next(&it, reservationInfoListPtr);
         bill += reservationInfoPtr->price;
     }
 

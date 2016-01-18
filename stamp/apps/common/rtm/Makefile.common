@@ -13,7 +13,7 @@ LDFLAGS  += -lpthread
 
 TMLIBDIR ?= ../../../htm
 CPPFLAGS += -I$(TMLIBDIR)
-LDFLAGS  += -L$(TMLIBDIR) -lhtm
+LDFLAGS  += -L$(TMLIBDIR) -lhtm -lrt
 LIBDEPS  += $(TMLIBDIR)/libhtm.a
 
 include ../common/Makefile.common

@@ -143,29 +143,43 @@ process (void *arg)
     while (1) {
 
         element_t* elementPtr;
-#ifdef HYBRID_TM
-        RTM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
         elementPtr = (element_t*)heap_remove(workHeapPtr);
-        RTM_END();
-#else
-        TM_BEGIN();
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         elementPtr = (element_t*)TMHEAP_REMOVE(workHeapPtr);
-        TM_END();
-#endif
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (elementPtr == NULL) {
             break;
         }
 
         bool_t isGarbage;
-#ifdef HYBRID_TM
-        STM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
         isGarbage = element_isGarbage(elementPtr);
-        STM_END();
-#else
-        TM_BEGIN();
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         isGarbage = TMELEMENT_ISGARBAGE(elementPtr);
-        TM_END();
-#endif
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (isGarbage) {
             /*
              * Handle delayed deallocation
@@ -176,33 +190,43 @@ process (void *arg)
 				
 
         long numAdded;
-#ifdef HYBRID_TM
-				/* barrier not present in the original code */
-				//thread_barrier_wait();
-				STM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        PREGION_CLEARBAD(regionPtr);
+        numAdded = region_refine(regionPtr, elementPtr, meshPtr);
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         PREGION_CLEARBAD(regionPtr);
         numAdded = TMREGION_REFINE(regionPtr, elementPtr, meshPtr);
-        STM_END();
-				/* barrier not present in the original code */
-				//thread_barrier_wait();
-#else
-				TM_BEGIN();
-        PREGION_CLEARBAD(regionPtr);
-        numAdded = TMREGION_REFINE(regionPtr, elementPtr, meshPtr);
-        TM_END();
-#endif
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
 
-#ifdef HYBRID_TM
-        STM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
         element_setIsReferenced(elementPtr, FALSE);
         isGarbage = element_isGarbage(elementPtr);
-        STM_END();
-#else
-        TM_BEGIN();
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         TMELEMENT_SETISREFERENCED(elementPtr, FALSE);
         isGarbage = TMELEMENT_ISGARBAGE(elementPtr);
-        TM_END();
-#endif
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (isGarbage) {
             /*
              * Handle delayed deallocation
@@ -212,37 +236,49 @@ process (void *arg)
 
         totalNumAdded += numAdded;
 
-#ifdef HYBRID_TM
-        RTM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
         region_transferBad(regionPtr, workHeapPtr);
-        RTM_END();
-				STM_BEGIN();
-				TMfree_bad(regionPtr);
-				STM_END();
-#else
-        TM_BEGIN();
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         TMREGION_TRANSFERBAD(regionPtr, workHeapPtr);
-        TM_END();
-#endif
-
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
 
         numProcess++;
 
     }
 
-#ifdef HYBRID_TM
-    RTM_BEGIN();
-    global_totalNumAdded = global_totalNumAdded + totalNumAdded;
-    global_numProcess = global_numProcess + numProcess;
-    RTM_END();
-#else 
-    TM_BEGIN();
+#ifdef HW_SW_PATHS
+IF_HTM_MODE
+	START_HTM_MODE
+    global_totalNumAdded =
+					global_totalNumAdded + totalNumAdded;
+    global_numProcess =
+					global_numProcess + numProcess;
+	COMMIT_HTM_MODE
+ELSE_STM_MODE
+	START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+#endif /* !HW_SW_PATHS */
     TM_SHARED_WRITE(global_totalNumAdded,
                     TM_SHARED_READ(global_totalNumAdded) + totalNumAdded);
     TM_SHARED_WRITE(global_numProcess,
                     TM_SHARED_READ(global_numProcess) + numProcess);
-    TM_END();
-#endif
+#ifdef HW_SW_PATHS
+	COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
+  TM_END();
+#endif /* !HW_SW_PATHS */
 
     PREGION_FREE(regionPtr);
 

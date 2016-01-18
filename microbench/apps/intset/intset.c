@@ -269,7 +269,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     }
     result = (next->val == val);
   } else /*if (td->unit_tx == 0)*/ {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
 		    prev = set->head;
@@ -293,7 +293,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
 		    }
 		    result = (v == val);
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RO);
     prev = (node_t *)TM_LOAD(&set->head);
     next = (node_t *)TM_LOAD(&prev->next);
@@ -306,7 +306,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     }
     result = (v == val);
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   } 
 #if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
@@ -371,7 +371,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       prev->next = new_node(val, next, 0);
     }
   } else /*if (td->unit_tx == 0)*/ {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
 		    prev = set->head;
@@ -401,7 +401,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
 		      TM_STORE(&prev->next, new_node(val, next, 1));
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(1, RW);
     prev = (node_t *)TM_LOAD(&set->head);
     next = (node_t *)TM_LOAD(&prev->next);
@@ -417,7 +417,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       TM_STORE(&prev->next, new_node(val, next, 1));
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   } 
 #if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
@@ -492,7 +492,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       free(next);
     }
   } else /*if (td->unit_tx == 0) */{
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
 		    prev = set->head;
@@ -526,7 +526,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
 		      TM_FREE2(next, sizeof(node_t));
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(2, RW);
     prev = (node_t *)TM_LOAD(&set->head);
     next = (node_t *)TM_LOAD(&prev->next);
@@ -545,7 +545,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       TM_FREE2(next, sizeof(node_t));
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 #if 0
 #if !defined(TM_COMPILER) && defined(TinySTM)
@@ -654,7 +654,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
   if (!td) {
     result = rbtree_contains((rbtree_t *)set, (void *)val);
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
     		result = rbtree_contains((rbtree_t *)set, (void *)val);
@@ -663,11 +663,11 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
 			START_STM_MODE(td->threadId, RO)
     		result = TMrbtree_contains((rbtree_t *)set, (void *)val);
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RO);
     result = TMrbtree_contains((rbtree_t *)set, (void *)val);
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -685,7 +685,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
   if (!td) {
     result = rbtree_insert((rbtree_t *)set, (void *)val, (void *)val);
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
     		result = rbtree_insert((rbtree_t *)set, (void *)val, (void *)val);
@@ -694,11 +694,11 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
 			START_STM_MODE(td->threadId, RW)
     		result = TMrbtree_insert((rbtree_t *)set, (void *)val, (void *)val);
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(1, RW);
     result = TMrbtree_insert((rbtree_t *)set, (void *)val, (void *)val);
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -716,7 +716,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
   if (!td) {
     result = rbtree_delete((rbtree_t *)set, (void *)val);
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
     		result = rbtree_delete((rbtree_t *)set, (void *)val);
@@ -725,11 +725,11 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
 			START_STM_MODE(td->threadId, RW)
     		result = TMrbtree_delete((rbtree_t *)set, (void *)val);
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(2, RW);
     result = TMrbtree_delete((rbtree_t *)set, (void *)val);
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -871,19 +871,22 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     node = node->forward[0];
     result = (node->val == val);
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
+		    v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
 		    node = set->head;
 		    for (i = set->level; i >= 0; i--) {
-		      next = node->forward[i];
-		      while (next->val < val) {
+		      next = (node_t *)node->forward[i];
+		      while (1) {
+		        v = next->val;
+		        if (v >= val)
+		          break;
 		        node = next;
-		        next = node->forward[i];
+		        next = (node_t *)node->forward[i];
 		      }
 		    }
-		    node = node->forward[0];
-		    result = (node->val == val);
+		    result = (v == val);
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
 			START_STM_MODE(td->threadId, RO)
@@ -901,7 +904,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
 		    }
 		    result = (v == val);
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RO);
     v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
     node = set->head;
@@ -917,7 +920,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     }
     result = (v == val);
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -965,32 +968,36 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       result = 1;
     }
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
+		    v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
 		    node = set->head;
-		    for (i = set->level; i >= 0; i--) {
-		      next = node->forward[i];
-		      while (next->val < val) {
+		    level = set->level;
+		    for (i = level; i >= 0; i--) {
+		      next = (node_t *)node->forward[i];
+		      while (1) {
+		        v = next->val;
+		        if (v >= val)
+		          break;
 		        node = next;
-		        next = node->forward[i];
+		        next = (node_t *)node->forward[i];
 		      }
 		      update[i] = node;
 		    }
-		    node = node->forward[0];
 		
-		    if (node->val == val) {
+		    if (v == val) {
 		      result = 0;
 		    } else {
-		      l = random_level(set, main_seed);
-		      if (l > set->level) {
-		        for (i = set->level + 1; i <= l; i++)
+		      l = random_level(set, td->seed);
+		      if (l > level) {
+		        for (i = level + 1; i <= l; i++)
 		          update[i] = set->head;
 		        set->level = l;
 		      }
 		      node = new_node(val, l, 0);
 		      for (i = 0; i <= l; i++) {
-		        node->forward[i] = update[i]->forward[i];
+		        node->forward[i] = (node_t *)update[i]->forward[i];
 		        update[i]->forward[i] = node;
 		      }
 		      result = 1;
@@ -1030,7 +1037,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
 		      result = 1;
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(1, RW);
     v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
     node = set->head;
@@ -1064,7 +1071,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       result = 1;
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -1108,29 +1115,38 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       result = 1;
     }
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
+		    v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
 		    node = set->head;
-		    for (i = set->level; i >= 0; i--) {
-		      next = node->forward[i];
-		      while (next->val < val) {
+		    level = set->level;
+		    for (i = level; i >= 0; i--) {
+		      next = (node_t *)node->forward[i];
+		      while (1) {
+		        v = next->val;
+		        if (v >= val)
+		          break;
 		        node = next;
-		        next = node->forward[i];
+		        next = (node_t *)node->forward[i];
 		      }
 		      update[i] = node;
 		    }
-		    node = node->forward[0];
+		    node = (node_t *)node->forward[0];
 		
-		    if (node->val != val) {
+		    if (v != val) {
 		      result = 0;
 		    } else {
-		      for (i = 0; i <= set->level; i++) {
-		        if (update[i]->forward[i] == node)
-		          update[i]->forward[i] = node->forward[i];
+		      for (i = 0; i <= level; i++) {
+		        if ((node_t *)update[i]->forward[i] == node)
+		          update[i]->forward[i] = (node_t *)node->forward[i];
 		      }
-		      while (set->level > 0 && set->head->forward[set->level]->forward[0] == NULL)
-		        set->level--;
+		      i = level;
+		      while (i > 0 && (node_t *)set->head->forward[i] == set->tail)
+		        i--;
+		      if (i != level)
+		        set->level = i;
+		      /* Free memory (delayed until commit) */
 		      free(node);
 		      result = 1;
 		    }
@@ -1170,7 +1186,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
 		      result = 1;
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(2, RW);
     v = VAL_MIN; /* Avoid compiler warning (should not be necessary) */
     node = set->head;
@@ -1205,7 +1221,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       result = 1;
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -1335,7 +1351,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
       b = b->next;
     }
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
     		i = HASH(val);
@@ -1362,7 +1378,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
 		      b = (bucket_t *)TM_LOAD(&b->next);
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RO);
     i = HASH(val);
     b = (bucket_t *)TM_LOAD(&set->buckets[i]);
@@ -1375,7 +1391,7 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
       b = (bucket_t *)TM_LOAD(&b->next);
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -1406,7 +1422,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       set->buckets[i] = new_entry(val, first, 0);
     }
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
 		    i = HASH(val);
@@ -1439,7 +1455,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
 		      TM_STORE(&set->buckets[i], new_entry(val, first, 1));
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RW);
     i = HASH(val);
     first = b = (bucket_t *)TM_LOAD(&set->buckets[i]);
@@ -1455,7 +1471,7 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
       TM_STORE(&set->buckets[i], new_entry(val, first, 1));
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;
@@ -1493,7 +1509,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       free(b);
     }
   } else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
 		    i = HASH(val);
@@ -1542,7 +1558,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
 		      TM_FREE2(b, sizeof(bucket_t));
 		    }
 			COMMIT_STM_MODE
-#else /* !phasedTM */
+#else /* !HW_SW_PATHS */
     TM_START(0, RW);
     i = HASH(val);
     prev = b = (bucket_t *)TM_LOAD(&set->buckets[i]);
@@ -1566,7 +1582,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
       TM_FREE2(b, sizeof(bucket_t));
     }
     TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
   }
 
   return result;

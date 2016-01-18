@@ -76,6 +76,7 @@
 #include "queue.h"
 #include "router.h"
 #include "tm.h"
+#include "thread.h"
 #include "vector.h"
 
 
@@ -378,13 +379,30 @@ router_solve (void* argPtr)
     while (1) {
 
         pair_t* coordinatePairPtr;
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        if (queue_isEmpty(workQueuePtr)) {
+            coordinatePairPtr = NULL;
+        } else {
+            coordinatePairPtr = (pair_t*)queue_pop(workQueuePtr);
+        }
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         if (TMQUEUE_ISEMPTY(workQueuePtr)) {
             coordinatePairPtr = NULL;
         } else {
             coordinatePairPtr = (pair_t*)TMQUEUE_POP(workQueuePtr);
         }
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
         if (coordinatePairPtr == NULL) {
             break;
         }
@@ -397,7 +415,29 @@ router_solve (void* argPtr)
         bool_t success = FALSE;
         vector_t* pointVectorPtr = NULL;
 
-        TM_BEGIN();
+	#ifdef HW_SW_PATHS
+		IF_HTM_MODE
+			START_HTM_MODE
+        grid_copy(myGridPtr, gridPtr); /* ok if not most up-to-date */
+        if (PdoExpansion(routerPtr, myGridPtr, myExpansionQueuePtr,
+                         srcPtr, dstPtr)) {
+            pointVectorPtr = PdoTraceback(gridPtr, myGridPtr, dstPtr, bendCost);
+            /*
+             * TODO: fix memory leak
+             *
+             * pointVectorPtr will be a memory leak if we abort this transaction
+             */
+            if (pointVectorPtr) {
+                grid_addPath(gridPtr, pointVectorPtr);
+                success = TRUE;
+            }
+        }
+			COMMIT_HTM_MODE
+		ELSE_STM_MODE
+			START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+      TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
         grid_copy(myGridPtr, gridPtr); /* ok if not most up-to-date */
         if (PdoExpansion(routerPtr, myGridPtr, myExpansionQueuePtr,
                          srcPtr, dstPtr)) {
@@ -412,7 +452,11 @@ router_solve (void* argPtr)
                 TM_LOCAL_WRITE(success, TRUE);
             }
         }
-        TM_END();
+	#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+      TM_END();
+	#endif /* !HW_SW_PATHS */
 
         if (success) {
             bool_t status = PVECTOR_PUSHBACK(myPathVectorPtr,
@@ -426,9 +470,22 @@ router_solve (void* argPtr)
      * Add my paths to global list
      */
     list_t* pathVectorListPtr = routerArgPtr->pathVectorListPtr;
+#ifdef HW_SW_PATHS
+	IF_HTM_MODE
+		START_HTM_MODE
+   		list_insert(pathVectorListPtr, (void*)myPathVectorPtr);
+		COMMIT_HTM_MODE
+	ELSE_STM_MODE
+		START_STM_MODE(RW)
+#else /* !HW_SW_PATHS */
     TM_BEGIN();
-    TMLIST_INSERT(pathVectorListPtr, (void*)myPathVectorPtr);
+#endif /* !HW_SW_PATHS */
+   		TMLIST_INSERT(pathVectorListPtr, (void*)myPathVectorPtr);
+#ifdef HW_SW_PATHS
+		COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
     TM_END();
+#endif /* !HW_SW_PATHS */
 
     PGRID_FREE(myGridPtr);
     PQUEUE_FREE(myExpansionQueuePtr);

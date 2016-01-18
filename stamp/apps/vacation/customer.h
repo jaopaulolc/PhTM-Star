@@ -122,6 +122,8 @@ TM_SAFE
 void
 customer_free (TM_ARGDECL  customer_t* customerPtr);
 
+void
+customer_free_seq (customer_t* customerPtr);
 
 /* =============================================================================
  * customer_addReservationInfo
@@ -150,6 +152,9 @@ customer_removeReservationInfo (TM_ARGDECL
                                 customer_t* customerPtr,
                                 reservation_type_t type, long id);
 
+bool_t
+customer_removeReservationInfo_seq ( customer_t* customerPtr,
+                                reservation_type_t type, long id);
 
 /* =============================================================================
  * customer_getBill

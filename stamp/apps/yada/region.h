@@ -114,6 +114,8 @@ long
 TMregion_refine (TM_ARGDECL
                  region_t* regionPtr, element_t* elementPtr, mesh_t* meshPtr);
 
+long
+region_refine (region_t* regionPtr, element_t* elementPtr, mesh_t* meshPtr);
 
 /* =============================================================================
  * Pregion_clearBad
@@ -132,15 +134,8 @@ TM_SAFE
 void
 TMregion_transferBad (TM_ARGDECL  region_t* regionPtr, heap_t* workHeapPtr);
 
-
-/* =============================================================================
- * region_transferBad
- * =============================================================================
- */
 void
 region_transferBad (region_t* regionPtr, heap_t* workHeapPtr);
-void TMfree_bad(region_t* regionPtr);
-
 
 #define PREGION_ALLOC()                 Pregion_alloc()
 #define PREGION_FREE(r)                 Pregion_free(r)

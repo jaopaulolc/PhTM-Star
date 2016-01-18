@@ -55,25 +55,27 @@ void TX_START(){
 		}
 		// execution flow continues here on transaction abort
 		/* Avoid Lemming effect by delaying tx retry till lock is free. */
-		while( isLocked(&__htm_global_lock) ) pthread_yield();
-
-		uint32_t abort_reason __ALIGN__ = htm_abort_reason(__tx_status);
-		__inc_abort_counter(__tx_id, abort_reason);
-
-		if (htm_abort_persistent(abort_reason)){
-			__tx_retries = HTM_MAX_RETRIES;
+		if ( isLocked(&__htm_global_lock) ) {
+			while( isLocked(&__htm_global_lock) ) pthread_yield();
 		} else {
-			__tx_retries++;
-		}
+			uint32_t abort_reason __ALIGN__ = htm_abort_reason(__tx_status);
+			__inc_abort_counter(__tx_id, abort_reason);
 	
-		if(__tx_retries >= HTM_MAX_RETRIES){
-			__tx_retries = HTM_MAX_RETRIES;
-			lock(&__htm_global_lock);
+			if (htm_abort_persistent(abort_reason)){
+				__tx_retries = HTM_MAX_RETRIES;
+			} else {
+				__tx_retries++;
+			}
+		
+			if(__tx_retries >= HTM_MAX_RETRIES){
+				__tx_retries = HTM_MAX_RETRIES;
+				lock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-			trans_timestamp[trans_index++] = getTime() - start_time;
+				trans_timestamp[trans_index++] = getTime() - start_time;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
-			hw_lock_transitions++;
-			return;
+				hw_lock_transitions++;
+				return;
+			}
 		}
 	} while(1);
 }
