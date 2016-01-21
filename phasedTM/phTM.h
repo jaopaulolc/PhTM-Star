@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-enum { HW=0, SW=1 };
+enum { HW = 0, SW = 1, GLOCK = 2 };
 
 uint64_t
 getMode();

@@ -94,4 +94,18 @@ atomicDecUndeferredCount(){
 	} while (!success);
 }
 
+inline static
+bool
+isModeSW(){
+	modeIndicator_t indicator = atomicReadModeIndicator();
+	return (indicator.mode == SW || indicator.deferredCount != 0);
+}
+
+inline static
+bool
+isModeGLOCK(){
+	modeIndicator_t indicator = atomicReadModeIndicator();
+	return (indicator.mode == GLOCK);
+}
+
 #endif /* _UTILS_H */

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-enum { HW = 0, SW = 1 };
+enum { HW = 0, SW = 1, GLOCK = 2 };
 
 typedef struct {
 	union {

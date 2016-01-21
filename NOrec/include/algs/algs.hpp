@@ -23,6 +23,7 @@
 #include <cstdio>
 #endif
 
+
 #include <stm/metadata.hpp>
 #include <stm/txthread.hpp>
 #include <profiling.hpp> // Trigger::
@@ -47,8 +48,6 @@ namespace stm
       NOrec,     NOrecHour,     NOrecBackoff,     NOrecHB,
 			// RH-NOrec
 			RH_NOrec,
-			// Phased-NOrec
-      Phased_NOrec, Phased_NOrecHour, Phased_NOrecBackoff, Phased_NOrecHB,
       // ProfileTM support.  These are not true STMs
       ProfileTM, ProfileAppAvg, ProfileAppMax, ProfileAppAll,
       // end with a distinct value

@@ -80,7 +80,7 @@
 
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
-																	if (mode == HW){
+																	if (mode == HW || mode == GLOCK){
 #define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
@@ -162,7 +162,8 @@ static unsigned int **coreSTM_aborts;
 												fprintf(stderr,"error: get nb_aborts failed!\n");                         \
 											} \
 										} \
-																		stm_exit_thread()
+																		stm_exit_thread(); \
+																		phTM_thread_exit()
 
 #elif STM == NOrec
 
@@ -216,7 +217,7 @@ static unsigned int **coreSTM_aborts;
 
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
-																	if (mode == HW){
+																	if (mode == HW || mode == GLOCK){
 #define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \

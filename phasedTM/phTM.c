@@ -21,6 +21,11 @@ volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
 static __thread long __tx_tid __ALIGN__;
 static __thread long htm_retries __ALIGN__;
+#if DESIGN == OPTIMIZED
+static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
+static __thread int isCapacityAbortPersistent __ALIGN__;
+static __thread int isConflictAbortPersistent __ALIGN__;
+#endif /* DESIGN == OPTIMIZED */
 
 #include <utils.h>
 
@@ -46,8 +51,8 @@ static uint64_t getTime(){
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 
 static
-void
-changeMode(uint64_t newMode, uint32_t htm_abort_reason) {
+int
+changeMode(uint64_t newMode) {
 	
 	bool success;
 	modeIndicator_t indicator;
@@ -83,7 +88,6 @@ changeMode(uint64_t newMode, uint32_t htm_abort_reason) {
 				trans_timestamp[trans_index++] = now - start_time;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 				numtransitions++;
-				if(htm_abort_reason & ABORT_CAPACITY) capacity_abort_transitions++; 
 			}
 			break;
 		case HW:
@@ -104,17 +108,49 @@ changeMode(uint64_t newMode, uint32_t htm_abort_reason) {
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			}
 			break;
+#if DESIGN == OPTIMIZED
+		case GLOCK:
+			do {
+				indicator = atomicReadModeIndicator();
+				if ( indicator.mode == SW ) return 0;
+				if ( indicator.mode == GLOCK) return -1;
+				expected = setMode(NULL_INDICATOR, HW);
+				new = setMode(NULL_INDICATOR, GLOCK);
+				success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
+			} while (!success);
+			break;
+#endif /* DESIGN == OPTIMIZED */
 		default:
 			fprintf(stderr,"error: unknown mode %lu\n", newMode);
 			exit(EXIT_FAILURE);
 	}
+	return 1;
 }
+
+#if DESIGN == OPTIMIZED
+static inline
+void
+unlockMode(){
+	bool success;
+	do {
+		modeIndicator_t expected = setMode(NULL_INDICATOR, GLOCK);
+		modeIndicator_t new = setMode(NULL_INDICATOR, HW);
+		success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
+	} while (!success);
+}
+#endif /* DESIGN == OPTIMIZED */
 
 inline
 bool
 HTM_Start_Tx() {
 	
 	htm_retries = 0;
+	uint32_t abort_reason = 0;
+#if DESIGN == OPTIMIZED
+	uint32_t previous_abort_reason;
+	isCapacityAbortPersistent = 0;
+	isConflictAbortPersistent = 0;
+#endif /* DESIGN == OPTIMIZED */
 
 	while (true) {
 		uint32_t status = htm_begin();
@@ -123,11 +159,29 @@ HTM_Start_Tx() {
 				return false;
 			} else {
 				htm_end();
+#if DESIGN == PROTOTYPE
 				return true;
+#else  /* DESIGN == OPTIMIZED */
+				if ( isModeSW() ){
+					return true;
+				}
+#endif /* DESIGN == OPTIMIZED */
 			}
 		}
-		
-		uint32_t abort_reason = htm_abort_reason(status);
+
+#if DESIGN == OPTIMIZED
+		if ( isModeGLOCK() ){
+			// locked acquired
+			// wait till lock release and restart
+			while( isModeGLOCK() ) pthread_yield();
+			continue;
+		}
+#endif /* DESIGN == OPTIMIZED */
+
+#if DESIGN == OPTIMIZED
+		previous_abort_reason = abort_reason; 
+#endif /* DESIGN == OPTIMIZED */
+		abort_reason = htm_abort_reason(status);
 		__inc_abort_counter(__tx_tid, abort_reason);
 		
 		modeIndicator_t indicator = atomicReadModeIndicator();
@@ -135,20 +189,69 @@ HTM_Start_Tx() {
 			return true;
 		}
 
+#if DESIGN == PROTOTYPE
 		htm_retries++;
 		if ( htm_retries >= HTM_MAX_RETRIES ) {
-			changeMode(SW, abort_reason);
+			changeMode(SW);
 			return true;
 		}
+#else  /* DESIGN == OPTIMIZED */
+		htm_retries++;
+		if ( (abort_reason & ABORT_CAPACITY) &&
+				 (previous_abort_reason == abort_reason)) {
+			isCapacityAbortPersistent = 1;
+		} else isCapacityAbortPersistent = 0;
+		if ( (abort_reason & ABORT_TX_CONFLICT) &&
+				 (previous_abort_reason == abort_reason)) {
+			isConflictAbortPersistent = 1;
+		} else isConflictAbortPersistent = 0;
+		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent){
+			if (isCapacityAbortPersistent || isConflictAbortPersistent){
+				changeMode(SW);
+				return true;
+			} else {
+				int status = changeMode(GLOCK);
+				if(status == 0){
+					// Mode already changed to SW
+					return true;
+				} else {
+					// Success! We are in LOCK mode
+					if ( status == 1 ){
+						htm_retries = 0;
+						// I own the lock, so return and
+						// execute in mutual exclusion
+						htm_global_lock_is_mine = true;
+						return false;
+					} else {
+						// I don't own the lock, so wait
+						// till lock is release and restart
+						while( isModeGLOCK() ) pthread_yield();
+						continue;
+					}
+				}
+			}
+		}
+#endif /* DESIGN == OPTIMIZED */
 	}
 }
 
 inline
 void
 HTM_Commit_Tx() {
-	
+
+#if	DESIGN == PROTOTYPE
 	htm_end();
 	__inc_commit_counter(__tx_tid);
+#else  /* DESIGN == OPTIMIZED */
+	if (htm_global_lock_is_mine){
+		unlockMode();
+		htm_global_lock_is_mine = false;
+	} else {
+		htm_end();
+		__inc_commit_counter(__tx_tid);
+	}
+#endif /* DESIGN == OPTIMIZED */
+
 }
 
 
@@ -165,7 +268,7 @@ STM_PreStart_Tx(bool restarted) {
 			indicator = atomicReadModeIndicator();
 				if (indicator.deferredCount == 0 || indicator.mode == HW) {
 					if(restarted) atomicDecUndeferredCount();
-					changeMode(HW, 0);
+					changeMode(HW);
 					return true;
 				}
 			if(restarted) break;
@@ -196,7 +299,7 @@ STM_PostCommit_Tx() {
 	if (deferredTx){
 		deferredTx = false;
 		if (new.deferredCount == 0) {
-			changeMode(HW, 0);
+			changeMode(HW);
 		}
 	}
 }
