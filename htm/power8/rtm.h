@@ -22,7 +22,7 @@
 #define ABORT_FETCH_CONFLICT	    (1 << (31-16))
 #define ABORT_EXPLICIT	          (1 << (31-31))
 
-#define htm_abort_persistent(s)   (s & ABORT_PERSISTENT)
+#define htm_abort_persistent(s)   ((s & ABORT_PERSISTENT) && !(s & ABORT_EXPLICIT))
 
 #define htm_abort_reason(s) ( ((uint32_t)__builtin_get_texasru())  \
 															& (ABORT_PERSISTENT | ABORT_ILLEGAL  \

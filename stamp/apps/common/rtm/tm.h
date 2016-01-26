@@ -104,9 +104,9 @@
 																			msrTerminate()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
-																			TX_INIT(__threadId__); \
-																			set_affinity(__threadId__)
-#define TM_THREAD_EXIT()              /* nothing */
+																			set_affinity(__threadId__); \
+																			HTM_THREAD_ENTER(__threadId__)
+#define TM_THREAD_EXIT()              HTM_THREAD_EXIT()
 
 
 #define TM_BEGIN()                    pmuStartCounting(__threadId__, __COUNTER__); \
@@ -123,9 +123,9 @@
 																			msrTerminate()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
-																			TX_INIT(__threadId__); \
-																			set_affinity(__threadId__)
-#define TM_THREAD_EXIT()              /* nothing */
+																			set_affinity(__threadId__); \
+																			HTM_THREAD_ENTER(__threadId__)
+#define TM_THREAD_EXIT()              HTM_THREAD_EXIT()
 
 #define TM_BEGIN()                    TX_START()
 #define TM_BEGIN_RO()                 TX_START()

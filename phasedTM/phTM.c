@@ -25,6 +25,9 @@ static __thread long htm_retries __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 static __thread int isCapacityAbortPersistent __ALIGN__;
 static __thread int isConflictAbortPersistent __ALIGN__;
+#define MAX_STM_RUNS 5
+static __thread long max_stm_runs __ALIGN__ = 1;
+static __thread long num_stm_runs __ALIGN__;
 #endif /* DESIGN == OPTIMIZED */
 
 #include <utils.h>
@@ -32,14 +35,19 @@ static __thread int isConflictAbortPersistent __ALIGN__;
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
 #define MAX_TRANS 2000000
-static uint64_t start_time __ALIGN__ = 0;
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
-static uint64_t capacity_abort_transitions __ALIGN__ = 0;
-static uint64_t numtransitions __ALIGN__ = 0;
+static uint64_t hw_sw_transitions __ALIGN__ = 0;
+#if DESIGN == OPTIMIZED
+static uint64_t hw_lock_transitions __ALIGN__ = 0;
+#endif /* DESIGN == OPTIMIZED */
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-static uint64_t trans_timestamp[MAX_TRANS] __ALIGN__;
+typedef struct _trans_label_t {
+	uint64_t timestamp;
+	unsigned char mode;
+} trans_label_t;
+static trans_label_t trans_labels[MAX_TRANS] __ALIGN__;
 static uint64_t hw_sw_wait_time  __ALIGN__ = 0;
 static uint64_t sw_hw_wait_time  __ALIGN__ = 0;
 
@@ -85,9 +93,10 @@ changeMode(uint64_t newMode) {
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 				uint64_t now = getTime();
 				hw_sw_wait_time += now - t;
-				trans_timestamp[trans_index++] = now - start_time;
+				trans_labels[trans_index++].timestamp = now;
+				trans_labels[trans_index-1].mode = SW;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
-				numtransitions++;
+				hw_sw_transitions++;
 			}
 			break;
 		case HW:
@@ -104,7 +113,8 @@ changeMode(uint64_t newMode) {
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 				uint64_t now = getTime();
 				sw_hw_wait_time += now - t;
-				trans_timestamp[trans_index++] = now - start_time;
+				trans_labels[trans_index++].timestamp = now;
+				trans_labels[trans_index-1].mode = HW;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 			}
 			break;
@@ -118,6 +128,12 @@ changeMode(uint64_t newMode) {
 				new = setMode(NULL_INDICATOR, GLOCK);
 				success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 			} while (!success);
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+			uint64_t now = getTime();
+			trans_labels[trans_index++].timestamp = now;
+			trans_labels[trans_index-1].mode = GLOCK;
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
+			hw_lock_transitions++;
 			break;
 #endif /* DESIGN == OPTIMIZED */
 		default:
@@ -137,6 +153,11 @@ unlockMode(){
 		modeIndicator_t new = setMode(NULL_INDICATOR, HW);
 		success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 	} while (!success);
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+	uint64_t now = getTime();
+	trans_labels[trans_index++].timestamp = now;
+	trans_labels[trans_index-1].mode = HW;
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 #endif /* DESIGN == OPTIMIZED */
 
@@ -200,13 +221,15 @@ HTM_Start_Tx() {
 		if ( (abort_reason & ABORT_CAPACITY) &&
 				 (previous_abort_reason == abort_reason)) {
 			isCapacityAbortPersistent = 1;
-		} else isCapacityAbortPersistent = 0;
+		}
 		if ( (abort_reason & ABORT_TX_CONFLICT) &&
 				 (previous_abort_reason == abort_reason)) {
 			isConflictAbortPersistent = 1;
 		} else isConflictAbortPersistent = 0;
 		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent){
 			if (isCapacityAbortPersistent || isConflictAbortPersistent){
+				if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
+				num_stm_runs = 0;
 				changeMode(SW);
 				return true;
 			} else {
@@ -286,6 +309,15 @@ STM_PostCommit_Tx() {
 	bool success;
 	modeIndicator_t expected;
 	modeIndicator_t new;
+
+#if DESIGN == OPTIMIZED
+	if (deferredTx) {
+		num_stm_runs++;
+		if (num_stm_runs < max_stm_runs) {
+			return;
+		}
+	}
+#endif /* DESIGN == OPTIMIZED */
 	
 	do {
 		expected = atomicReadModeIndicator();
@@ -313,15 +345,12 @@ phTM_init(long nThreads){
 void
 phTM_thread_init(long tid){
 	__tx_tid = tid;
-#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-	start_time = getTime();
-#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void
 phTM_thread_exit(void){
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-	end_time = getTime() - start_time;
+	end_time = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
@@ -329,7 +358,10 @@ void
 phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
 	__term_prof_counters(nThreads, nTxs, stmCommits, stmAborts);
 
-	printf("ntrans: %lu %6.2lf\n", numtransitions, 100.0*((double)capacity_abort_transitions/(double)numtransitions));
+	printf("hw_sw_transitions: %lu \n", hw_sw_transitions);
+#if DESIGN == OPTIMIZED	
+	printf("hw_lock_transitions: %lu \n", hw_lock_transitions);
+#endif /* DESIGN == OPTIMIZED */
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	
@@ -340,29 +372,63 @@ phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **st
 	}
 #endif /* PHASE_PROFILING*/
 	
-	trans_timestamp[0] = 0;
+	trans_labels[0].timestamp = 0;
+	trans_labels[0].mode = HW;
 
 	uint64_t i, ttime = 0;
 #ifdef TIME_MODE_PROFILING
 	uint64_t hw_time = 0, sw_time = 0;
+#if DESIGN == OPTIMIZED
+	uint64_t lock_time = 0;
+#endif /* DESIGN == OPTIMIZED */
 #endif /* TIME_MODE_PROFILING */
-	for (i=1; i < trans_index; i++){
-		uint64_t dx = trans_timestamp[i] - trans_timestamp[i-1];
+	for (i=2; i < trans_index; i++){
+		uint64_t dx = trans_labels[i].timestamp - trans_labels[i-1].timestamp;
+		unsigned char mode = trans_labels[i-1].mode;
 #ifdef PHASE_PROFILING
-		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
+		fprintf(f, "%lu %d\n", dx, mode);
 #else /* TIME_MODE_PROFILING */
-		if( i % 2 == 1 ){ hw_time += dx; }
-		else { sw_time += dx; }
+		switch (mode) {
+			case HW:
+				hw_time += dx;
+				break;
+			case SW:
+				sw_time += dx;
+				break;
+#if DESIGN == OPTIMIZED
+			case GLOCK:
+				lock_time += dx;
+				break;
+#endif /* DESIGN == OPTIMIZED */
+			default:
+				fprintf(stderr, "error: invalid mode in trans_labels array!\n");
+				exit(EXIT_FAILURE);
+		}
 #endif /* TIME_MODE_PROFILING */
 		ttime += dx;
 	}
 	if(ttime < end_time){
-		uint64_t dx = end_time - trans_timestamp[i-1];
+		uint64_t dx = end_time - trans_labels[i-1].timestamp;
+		unsigned char mode = trans_labels[i-1].mode;
 #ifdef PHASE_PROFILING
-		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
+		fprintf(f, "%lu %d\n", dx, mode);
 #else /* TIME_MODE_PROFILING */
-		if( i % 2 == 1 ){ hw_time += dx; }
-		else { sw_time += dx; }
+		switch (mode) {
+			case HW:
+				hw_time += dx;
+				break;
+			case SW:
+				sw_time += dx;
+				break;
+#if DESIGN == OPTIMIZED
+			case GLOCK:
+				lock_time += dx;
+				break;
+#endif /* DESIGN == OPTIMIZED */
+			default:
+				fprintf(stderr, "error: invalid mode in trans_labels array!\n");
+				exit(EXIT_FAILURE);
+		}
 #endif /* TIME_MODE_PROFILING */
 		ttime += dx;
 	}
@@ -373,7 +439,11 @@ phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **st
 #endif /* PHASE_PROFILING */
 
 #ifdef TIME_MODE_PROFILING
-	printf("hw, sw: %6.2lf %6.2lf\n", 100.0*((double)hw_time/(double)ttime), 100.0*((double)sw_time/(double)ttime));
+	printf("hw:   %6.2lf\n", 100.0*((double)hw_time/(double)ttime));
+	printf("sw:   %6.2lf\n", 100.0*((double)sw_time/(double)ttime));
+#if DESIGN == OPTIMIZED
+	printf("lock: %6.2lf\n", 100.0*((double)lock_time/(double)ttime));
+#endif /* DESIGN == OPTIMIZED */
 	printf("hw_sw_wtime: %lu (%6.2lf)\n", hw_sw_wait_time,100.0*((double)hw_sw_wait_time/ttime));
 	printf("sw_hw_wtime: %lu (%6.2lf)\n", sw_hw_wait_time,100.0*((double)sw_hw_wait_time/ttime));
 #endif /* PHASE_PROFILING */

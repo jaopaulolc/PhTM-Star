@@ -17,14 +17,6 @@
 #include <assert.h>
 #include <locale.h>
 
-#if defined(__x86_64__) || defined(__i386)
-#include <msr.h>
-#include <pmu.h>
-#else
-#define msrInitialize()         			/* nothing */
-#define msrTerminate()          			/* nothing */
-#endif
-
 #define TM_ARG                        /* nothing */
 #define TM_ARG_ALONE                  /* nothing */
 #define TM_ARGDECL                    /* nothing */
@@ -32,112 +24,19 @@
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#if defined(COMMIT_RATE_PROFILING) || defined(TSX_ABORT_PROFILING)
-#ifdef COMMIT_RATE_PROFILING
-
-#define TM_STARTUP(numThread)         msrInitialize();                               \
-																			pmuStartup(NUMBER_OF_TRANSACTIONS);            \
-																		  HTM_STARTUP(numThread);                        \
-																			pmuAddCustomCounter(0, RTM_TX_STARTED);        \
-																			pmuAddCustomCounter(1, RTM_TX_COMMITED);       \
-																			pmuAddCustomCounter(2, HLE_TX_STARTED);        \
-																			pmuAddCustomCounter(3, HLE_TX_COMMITED)
-#endif /* COMMIT_RATE_PROFILING */
-#ifdef TSX_ABORT_PROFILING
-#define COMMIT_RATE_PROFILING 0
-#define TM_STARTUP(numThread)         msrInitialize();                                 \
-																			pmuStartup(NUMBER_OF_TRANSACTIONS);              \
-																			HTM_STARTUP(numThread);                          \
-																			pmuAddCustomCounter(0, TX_ABORT_CONFLICT);       \
-																			pmuAddCustomCounter(1, TX_ABORT_CAPACITY);       \
-																			pmuAddCustomCounter(2, RTM_TX_ABORT_UNFRIENDLY); \
-																			pmuAddCustomCounter(3, RTM_TX_ABORT_OTHER)
-#endif /* TSX_ABORT_PROFILING */
-
-#define TM_SHUTDOWN()									setlocale(LC_ALL, ""); \
-																			int __numThreads__  = thread_getNumThread(); \
-																			int nfixedCounters  = pmuNumberOfFixedCounters(); \
-		int ncustomCounters = pmuNumberOfCustomCounters(); \
-		int ntotalCounters  = nfixedCounters + ncustomCounters; \
-		int nmeasurements = pmuNumberOfMeasurements(); \
-		int ii; \
-		if(COMMIT_RATE_PROFILING){ \
-			printf("\nTx #  | %10s | %19s | %10s | %19s | %24s | %24s | %24s", \
-			"RTM START", "RTM COMMIT", "HLE START", "HLE COMMIT", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
-		} else { \
-			printf("\nTx #  | %19s | %19s | %19s | %19s ", \
-			"CONFLICT/READ CAP.", "WRITE CAPACITY", "UNFRIENDLY INST.", "OTHER"); \
-		} \
-		for(ii=0; ii < __numThreads__; ii++){ \
-			uint64_t **measurements = pmuGetMeasurements(ii); \
-			printf("\nThread %d\n",ii); \
-			int i, j; \
-			uint64_t total[3] = {0,0,0}; \
-			if(COMMIT_RATE_PROFILING){ \
-				for(j=ncustomCounters; j < ntotalCounters; j++) \
-					for(i=0; i < nmeasurements; i++) \
-						total[j-ncustomCounters] += measurements[i][j]; \
-			} \
-			for(i=0; i < nmeasurements; i++){ \
-				printf("Tx %2d",i); \
-				if(COMMIT_RATE_PROFILING){ \
-					for(j=0; j < ncustomCounters; j++){ \
-						if(j && j % 2){ \
-							printf(" | %'10lu ",measurements[i][j]); \
-							printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)measurements[i][j-1])); \
-						} else printf(" | %'10lu",measurements[i][j]); \
-					} \
-				} else { \
-					uint64_t sum = 0; \
-					for(j=0; j < ncustomCounters; j++){ sum += measurements[i][j]; } \
-					for(j=0; j < ncustomCounters; j++){ \
-						printf(" | %'10lu ",measurements[i][j]); \
-						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)sum)); \
-					} \
-				} \
-				if(COMMIT_RATE_PROFILING){ \
-					for(j=ncustomCounters; j < ntotalCounters; j++){ \
-						printf(" | %'15lu ",measurements[i][j]); \
-						printf("(%'6.2lf)", 100.0*((double)measurements[i][j]/(double)total[j-ncustomCounters])); \
-					} \
-				} \
-				printf("\n"); \
-			} \
-		} \
-		printf("\n|=========================%46s%s%46s=========================|\n","", "END OF REPORT", " "); \
-																			HTM_SHUTDOWN(); \
-																			pmuShutdown(); \
-																			msrTerminate()
-
-#define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
-																			TX_INIT(__threadId__); \
-																			set_affinity(__threadId__)
-#define TM_THREAD_EXIT()              /* nothing */
-
-
-#define TM_BEGIN()                    pmuStartCounting(__threadId__, __COUNTER__); \
-																			TX_START()
-#define TM_BEGIN_RO()                 pmuStartCounting(__threadId__, __COUNTER__); \
-																			TX_START()
-#define TM_END()                      TX_END(); \
-																			pmuStopCounting(__threadId__)
-#else /* NO PROFILING */
-
 #define TM_STARTUP(numThread)         msrInitialize(); \
 																			HTM_STARTUP(numThread)
 #define TM_SHUTDOWN()                 HTM_SHUTDOWN(); \
 																			msrTerminate()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
-																			TX_INIT(__threadId__); \
-																			set_affinity(__threadId__)
-#define TM_THREAD_EXIT()              /* nothing */
+																			set_affinity(__threadId__); \
+																			HTM_THREAD_ENTER(__threadId__)
+#define TM_THREAD_EXIT()              HTM_THREAD_EXIT()
 
 #define TM_BEGIN()                    TX_START()
 #define TM_BEGIN_RO()                 TX_START()
 #define TM_END()                      TX_END();
-
-#endif /* NO PROFILING */
 
 #define TM_RESTART()                  htm_abort()
 #define TM_EARLY_RELEASE(var)         /* nothing */

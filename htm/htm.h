@@ -25,7 +25,8 @@ void TX_END();
 void HTM_STARTUP(long numThreads);
 void HTM_SHUTDOWN();
 
-void TX_INIT(long id);
+void HTM_THREAD_ENTER(long id);
+void HTM_THREAD_EXIT();
 
 #if defined(__cplusplus)
 } /* extern "C" { */

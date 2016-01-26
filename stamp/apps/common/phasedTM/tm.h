@@ -133,17 +133,12 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 #define TM_IFUNC_CALL1(r, f, a1)      r = f(a1)
 #define TM_IFUNC_CALL2(r, f, a1, a2)  r = f((a1), (a2))
 
-static unsigned int **coreSTM_commits;
-static unsigned int **coreSTM_aborts;
-
 #define TM_STARTUP(nThreads)	msrInitialize(); \
 															stm_init();      \
 															mod_mem_init(0); \
-                        			phTM_init(nThreads); \
-												coreSTM_commits = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads); \
-								    		coreSTM_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads)
+                        			phTM_init(nThreads)
 
-#define TM_SHUTDOWN()       phTM_term(thread_getNumThread(), NUMBER_OF_TRANSACTIONS, coreSTM_commits, coreSTM_aborts); \
+#define TM_SHUTDOWN()       phTM_term(thread_getNumThread(), NUMBER_OF_TRANSACTIONS, NULL, NULL); \
 														stm_exit(); \
 														msrTerminate()
 
@@ -152,18 +147,8 @@ static unsigned int **coreSTM_aborts;
 																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
 																		phTM_thread_init(__tid__)
 
-#define TM_THREAD_EXIT()         \
-										{ \
-											long tid = thread_getId(); \
-											if(stm_get_stats("nb_commits",&coreSTM_commits[tid]) == 0){                 \
-												fprintf(stderr,"error: get nb_commits failed!\n");                        \
-											}                                                                           \
-											if(stm_get_stats("nb_aborts",&coreSTM_aborts[tid]) == 0){                   \
-												fprintf(stderr,"error: get nb_aborts failed!\n");                         \
-											} \
-										} \
-																		stm_exit_thread(); \
-																		phTM_thread_exit()
+#define TM_THREAD_EXIT()    stm_exit_thread(); \
+														phTM_thread_exit()
 
 #elif STM == NOrec
 

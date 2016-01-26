@@ -24,8 +24,8 @@ static long __nThreads __ALIGN__;
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
-#define MAX_TRANS 1000000
-static uint64_t start_time __ALIGN__ = 0;
+#define MAX_TRANS 2000000
+static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 static uint64_t hw_lock_transitions __ALIGN__ = 0;
@@ -71,7 +71,7 @@ void TX_START(){
 				__tx_retries = HTM_MAX_RETRIES;
 				lock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-				trans_timestamp[trans_index++] = getTime() - start_time;
+				trans_timestamp[trans_index++] = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 				hw_lock_transitions++;
 				return;
@@ -85,7 +85,7 @@ void TX_END(){
 	if(__tx_retries >= HTM_MAX_RETRIES){
 		unlock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-		trans_timestamp[trans_index++] = getTime() - start_time;
+		trans_timestamp[trans_index++] = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 	}
 	else{
@@ -99,9 +99,6 @@ void HTM_STARTUP(long numThreads){
 
 	__nThreads = numThreads;
 	__init_prof_counters(__nThreads);
-#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-	start_time = getTime();
-#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void HTM_SHUTDOWN(){
@@ -119,13 +116,13 @@ void HTM_SHUTDOWN(){
 	trans_timestamp[0] = 0;
 
 	uint64_t i, ttime = 0;
-	for (i=1; i < trans_index; i++){
+	for (i=2; i < trans_index; i++){
 		uint64_t dx = trans_timestamp[i] - trans_timestamp[i-1];
 		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
 		ttime += dx;
 	}
-	if(ttime < (uint64_t)1.0e9){
-		uint64_t dx = ((uint64_t)1.0e9) - trans_timestamp[i-1];
+	if(ttime < end_time){
+		uint64_t dx = end_time - trans_timestamp[i-1];
 		fprintf(f, "%lu %d\n", dx, i % 2 == 1);
 	}
 	fprintf(f, "\n\n");
@@ -135,15 +132,15 @@ void HTM_SHUTDOWN(){
 	trans_timestamp[0] = 0;
 
 	uint64_t i, hw_time = 0, lock_time = 0, ttime = 0;
-	for (i=1; i < trans_index; i++){
+	for (i=2; i < trans_index; i++){
 		uint64_t dx = trans_timestamp[i] - trans_timestamp[i-1];
 		if( i % 2 == 1 ){ hw_time += dx; }
 		else { lock_time += dx; }
 		ttime += dx;
 	}
 
-	if(ttime < (uint64_t)1.0e9){
-		uint64_t dx = ((uint64_t)1.0e9) - trans_timestamp[i-1];
+	if(ttime < end_time){
+		uint64_t dx = end_time - trans_timestamp[i-1];
 		if( i % 2 == 1 ){ hw_time += dx; }
 		else { lock_time += dx; }
 		ttime += dx;
@@ -154,9 +151,17 @@ void HTM_SHUTDOWN(){
 #endif /* TIME_MODE_PROFILING */
 }
 
-void TX_INIT(long id){
+void HTM_THREAD_ENTER(long id){
 
 	__tx_id      = id;
 	__tx_status  = 0;
 	__tx_retries = 0;
+}
+
+
+void HTM_THREAD_EXIT(){
+
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+	end_time = getTime();
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }

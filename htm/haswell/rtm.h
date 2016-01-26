@@ -18,6 +18,6 @@
 #define ABORT_ILLEGAL		  _XABORT_DEBUG
 #define ABORT_NESTED		  _XABORT_NESTED
 
-#define htm_abort_persistent(s) (0)
+#define htm_abort_persistent(s) (!(s & _XABORT_RETRY) && !(s & _XABORT_EXPLICIT))
 
 #endif /* _RTM_INCLUDE */

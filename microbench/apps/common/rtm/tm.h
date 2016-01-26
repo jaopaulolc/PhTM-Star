@@ -52,17 +52,17 @@
 																			pmuShutdown();                                                       \
 																			msrTerminate()
 
-#define TM_INIT_THREAD(tid)           TX_INIT(tid); set_affinity(tid); \
+#define TM_INIT_THREAD(tid)           set_affinity(tid); HTM_THREAD_ENTER(tid); \
 																			pmuStartCounting(tid,0)
-#define TM_EXIT_THREAD(tid)           pmuStopCounting(tid)
+#define TM_EXIT_THREAD(tid)           pmuStopCounting(tid); HTM_THREAD_EXIT()
 
 #else /* ! TSX_ABORT_PROFILING */
 
 #define TM_INIT(nThreads)             HTM_STARTUP(nThreads)
 #define TM_EXIT(nThreads)             HTM_SHUTDOWN()
 
-#define TM_INIT_THREAD(tid)           TX_INIT(tid); set_affinity(tid)
-#define TM_EXIT_THREAD                /* nothing */
+#define TM_INIT_THREAD(tid)           set_affinity(tid); HTM_THREAD_ENTER(tid)
+#define TM_EXIT_THREAD(tid)           HTM_THREAD_EXIT()
 
 #endif /* ! TSX_ABORT_PROFILING */
 
