@@ -29,5 +29,6 @@
 															| ABORT_NESTED      | ABORT_CAPACITY \
 															| ABORT_TX_CONFLICT | ABORT_EXPLICIT))
 
+#define HTM_MAX_RETRIES 16
 
 #endif /* _RTM_INCLUDE */

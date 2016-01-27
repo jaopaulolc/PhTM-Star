@@ -32,8 +32,8 @@ cd ../..
 echo "Compiling TCMalloc..."
 cd gperftools-20151222
 ./autogen.sh 2>&1 > /dev/null
-./configure --prefix=$PWD/build --enable-minimal 2>&1 > /dev/null
-#make $MAKE_OPTIONS 2>&1 > /dev/null
+./configure --prefix=$PWD/build --enable-minimal \
+						--enable-shared --enable-libunwind 2>&1 > /dev/null
 make install $MAKE_OPTIONS 2>&1 > /dev/null
 if [ $? -eq 0 ]; then
 	echo "TCMalloc compilation succeded!"

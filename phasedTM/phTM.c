@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <htm.h>
 #include <aborts_profiling.h>
@@ -34,7 +35,7 @@ static __thread long num_stm_runs __ALIGN__;
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
-#define MAX_TRANS 2000000
+#define MAX_TRANS 4000000
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
@@ -47,7 +48,7 @@ typedef struct _trans_label_t {
 	uint64_t timestamp;
 	unsigned char mode;
 } trans_label_t;
-static trans_label_t trans_labels[MAX_TRANS] __ALIGN__;
+static trans_label_t *trans_labels __ALIGN__;
 static uint64_t hw_sw_wait_time  __ALIGN__ = 0;
 static uint64_t sw_hw_wait_time  __ALIGN__ = 0;
 
@@ -340,11 +341,18 @@ void
 phTM_init(long nThreads){
 	printf("DESIGN: %s\n", (DESIGN == PROTOTYPE) ? "PROTOTYPE" : "OPTIMIZED");
 	__init_prof_counters(nThreads);
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+	trans_labels = (trans_label_t*)malloc(sizeof(trans_label_t)*MAX_TRANS);
+	memset(trans_labels, 0, sizeof(trans_label_t)*MAX_TRANS);
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void
 phTM_thread_init(long tid){
 	__tx_tid = tid;
+#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+	free(trans_labels);
+#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void

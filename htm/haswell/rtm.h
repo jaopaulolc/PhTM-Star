@@ -18,6 +18,8 @@
 #define ABORT_ILLEGAL		  _XABORT_DEBUG
 #define ABORT_NESTED		  _XABORT_NESTED
 
-#define htm_abort_persistent(s) (!(s & _XABORT_RETRY) && !(s & _XABORT_EXPLICIT))
+#define htm_abort_persistent(s) (s & 0)
+
+#define HTM_MAX_RETRIES 16
 
 #endif /* _RTM_INCLUDE */
