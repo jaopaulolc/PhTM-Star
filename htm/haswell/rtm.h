@@ -20,6 +20,4 @@
 
 #define htm_abort_persistent(s) (s & 0)
 
-#define HTM_MAX_RETRIES 16
-
 #endif /* _RTM_INCLUDE */

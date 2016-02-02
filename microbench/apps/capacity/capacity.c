@@ -43,7 +43,7 @@ static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__  = PARAM_DEFAULT_NUMTHREADS;
 static long pOverflow __ALIGN__ = PARAM_DEFAULT_OVERFLOWPROB;
 
-static long *global_array __ALIGN__;
+static uint64_t *global_array __ALIGN__;
 static int volatile stop __ALIGN__ = 0;
 static pthread_barrier_t sync_barrier __ALIGN__;
 
@@ -51,70 +51,70 @@ void randomly_init_ushort_array(unsigned short *s, long n);
 void parseArgs(int argc, char** argv);
 void set_affinity(long id);
 
-void *writers_function(void *args){
+void *capacity_function(void *args){
 	
 	uint64_t const tid  = (uint64_t)args;
+	uint64_t const thread_step = (L1_CACHE_SIZE/sizeof(uint64_t))*(2*tid);
 	uint64_t const step = (L1_BLOCK_SIZE/sizeof(uint64_t))*L1_NUM_SETS;
-	uint64_t const setStart = tid*(L1_NUM_SETS/nThreads);
 	
 	unsigned short seed[3] __ALIGN__;
 	randomly_init_ushort_array(seed,3);
 	
   TM_INIT_THREAD(tid);
 	pthread_barrier_wait(&sync_barrier);
-	
-	uint64_t const set = ((nrand48(seed) % L1_NUM_SETS)/nThreads + setStart)*L1_BLOCKS_PER_SET;
-	uint64_t const blockOffset = nrand48(seed) % L1_WORDS_PER_BLOCK;
 
 	while(!stop){
 
 		uint64_t op __ALIGN__ = nrand48(seed) % 101;
 		uint64_t i __ALIGN__;
+	
+		uint64_t set __ALIGN__ = (nrand48(seed) % L1_NUM_SETS)*L1_BLOCKS_PER_SET;
+		uint64_t blockOffset __ALIGN__ = nrand48(seed) % L1_WORDS_PER_BLOCK;
 
 		__asm__ volatile ("":::"memory");
 		
 		if(op < pOverflow) {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 			IF_HTM_MODE
 				START_HTM_MODE
 					for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
-						global_array[i*step + blockOffset + set] = 42;
+						global_array[thread_step + i*step + blockOffset + set] = 42;
 					}
 				COMMIT_HTM_MODE
 			ELSE_STM_MODE
 				START_STM_MODE(tid, RW)
+#else /* !HW_SW_PATHS */
+				TM_START(tid, RW);
+#endif /* !HW_SW_PATHS */
 					for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
-						TM_STORE(&global_array[i*step + blockOffset + set], 42);
+						TM_STORE(&global_array[thread_step + i*step + blockOffset + set], 42);
 					}
+#ifdef HW_SW_PATHS
 				COMMIT_STM_MODE
-#else /* !phasedTM */
-			TM_START(tid, RW);
-				for (i=0; i < L1_BLOCKS_PER_SET + 4; i++){
-					TM_STORE(&global_array[i*step + blockOffset + set], 42);
-				}
-			TM_COMMIT;
-#endif /* !phasedTM */
+#else /* !HW_SW_PATHS */
+				TM_COMMIT;
+#endif /* !HW_SW_PATHS */
 		} else {
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 			IF_HTM_MODE
 				START_HTM_MODE
 					for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
-						global_array[i*step + blockOffset + set] = 42;
+						global_array[thread_step + i*step + blockOffset + set] = 42;
 					}
 				COMMIT_HTM_MODE
 			ELSE_STM_MODE
 				START_STM_MODE(tid, RW)
+#else /* !HW_SW_PATHS */
+				TM_START(tid, RW);
+#endif /* !HW_SW_PATHS */
 					for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
-						TM_STORE(&global_array[i*step + blockOffset + set], 42);
+						TM_STORE(&global_array[thread_step + i*step + blockOffset + set], 42);
 					}
+#ifdef HW_SW_PATHS
 				COMMIT_STM_MODE
-#else /* !phasedTM */
-			TM_START(tid, RW);
-				for (i=0; i < L1_BLOCKS_PER_SET - 4; i++){
-					TM_STORE(&global_array[i*step + blockOffset + set], 42);
-				}
-			TM_COMMIT;
-#endif /* !phasedTM */
+#else /* !HW_SW_PATHS */
+				TM_COMMIT;
+#endif /* !HW_SW_PATHS */
 		}
 	}
 
@@ -129,8 +129,8 @@ int main(int argc, char** argv){
 	
 	struct timespec timeout = { .tv_sec  = 1 , .tv_nsec = 0	};
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-	global_array = (long*)memalign(CACHE_ALIGNMENT, 2*L1_CACHE_SIZE);
-	memset(global_array, 0, 2*L1_CACHE_SIZE);
+	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, (2*nThreads)*L1_CACHE_SIZE);
+	memset(global_array, 0, (2*nThreads)*L1_CACHE_SIZE);
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 
 
@@ -138,7 +138,7 @@ int main(int argc, char** argv){
 	
 	long i;
 	for(i=0; i < nThreads; i++){
-		if(pthread_create(&threads[i],NULL,writers_function,(void*)i)){
+		if(pthread_create(&threads[i],NULL,capacity_function,(void*)i)){
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
 		}

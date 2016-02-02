@@ -180,15 +180,12 @@ HTM_Start_Tx() {
 			if (modeIndicator.value == 0) {
 				return false;
 			} else {
-				htm_end();
-#if DESIGN == PROTOTYPE
-				return true;
-#else  /* DESIGN == OPTIMIZED */
-				if ( isModeSW() ){
-					return true;
-				}
-#endif /* DESIGN == OPTIMIZED */
+				htm_abort();
 			}
+		}
+		
+		if ( isModeSW() ){
+			return true;
 		}
 
 #if DESIGN == OPTIMIZED
@@ -350,9 +347,6 @@ phTM_init(long nThreads){
 void
 phTM_thread_init(long tid){
 	__tx_tid = tid;
-#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-	free(trans_labels);
-#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
 void
@@ -456,5 +450,6 @@ phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **st
 	printf("sw_hw_wtime: %lu (%6.2lf)\n", sw_hw_wait_time,100.0*((double)sw_hw_wait_time/ttime));
 #endif /* PHASE_PROFILING */
 	
+	free(trans_labels);
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }

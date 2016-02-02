@@ -16,6 +16,10 @@ ifdef PROFILING
   DEFINES += -D$(PROFILING)
 endif
 
+ifdef PROFILING2
+  DEFINES += -D$(PROFILING2)
+endif
+
 CPPFLAGS = $(DEFINES)
 CFLAGS = -O3 -Wall -I. -I../htm -I../NOrec/include
 

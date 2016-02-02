@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <sched.h>
+#include <limits.h>
 #include <math.h>
 
 #include <tm.h>
@@ -32,6 +33,9 @@
 	#define CACHE_ALIGNMENT			 (L1_NUM_SETS*L1_BLOCK_SIZE)
 #endif /* PowerPC */
 
+// PowerTM in theory can read 64 blocks, but we set 48 be safe.
+//#define MAX_HTM_WRITES (48UL*16UL)
+
 #ifndef __ALIGN__
 #define __ALIGN__ __attribute__((aligned(CACHE_ALIGNMENT)))
 #endif /* __ALIGN__ */
@@ -39,11 +43,13 @@
 
 #define PARAM_DEFAULT_NUMTHREADS (1L)
 #define PARAM_DEFAULT_CONTENTION (0L)
+#define PARAM_DEFAULT_TXLENGTH  (512L)
 
 
 static pthread_t *threads __ALIGN__;
 static long nThreads __ALIGN__ = PARAM_DEFAULT_NUMTHREADS;
-static uint64_t pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
+static long pWrites  __ALIGN__ = PARAM_DEFAULT_CONTENTION;
+static long txLength __ALIGN__ = PARAM_DEFAULT_TXLENGTH;
 
 static volatile long lastReader = 0;
 
@@ -54,45 +60,12 @@ static pthread_barrier_t sync_barrier __ALIGN__ ;
 void randomly_init_ushort_array(unsigned short *s, long n);
 void parseArgs(int argc, char** argv);
 void set_affinity(long id);
-double getTimeSeconds();
 
-#if 0
-void *readers_function(void *args){
+void *conflict_function(void *args){
 	
-	uint64_t const tid __ALIGN__ = (uint64_t)args;
-	uint64_t const blocksPerThread __ALIGN__ = L1_BLOCKS_PER_SET/nThreads;
-	unsigned short seed[3] __ALIGN__;
-	randomly_init_ushort_array(seed, 3);
-
-  TM_INIT_THREAD(tid);
-	pthread_barrier_wait(&sync_barrier);
-	
-	while(!stop){
-		
-		uint64_t blockIndex __ALIGN__ = tid*blocksPerThread;
-		uint64_t j, i __ALIGN__ = blockIndex*L1_SET_BLOCK_OFFSET;
-
-		__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
-		
-		__asm__ volatile ("":::"memory");
-
-		TM_START(tid, RO);
-			for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
-				TM_LOAD(&global_array[j]);
-			}
-		TM_COMMIT;
-
-	}
-
-  TM_EXIT_THREAD(tid);
-	return (void *)(tid);
-}
-#endif
-
-void *writers_function(void *args){
-	
-	uint64_t const tid __ALIGN__ = (uint64_t)args;
-	uint64_t const blocksPerThread __ALIGN__ = L1_BLOCKS_PER_SET/nThreads;
+	const uint64_t tid __ALIGN__= (uint64_t)args;
+	const uint64_t TX_LENGTH __ALIGN__ = txLength;
+	const uint64_t thread_step __ALIGN__ = (L1_CACHE_SIZE/sizeof(uint64_t))*(2*tid);
 	unsigned short seed[3] __ALIGN__;
 	randomly_init_ushort_array(seed,3);
 	
@@ -101,79 +74,70 @@ void *writers_function(void *args){
 
 	while(!stop){
 
-		uint64_t op __ALIGN__ = nrand48(seed) % 100;
-		uint64_t i, j, blockIndex __ALIGN__;
-		uint64_t value __ALIGN__ = nrand48(seed) % (L1_CACHE_SIZE*L1_CACHE_SIZE);
+		long op __ALIGN__ = nrand48(seed) % 101;
+		uint64_t i __ALIGN__;
+		uint64_t j __ALIGN__;
+		uint64_t blockIndex __ALIGN__;
+		uint64_t value __ALIGN__ = (nrand48(seed) % (UINT_MAX-1)) + 1;
+		
+		blockIndex = nrand48(seed) % L1_BLOCKS_PER_SET;
+		i = blockIndex*L1_SET_BLOCK_OFFSET;
+		
+		__asm__ volatile ("":::"memory");
 		
 		if(op < pWrites){
-			uint64_t idx __ALIGN__ = __atomic_load_n(&lastReader, __ATOMIC_SEQ_CST);
-			blockIndex = idx*blocksPerThread;
-			i = blockIndex*L1_SET_BLOCK_OFFSET;
-
-			__asm__ volatile ("":::"memory");
-
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
-					global_array[j] = value;
+				for(j=i; j < (i + TX_LENGTH); j++){
+					if (global_array[0 + j] != 0)
+						global_array[0 + j] = value;
 				}
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
-			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
-					TM_STORE(&global_array[j], value);
-				}
-			COMMIT_STM_MODE
-#else /* !phasedTM */
+			START_STM_MODE(tid, RO)
+#else /* !HW_SW_PATHS */
 			TM_START(tid, RW);
-#if STM	
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
-#else
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
-#endif
-					TM_STORE(&global_array[j], value);
+#endif /* !HW_SW_PATHS */
+				for(j=i; j < (i + TX_LENGTH); j++){
+					if (TM_LOAD(&global_array[0 + j]) != 0)
+						TM_STORE(&global_array[0 + j], value);
 				}
+#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
 			TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
 		} else {
-			blockIndex = tid*blocksPerThread;
-			i = blockIndex*L1_SET_BLOCK_OFFSET;
-			__atomic_store_n(&lastReader, tid , __ATOMIC_SEQ_CST);
-
-			__asm__ volatile ("":::"memory");
-
-#ifdef phasedTM
+#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
-					global_array[j];
+				for(j=i; j < (i + TX_LENGTH); j++){
+					if (global_array[thread_step + j] == UINT_MAX)
+						global_array[thread_step + j] = value;
 				}
 			COMMIT_HTM_MODE
 		ELSE_STM_MODE
-			START_STM_MODE
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
-					TM_LOAD(&global_array[j]);
-				}
-			COMMIT_STM_MODE
-#else /* !phasedTM */
+			START_STM_MODE(tid, RO)
+#else /* !HW_SW_PATHS */
 			TM_START(tid, RW);
-#if STM
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j+=4*L1_WORDS_PER_BLOCK){
-#else
-				for(j=i; j < (i + L1_SET_BLOCK_OFFSET/L1_WORDS_PER_BLOCK); j++){
-#endif
-					TM_LOAD(&global_array[j]);
+#endif /* !HW_SW_PATHS */
+				for(j=i; j < (i + TX_LENGTH); j++){
+					if (TM_LOAD(&global_array[thread_step + j]) == UINT_MAX)
+						TM_STORE(&global_array[thread_step + j], value);
 				}
+#ifdef HW_SW_PATHS
+			COMMIT_STM_MODE
+#else /* !HW_SW_PATHS */
 			TM_COMMIT;
-#endif /* !phasedTM */
+#endif /* !HW_SW_PATHS */
 		}
 	}
 
   TM_EXIT_THREAD(tid);
+
 	return (void *)(tid);
 }
-
 
 int main(int argc, char** argv){
 
@@ -182,14 +146,15 @@ int main(int argc, char** argv){
 	struct timespec timeout = { .tv_sec = 1, .tv_nsec = 0 };
 	pthread_barrier_init(&sync_barrier, NULL, nThreads+1);
 	threads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
-	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, L1_CACHE_SIZE);
+	global_array = (uint64_t*)memalign(CACHE_ALIGNMENT, (2*nThreads)*L1_CACHE_SIZE);
+	memset(global_array, 1, (2*nThreads)*L1_CACHE_SIZE);
 
 	TM_INIT(nThreads);
 	
 	long i;
 	for(i=0; i < nThreads; i++){
 		int status;
-		status = pthread_create(&threads[i],NULL,writers_function,(void*)i);
+		status = pthread_create(&threads[i],NULL,conflict_function,(void*)i);
 		if(status != 0){
 			perror("pthread_create");
 			exit(EXIT_FAILURE);
@@ -235,21 +200,25 @@ void showUsage(const char* argv0){
 	
 	printf("\nUsage %s [options]\n",argv0);
 	printf("Options:                                      (defaults)\n");
-	printf("   n <LONG>   Number of threads                 (%ld)\n", PARAM_DEFAULT_NUMTHREADS);
-	printf("   u <LONG>   Contention level [0%%..100%%]     (%ld)\n", PARAM_DEFAULT_CONTENTION);
+	printf("   n  <LONG>  Number of threads                 (%6ld)\n", PARAM_DEFAULT_NUMTHREADS);
+	printf("   u  <LONG>  Contention level [0%%..100%%]     (%6ld)\n", PARAM_DEFAULT_CONTENTION);
+	printf("   l  <LONG>  Transaction lenght                (%6ld)\n", PARAM_DEFAULT_TXLENGTH);
 
 }
 
 void parseArgs(int argc, char** argv){
 
 	int opt;
-	while( (opt = getopt(argc,argv,"n:u:")) != -1 ){
+	while( (opt = getopt(argc,argv,"n:u:l:")) != -1 ){
 		switch(opt){
 			case 'n':
 				nThreads = strtol(optarg,NULL,10);
 				break;
 			case 'u':
-				pWrites = strtol(optarg,NULL,10);
+				pWrites = strtol(optarg,NULL, 10);
+				break;
+			case 'l':
+				txLength = strtol(optarg,NULL,10);
 				break;
 			default:
 				showUsage(argv[0]);

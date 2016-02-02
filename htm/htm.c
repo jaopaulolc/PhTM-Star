@@ -13,6 +13,7 @@
 
 static __thread long __tx_status __ALIGN__;  // htm_begin() return status
 static __thread long __tx_id __ALIGN__;  // tx thread id
+#define HTM_MAX_RETRIES 16
 static __thread long __tx_retries __ALIGN__; // current number of retries for non-lock aborts
 
 static lock_t __htm_global_lock __ALIGN__ = LOCK_INITIALIZER;
@@ -106,7 +107,7 @@ void HTM_SHUTDOWN(){
 
 	__term_prof_counters(__nThreads);
 
-	printf("hw->lock: %lu\n", hw_lock_transitions);
+	printf("hw_lock_transitions: %lu\n", hw_lock_transitions);
 #ifdef PHASE_PROFILING
 	
 	FILE *f = fopen("transitions.timestamp", "w");
@@ -147,7 +148,8 @@ void HTM_SHUTDOWN(){
 		ttime += dx;
 	}
 
-	printf("hw, lock: %6.2lf %6.2lf\n", 100.0*((double)hw_time/(double)ttime), 100.0*((double)lock_time/(double)ttime));
+	printf("hw:   %6.2lf\n", 100.0*((double)hw_time/(double)ttime));
+	printf("lock: %6.2lf\n", 100.0*((double)lock_time/(double)ttime));
 	
 #endif /* TIME_MODE_PROFILING */
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)

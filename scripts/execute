@@ -175,6 +175,7 @@ function execute {
 				SUFFIXES="$(cross_product ${build}_$s "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
 				;;
 			phasedTM)
+				SUFFIXES=""
 				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
 				local c="$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")"
 				local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}" "$c")"
@@ -190,6 +191,7 @@ function execute {
 							;;
 					esac
 				done
+				SUFFIXES=$(sed 's|^[ ]\+||' <<<$SUFFIXES)
 				;;
 			rtm)
 				SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
@@ -197,7 +199,7 @@ function execute {
 			powerTM)
 				SUFFIXES="$(cross_product $build "simple_lock")"
 				;;
-			norec)
+			norec | rh_norec)
 				SUFFIXES="${build}_$(uname -m)"
 				;;
 			*)
