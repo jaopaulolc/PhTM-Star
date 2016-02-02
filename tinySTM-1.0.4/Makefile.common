@@ -76,3 +76,8 @@ else
   LIBAO_INC = $(LIBAO_HOME)/include
 endif
 CPPFLAGS += -I$(LIBAO_INC)
+
+ifeq ($(shell uname -m), ppc64le)
+  # TinySTM default is 64-bytes
+  CPPFLAGS += -DCACHELINE_SIZE=128
+endif
