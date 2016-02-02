@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <htm.h>
 #include <aborts_profiling.h>
@@ -34,7 +35,7 @@ static __thread long num_stm_runs __ALIGN__;
 #include <utils.h>
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-#include <sys/time.h>
+#include <time.h>
 #define MAX_TRANS 4000000
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;

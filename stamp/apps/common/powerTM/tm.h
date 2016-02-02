@@ -24,10 +24,8 @@
 #define TM_PURE                       /* nothing */
 #define TM_SAFE                       /* nothing */
 
-#define TM_STARTUP(numThread)         msrInitialize(); \
-																			HTM_STARTUP(numThread)
-#define TM_SHUTDOWN()                 HTM_SHUTDOWN(); \
-																			msrTerminate()
+#define TM_STARTUP(numThread)         HTM_STARTUP(numThread)
+#define TM_SHUTDOWN()                 HTM_SHUTDOWN()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
 																			set_affinity(__threadId__); \

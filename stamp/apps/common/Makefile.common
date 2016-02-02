@@ -17,8 +17,6 @@ ifeq ($(ARCH), ppc64le)
   CPPFLAGS += -DCACHE_LINE_SIZE=128
 endif
 
-LDFLAGS  += -ldl
-
 # ======== Rules ========
 OBJDIR = ../../$(TMBUILD)/$(PROG)/
 
