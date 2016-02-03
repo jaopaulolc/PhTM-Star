@@ -5,7 +5,12 @@ else
   CFLAGS += -O3
   ifeq ($(shell uname -m),x86_64)
     CFLAGS += -march=native
+  else
+    ifeq ($(shell uname -m), ppc64le)
+      CFLAGS += -mcpu=power8
+    endif
   endif
+
 endif
 
 # Disable strict aliasing 
