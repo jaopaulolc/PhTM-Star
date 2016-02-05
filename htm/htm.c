@@ -22,7 +22,7 @@ static long __nThreads __ALIGN__;
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
-#define MAX_TRANS 8000000
+#define MAX_TRANS 400000000
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
