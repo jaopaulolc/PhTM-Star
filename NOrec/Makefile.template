@@ -5,8 +5,22 @@ TARGET = libnorec.a
 SRCS = $(wildcard *.cpp)
 OBJS = $(SRCS:.cpp=.o)
 
-CPPFLAGS = -I./include
-CXXFLAGS = -O3 -mrtm -Wall
+CPPFLAGS = -I./include -D_GNU_SOURCE -I../htm
+CXXFLAGS = -O3 -Wall
+
+ARCH = $(shell uname -m)
+
+ifeq ($(ARCH), x86_64)
+  # Intel RTM
+  CXXFLAGS += -mrtm
+else
+  ifeq ($(ARCH), ppc64le)
+    # IBM PowerTM
+    CXXFLAGS += -mhtm
+  else
+	  $(error unsupported architecture)
+  endif
+endif
 
 # DUMMY COMMENT
 # DEFINES += -DCOMMIT_RATE_PROFILING

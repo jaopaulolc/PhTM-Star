@@ -65,6 +65,8 @@ namespace stm
 			:	tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
 				xbegin_status(0), tx_version(0), is_rh_active(false),
 				is_rh_prefix_active(false), slow_retries(0),
+				// HyTM-NOrec fields
+				hw_commit_counter(0),
       	nesting_depth(0),
         allocator(),
         num_commits(0), num_aborts(0), num_restarts(0),
@@ -350,9 +352,10 @@ namespace stm
           //MetaInitializer<0>::init();
 
 					/* inicializando apenas o NOrec (por enquanto) */
-					initTM<CGL>(); /* precisa para não bloquear a inicializar  */
+					initTM<CGL>(); /* precisa para não bloquear a inicialização  */
 					initTM<NOrec>();
 					initTM<RH_NOrec>();
+					initTM<HyTM_NOrec>();
 
           // guess a default configuration, then check env for a better option
           const char* cfg = "NOrec";

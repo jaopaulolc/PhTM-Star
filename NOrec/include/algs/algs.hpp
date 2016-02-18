@@ -46,6 +46,8 @@ namespace stm
       OrecEager, OrecEagerHour, OrecEagerBackoff, OrecEagerHB,
       OrecLazy,  OrecLazyHour,  OrecLazyBackoff,  OrecLazyHB,
       NOrec,     NOrecHour,     NOrecBackoff,     NOrecHB,
+			// HyTM-NOrec
+      HyTM_NOrec, HyTM_NOrecHour, HyTM_NOrecBackoff, HyTM_NOrecHB,
 			// RH-NOrec
 			RH_NOrec,
       // ProfileTM support.  These are not true STMs

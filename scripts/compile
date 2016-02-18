@@ -258,13 +258,7 @@ function compile {
 			phasedTM)
 				compile_with_phasedTM
 				;;
-			norec)
-				compile_with_norec
-				;;
-			rh_norec)
-				compile_with_norec
-				;;
-			phased_norec)
+			norec | rh_norec | hytm_norec)
 				compile_with_norec
 				;;
 			rtm)

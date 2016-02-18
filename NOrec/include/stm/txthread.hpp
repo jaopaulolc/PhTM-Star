@@ -28,6 +28,14 @@
 #include <stm/ValueList.hpp>
 #include <stm/WBMMPolicy.hpp>
 
+namespace htm {
+	
+	bool HTM_Begin_Tx();
+	void HTM_Commit_Tx();
+
+} // namespace htm
+
+
 namespace stm
 {
   /**
@@ -56,6 +64,9 @@ namespace stm
 			bool is_rh_prefix_active;
 			uint64_t htm_retries;
 			uint64_t slow_retries;
+
+			/*** HyTM-NOrec fields ***/
+			uintptr_t hw_commit_counter;
 
       /*** THESE FIELDS DEAL WITH THE STM IMPLEMENTATIONS ***/
       uint32_t       id;            // per thread id
