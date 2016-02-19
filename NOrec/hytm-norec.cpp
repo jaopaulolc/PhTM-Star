@@ -44,6 +44,14 @@ namespace htm {
 		while(1){
 			uint32_t status = htm_begin();
 			if(htm_has_started(status)) {
+#ifdef HYTM_EAGER
+				// eager subscription
+				uintptr_t s = timestamp.val;
+				if ((s & 1) == 1) {
+					// aborting, sw tx commiting
+					htm_abort();
+				}
+#endif /* HYTM_EAGER */
 				// we may start hw tx
 				return true;
 			}
@@ -65,12 +73,14 @@ namespace htm {
 
 	void
 	HTM_Commit_Tx() {
+#ifdef HYTM_LAZY
 		// lazy subscription
 		uintptr_t s = timestamp.val;
 		if ((s & 1) == 1) {
 			// aborting, sw tx commiting
 			htm_abort();
 		}
+#endif /* HYTM_LAZY */
 		// notify sw txs to revalidate read/write-set
 		commit_counter.val = commit_counter.val + 1;
 

@@ -112,7 +112,7 @@ function execute_microbench_apps {
 	for app in ${_MICROBENCH_APPS}; do
 		appRunPath="$MICROBENCH/$build/$app-$suffix"
 		case $app in
-			intset_*)
+			intset_* | pintset)
 				local EXEC_FLAGS="$(cross_product "$i" "$u" "$n")" ;;
 			conflict | capacity)
 				local EXEC_FLAGS="$(cross_product "$u" "$n")" ;;
@@ -199,7 +199,7 @@ function execute {
 			powerTM)
 				SUFFIXES="$(cross_product $build "simple_lock")"
 				;;
-			norec | rh_norec | hytm_norec)
+			norec | rh_norec | hytm_norec_eager | hytm_norec_lazy)
 				SUFFIXES="${build}_$(uname -m)"
 				;;
 			*)

@@ -8,6 +8,15 @@ OBJS = $(SRCS:.cpp=.o)
 CPPFLAGS = -I./include -D_GNU_SOURCE -I../htm
 CXXFLAGS = -O3 -Wall
 
+# DUMMY COMMENT
+# DEFINES += -DCOMMIT_RATE_PROFILING
+# DEFINES += -DRW_SET_PROFILING
+
+# DEFINES += -DHYTM_EAGER
+# DEFINES += -DHYTM_LAZY
+
+CPPFLAGS += $(DEFINES)
+
 ARCH = $(shell uname -m)
 
 ifeq ($(ARCH), x86_64)
@@ -21,10 +30,6 @@ else
 	  $(error unsupported architecture)
   endif
 endif
-
-# DUMMY COMMENT
-# DEFINES += -DCOMMIT_RATE_PROFILING
-# DEFINES += -DRW_SET_PROFILING
 
 $(TARGET):	$(OBJS)
 	$(AR) cr $@ $^

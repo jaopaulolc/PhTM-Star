@@ -148,6 +148,7 @@ function compile_with_norec {
 	sed	-e "s|# DUMMY COMMENT||"               \
 	    -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
 			-e "/${RW_SET_PROFILING}/s|# ||"       \
+			-e "/${HYTM_LOCK_SUBSCRIPTION}/s|# ||" \
 			$NOrec/Makefile.template > $NOrec/Makefile
 	make -C $NOrec clean ${MAKE_OPTIONS}
 	make -C $NOrec ${MAKE_OPTIONS}
@@ -258,8 +259,18 @@ function compile {
 			phasedTM)
 				compile_with_phasedTM
 				;;
-			norec | rh_norec | hytm_norec)
+			norec | rh_norec)
 				compile_with_norec
+				;;
+			hytm_norec_eager)
+				HYTM_LOCK_SUBSCRIPTION="$HYTM_EAGER"
+				compile_with_norec
+				HYTM_LOCK_SUBSCRIPTION=""
+				;;
+			hytm_norec_lazy)
+				HYTM_LOCK_SUBSCRIPTION="$HYTM_LAZY"
+				compile_with_norec
+				HYTM_LOCK_SUBSCRIPTION=""
 				;;
 			rtm)
 				compile_with_rtm
