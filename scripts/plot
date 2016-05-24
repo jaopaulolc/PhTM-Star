@@ -9,30 +9,33 @@ function plot-clustered-lines {
 	local graphfilename=$2
 	local ylabel=$3
 	local _APPS=${!4//_/-}
+	local WIDTH=$5
 	gnuplot <<-EOF
 		set encoding utf8
-		set terminal postscript eps enhanced color size 9.60,2.80 font "NimbusSanL-Bold,16"
+		set terminal postscript eps enhanced color size $WIDTH*$(echo $_APPS | wc -w),2.80 font "NimbusSanL-Bold,16"
 		set output '$GRAPHDIR/$graphfilename.eps'
 	
 		# estilo das linhas
-		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#C5604B"
-		set style line 2 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#97BE53"
-		set style line 3 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#A564B7"
-		set style line 4 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#93B9B5"
-		set style line 5 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#544442"
+		set style line 1 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#66A61E"
+		set style line 2 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#E7298A"
+		set style line 3 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#1623DD"
+		set style line 4 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#EA6507"
+		set style line 5 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#D01E1E"
+		set style line 6 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#CCFF00"
+		set style line 7 lt 1 lw 5.0 pt 7 ps 1.0 lc rgb "#123455"
 		
 		set xtics out nomirror
 		set ytics out nomirror
 		set grid y
-
+		$KEY_POSITION
 		set ylabel "$ylabel" offset 1.8
 		set xlabel "  " offset 1
 
-		apps = "$_APPS"
-		set for[i=1:words(apps)] label word(apps,i) at (2.0*i-1.0)*($NLINES/2.0), graph -0.12 center
+		#apps = "$_APPS"
+		#set for[i=1:words(apps)] label word(apps,i) at i*0.25 + 0.25*(i-1), graph -0.12 center
 
-		plot for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u (column(0)+1):j:xtic(1) w lp ls j/2 \
-			$(APPS=$(echo $_APPS | sed 's|^[a-z-]\+ \?||'); i=1;
+		plot for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u (column(0)-1):j:xtic(1) w lp ls j/2 \
+			$(local a=($_APPS); a[0]=''; APPS="${a[*]}"; i=1;
 				for app in $APPS; do
 					echo -n 'notitle, for[j=2:'$NCOLUMNS':2] "'$tmpdatafile'" index '$i' u ('$NLINES'*'$i' + column(0)):j:xtic(1) w lp ls j/2 ';
 					i=$((i+1))
@@ -89,9 +92,10 @@ function plot-clustered-bars {
 	local graphfilename=$2
 	local ylabel=$3
 	local _APPS=${!4//_/-}
+	local WIDTH=$5
 	gnuplot <<-EOF
 		set encoding utf8
-		set terminal postscript eps enhanced color size 1.20*$(echo $_APPS | wc -w),2.80 font "NimbusSanL-Bold,16"
+		set terminal postscript eps enhanced color size $WIDTH*$(echo $_APPS | wc -w),2.80 font "NimbusSanL-Bold,22"
 		set output '$GRAPHDIR/$graphfilename.eps'
 	
 		# estilo das linhas
@@ -100,9 +104,11 @@ function plot-clustered-bars {
 		set style line 3 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#1623DD"
 		set style line 4 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#EA6507"
 		set style line 5 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#D01E1E"
+		set style line 6 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#CCFF00"
+		set style line 7 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#123455"
 		
 		set style data histogram
-		set style histogram clustered gap 0.2 title offset 1.2,-0.4
+		set style histogram cluster gap 1.5 title offset 1.2,-0.4
 		set style fill solid border -1
 		set boxwidth 0.9
 		set style fill solid border -1
@@ -112,16 +118,17 @@ function plot-clustered-bars {
 		set grid y
 
 		set tmargin 1.5
+		set bmargin 4.0
 		$KEY_POSITION
 		set ylabel "$ylabel" offset 1.8
 		set xlabel "  " offset 1
 
 		apps = "$_APPS"
 
-		plot newhistogram " ".word(apps,1), for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u j:xtic(1) ls j/2 \
-			$(APPS=$(echo $_APPS | sed 's|^[a-z-]\+ \?||'); i=1;
+		plot newhistogram " ".word(apps,1) at 0, for[j=2:$NCOLUMNS:2] "$tmpdatafile" index 0 u j:xtic(1) ls j/2 \
+			$(local a=($_APPS); a[0]=''; APPS="${a[*]}"; i=1;
 				for app in $APPS; do
-					echo -n 'notitle, newhistogram "'$app'", for[j=2:'$NCOLUMNS':2] "'$tmpdatafile'" index '$i' u j:xtic(1) ls j/2 ';
+					echo -n 'notitle, newhistogram "'$app'" at '$i'*5, for[j=2:'$NCOLUMNS':2] "'$tmpdatafile'" index '$i' u j:xtic(1) ls j/2 ';
 					i=$((i+1))
 				done
 				echo -n 't column(j)'
@@ -135,16 +142,18 @@ function plot-clustered-bars {
 function plot-clustered-bars2 {
 	local tmpdatafile1=$1
 	local tmpdatafile2=$2
-	local graphfilename=$3
-	local ylabel1=$4
-	local ylabel2=$5
-	local _APPS=${!6//_/-}
-	local WIDTH=${7}
+	local tmpdatafile3=$3
+	local graphfilename=$4
+	local ylabel1=$5
+	local ylabel2=$6
+	local ylabel3=$7
+	local _APPS=${!8//_/-}
+	local WIDTH=${9}
 	gnuplot <<-EOF
 		set encoding utf8
 		set terminal postscript eps enhanced color size $WIDTH*$(echo $_APPS | wc -w),2.80 font "NimbusSanL-Bold,16"
 		set output '$GRAPHDIR/$graphfilename.eps'
-		set multiplot layout 1,2
+		set multiplot layout 1,3
 	
 		# estilo das linhas
 		set style line 1 lt 1 lw 1.0 pt 7 ps 1.0 lc rgb "#66A61E"
@@ -163,14 +172,15 @@ function plot-clustered-bars2 {
 		set ytics out nomirror
 		set grid y
 
-		set tmargin 1.5
+		unset key
 		$KEY_POSITION
+		set tmargin 1.0
+		set bmargin 4.0
+		set rmargin 0.5
 		set ylabel "$ylabel1" offset 1.8
 		set xlabel "  " offset 1
 
-		apps = "$_APPS"
-
-		plot newhistogram " ".word(apps,1), for[j=2:$NCOLUMNS:2] "$tmpdatafile1" index 0 u j:xtic(1) ls j/2 \
+		plot newhistogram, for[j=2:$NCOLUMNS:2] "$tmpdatafile1" index 0 u j:xtic(1) ls j/2 \
 			$(APPS=$(echo $_APPS | sed 's|^[a-z-]\+ \?||'); i=1;
 				for app in $APPS; do
 					echo -n 'notitle, newhistogram "'$app'", for[j=2:'$NCOLUMNS':2] "'$tmpdatafile1'" index '$i' u j:xtic(1) ls j/2 ';
@@ -179,14 +189,25 @@ function plot-clustered-bars2 {
 				echo -n 't column(j)'
 			)
 		
-		set lmargin -2.5
-		set ylabel "$ylabel2" offset 1.8
 		unset key
+		set ylabel "$ylabel2" offset 1.8
 		
-		plot newhistogram " ".word(apps,1), for[j=2:$NCOLUMNS:2] "$tmpdatafile2" index 0 u j:xtic(1) ls j/2 \
+		plot newhistogram, for[j=2:$NCOLUMNS:2] "$tmpdatafile2" index 0 u j:xtic(1) ls j/2 \
 			$(APPS=$(echo $_APPS | sed 's|^[a-z-]\+ \?||'); i=1;
 				for app in $APPS; do
-					echo -n 'notitle, newhistogram "'$app'", for[j=2:'$NCOLUMNS':2] "'$tmpdatafile2'" index '$i' u j:xtic(1) ls j/2 ';
+					echo -n 'notitle, newhistogram, for[j=2:'$NCOLUMNS':2] "'$tmpdatafile2'" index '$i' u j:xtic(1) ls j/2 ';
+					i=$((i+1))
+				done
+				echo -n 't column(j)'
+			)
+		
+		unset key
+		set ylabel "$ylabel3" offset 1.8
+		
+		plot newhistogram, for[j=2:$NCOLUMNS-1:2] "$tmpdatafile3" index 0 u j:xtic(1) ls j/2 \
+			$(APPS=$(echo $_APPS | sed 's|^[a-z-]\+ \?||'); i=1;
+				for app in $APPS; do
+					echo -n 'notitle, newhistogram, for[j=2:'$NCOLUMNS-1':2] "'$tmpdatafile3'" index '$i' u j:xtic(1) ls j/2 ';
 					i=$((i+1))
 				done
 				echo -n 't column(j)'
@@ -253,96 +274,260 @@ function plot {
 	
 	[ -d $GRAPHDIR ] || mkdir $GRAPHDIR
 	
-	test -z "$_BUILDS"            && _BUILDS=$BUILDS
-	test -z "$_NTHREADS"          && _NTHREADS=$NTHREADS
-	test -z "$_MEMALLOCS"         && _MEMALLOCS='ptmalloc'
-	test "$_MEMALLOCS" == "ALL"   && _MEMALLOCS=$MEMALLOCS
-	test -z "$_GOVERNORS"         && _GOVERNORS='ondemand'
-	test "$_GOVERNORS" == "ALL"   && _GOVERNORS=$GOVERNORS
-	test -z "$_tinySTM_DESIGNS"   && _tinySTM_DESIGNS=$tinySTM_DESIGNS
-	test -z "$_tinySTM_CMS"       && _tinySTM_CMS=$tinySTM_CMS
-	test -z "$_ORT_HASHES"        && _ORT_HASHES="ORIGINAL"
-	test "$_ORT_HASHES" == "ALL"  && _ORT_HASHES=$ORT_HASHES
-	test -z "$_rtm_CMS"           && _rtm_CMS=$rtm_CMS
-	test -z "$_tsx_LOCKS"         && _tsx_LOCKS=$tsx_LOCKS
-	test "$_STAMP_APPS" == "ALL"  && _STAMP_APPS=$STAMP_APPS
+	############################ GLOBAL ##################################
+	test -z "$_BUILDS"                && _BUILDS=$BUILDS
+	test -z "$_NEXEC"                 && _NEXEC=$NEXEC
+	test -z "$_NTHREADS"              && _NTHREADS=$NTHREADS
+	test -z "$_MEMALLOCS"             && _MEMALLOCS='ptmalloc'
+	test "$_MEMALLOCS" == "ALL"       && _MEMALLOCS=$MEMALLOCS
+	############################# STM ####################################
+	test -z "$_tinySTM_DESIGNS"       && _tinySTM_DESIGNS='ETL'
+	test "$_tinySTM_DESIGNS" == "ALL" && _tinySTM_DESIGNS=$tinySTM_DESIGNS
+	test -z "$_tinySTM_CMS"           && _tinySTM_CMS='SUICIDE'
+	test "$_tinySTM_CMS" == "ALL"     && _tinySTM_CMS=$tinySTM_CMS
+	test -z "$_ORT_HASHES"            && _ORT_HASHES='ORIGINAL'
+	test "$_ORT_HASHES" == "ALL"      && _ORT_HASHES=$ORT_HASHES
+	############################# HTM ####################################
+	test -z "$_TSX_LOCKS"             && _TSX_LOCKS='simple_lock'
+	test "$_TSX_LOCKS" == "ALL"       && _TSX_LOCKS=$TSX_LOCKS
+	############################# APPS ###################################
+	test "$_STAMP_APPS" == "ALL"      && _STAMP_APPS=$STAMP_APPS
 	test "$_MICROBENCH_APPS" == "ALL" && _MICROBENCH_APPS=$MICROBENCH_APPS
-	test -z "$_INITSIZES"         && _INITSIZES=$INITSIZES
-	test -z "$_UPDATERATES"       && _UPDATERATES=$UPDATERATES
+	test -z "$_INITSIZES"             && _INITSIZES=$INITSIZES
+	test -z "$_UPDATERATES"           && _UPDATERATES=$UPDATERATES
+	########################### phasedTM #################################
+	test -z "$_MAX_CAPACITY_ABORTS"   && _MAX_CAPACITY_ABORTS="1"
+	_MAX_CAPACITY_ABORTS=$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")
+	test -z "$_PHASEDTM_STMS"          && _PHASEDTM_STMS='tinystm'
+	test "$_PHASEDTM_STMS" == "ALL"    && _PHASEDTM_STMS=$PHASEDTM_STMS
+	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
+	test "$_PHASEDTM_DESIGNS" == "ALL" && _PHASEDTM_DESIGNS=$PHASEDTM_DESIGNS
 
 	case $PLOTSTYLE in
 		stamp-TimeAndSpeedupAndEnergy)
-			for dataplot in speedup energy time; do
+			#for dataplot in speedup energy time; do
+			for dataplot in speedup time; do
 				local tmpfile="data.tmp"
 				case $dataplot in
 					speedup)
-						local yaxislabel='Speedup (relação ao sequencial)' ;;
+						local yaxislabel='Speedup (over sequencial)' ;;
 					energy)
 						local yaxislabel='Energia (J) (normalizada)';;
 					time)
 						local yaxislabel='Tempo de Execução' ;;
 				esac
 				generate_data "$dataplot" "_STAMP_APPS" "_NTHREADS"
+				PREFIXES="$PREFIXES geomean"
 				for suffix in ${SUFFIXES}; do
 					[ "$suffix" == '@' ] && suffix=''
 					rm -f $tmpfile
 					for prefix in ${PREFIXES}; do
 						cat $DATADIR/${prefix}${suffix}.$dataplot | \
-							sed 's|norec|NOrec|g;s|rtm[^"]\+|RTM|g;s|lock|LOCK|g' >> $tmpfile
+							sed -e 's|phasedTM rtm[^"]\+|PTM|g;s|cap aborts [0-9]\+||g' \
+							    -e 's|phasedTM powerTM[^"]\+|PTM|g' \
+									-e 's|rh norec[^"]\+|RH-NOrec|g' \
+									-e 's|hytm norec eager[^"]\+|HyTM-NOrec|g' \
+									-e 's|hytm norec lazy[^"]\+|HyTM-NOrec Lazy|g' \
+									-e 's|norec[^"]\+|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+									-e 's|tinystm x86 64[^"]\+|TinySTM|;' \
+									-e 's|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $tmpfile
 						NLINES="$(wc -l $DATADIR/${prefix}${suffix}.$dataplot | cut -d' ' -f1)"
 						echo -e "\n" >> $tmpfile
 					done # FOR EACH PREFIX
 					NCOLUMNS="$(head -n1 $tmpfile | awk -F ' "' 'END{print NF}')"
-					KEY_POSITION="set key right nobox"
-					#KEY_POSITION="set key left nobox"
-					local prefix=$(echo $prefix | sed 's|^[a-z]\+-\?||')
-					plot-clustered-lines "$tmpfile" "stamp-${dataplot}${prefix}${suffix}"     "$yaxislabel" "_STAMP_APPS"
-					plot-clustered-bars  "$tmpfile" "stamp-bar-${dataplot}${prefix}${suffix}" "$yaxislabel" "_STAMP_APPS"
+					#KEY_POSITION="set key right nobox"
+					#KEY_POSITION="set key Left reverse left nobox"
+					KEY_POSITION="set key Right at screen 1.0,screen 0.99 spacing 1.0 samplen 2.0 maxcols 10 maxrows 1"
+					local prefix=$(echo $prefix | sed 's|^[a-z0-9]\+-\?||')
+					local STAMP_APPS_BACKUP="$_STAMP_APPS"
+					_STAMP_APPS="$_STAMP_APPS geomean"
+					plot-clustered-lines "$tmpfile" "stamp-${dataplot}${prefix}${suffix}"     "$yaxislabel" "_STAMP_APPS" '2.0'
+					plot-clustered-bars  "$tmpfile" "stamp-bar-${dataplot}${prefix}${suffix}" "$yaxislabel" "_STAMP_APPS" '2.0'
+					_STAMP_APPS="$STAMP_APPS_BACKUP"
 					rm -f $tmpfile
 				done # FOR EACH SUFFIX
 			done # FOR EACH DATA PLOT
 			;;
+		stamp-per-app-TimeAndSpeedupAndEnergy)
+			local APPS="$_STAMP_APPS"
+			for _STAMP_APPS in ${APPS}; do
+				local app="$_STAMP_APPS"
+				#for dataplot in speedup energy time; do
+				for dataplot in speedup time; do
+					local tmpfile="data.tmp"
+					case $dataplot in
+						speedup)
+							local yaxislabel='Speedup (relação ao sequencial)' ;;
+						energy)
+							local yaxislabel='Energia (J) (normalizada)';;
+						time)
+							local yaxislabel='Tempo de Execução' ;;
+					esac
+					generate_data "$dataplot" "_STAMP_APPS" "_NTHREADS"
+					for suffix in ${SUFFIXES}; do
+						[ "$suffix" == '@' ] && suffix=''
+						rm -f $tmpfile
+						for prefix in ${PREFIXES}; do
+							cat $DATADIR/${prefix}${suffix}.$dataplot | \
+								sed -e 's|phasedTM rtm|PhasedTM|g;s|cap aborts [0-9]\+||g' \
+							    	-e 's|phasedTM powerTM|PhasedTM|g' \
+										-e 's|rh norec[^"]\+|RH-NOrec|g' \
+										-e 's|hytm norec[^"]\+|HyTM-NOrec|g' \
+										-e 's|norec|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+										-e 's|tinystm x86 64[^"]\+|TinySTM x86 64|;' \
+										-e 's|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $tmpfile
+							NLINES="$(wc -l $DATADIR/${prefix}${suffix}.$dataplot | cut -d' ' -f1)"
+							echo -e "\n" >> $tmpfile
+						done # FOR EACH PREFIX
+						NCOLUMNS="$(head -n1 $tmpfile | awk -F ' "' 'END{print NF}')"
+						KEY_POSITION="unset key"
+						#KEY_POSITION="set key right tmargin nobox"
+						#KEY_POSITION="set key left nobox"
+						local prefix=$(echo $prefix | sed 's|^[a-z]\+-\?||')
+						#plot-clustered-lines "$tmpfile" "stamp-${dataplot}${prefix}${suffix}"     "$yaxislabel" "_STAMP_APPS" '3.0'
+						plot-clustered-bars  "$tmpfile" "$app-bar-${dataplot}${prefix}${suffix}" "$yaxislabel" "_STAMP_APPS" '3.0'
+						rm -f $tmpfile
+					done # FOR EACH SUFFIX
+				done # FOR EACH DATA PLOT
+			done # FOR EACH APP
+			;;
 		microbench-ThroughputVsContention)
-			local throughputfile="throughput.tmp"
-			generate_data "throughput" "_MICROBENCH_APPS" "_UPDATERATES"
-			for suffix in ${SUFFIXES}; do
-				[ "$suffix" == '@' ] && suffix=''
-				rm -f $throughputfile
-				for prefix in ${PREFIXES}; do
-					cat $DATADIR/${prefix}${suffix}.throughput >> $throughputfile
-					NLINES="$(wc -l $DATADIR/${prefix}${suffix}.throughput | cut -d' ' -f1)"
-					echo -e "\n" >> $throughputfile
+			#local dataplot="transitions"
+			local dataplot="throughput"
+			local tmpfile="data.tmp"
+			_INITSIZES="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
+			_UPDATERATES="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
+			_NTHREADS="$(sed 's|\([0-9]\+\)|n\1|g' <<<${_NTHREADS})"
+			_CLUSTER="${_CLUSTER//APPS/_MICROBENCH_APPS}"
+			#generate_data "throughput" "_MICROBENCH_APPS" "_UPDATERATES"
+			#generate_data "${dataplot}" "_MICROBENCH_APPS" "_UPDATERATES"
+			generate_data "${dataplot}" "_MICROBENCH_APPS" "_NTHREADS"
+			local AUX=('_MICROBENCH_APPS' '_MEMALLOCS' '_INITSIZES' '_UPDATERATES' '_NTHREADS')
+			local i=0
+			local PREFIXES=''
+			while [ ! -z ${AUX[$i]} -a $_CLUSTER != ${AUX[$i]} ]; do
+				PREFIXES="$(cross_product "$PREFIXES" "${!AUX[$i]}")"
+				i=$((i+1))
+			done
+			i=$((i+1))
+			local CLUSTERS="$(cross_product '' "${!_CLUSTER}")"
+			local SUFFIXES=''
+			while [ ! -z ${AUX[$i]} ]; do
+				SUFFIXES="$(cross_product "$SUFFIXES" "${!AUX[$i]}")"
+				i=$((i+1))
+			done
+			[ -z "$PREFIXES" ] && PREFIXES='@'
+			[ -z "$SUFFIXES" ] && SUFFIXES='@'
+			for prefix in ${PREFIXES}; do
+				for suffix in ${SUFFIXES}; do
+					prefix=${prefix/-/}
+					[ "$prefix" == '@' ] && prefix=''
+					[ "$suffix" == '@' ] && suffix=''
+					rm -f $tmpfile
+					for cluster in ${CLUSTERS}; do
+					  [ -z $prefix ] && cluster=${cluster/-/}
+						local filename=${prefix}${cluster}${suffix}.${dataplot}
+						cat $DATADIR/$filename | \
+							sed -e 's|phasedTM rtm[^"]\+|PTM|g;s|cap aborts [0-9]\+||g' \
+									-e 's|phasedTM powerTM[^"]\+|PTM|g' \
+									-e 's|rh norec|RH-NOrec|g' \
+									-e 's|hytm norec eager[^"]\+|HyTM-NOrec|g' \
+									-e 's|hytm norec lazy[^"]\+|HyTM-NOrec Lazy|g' \
+									-e 's|norec[^"]\+|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+									-e 's|tinystm x86 64[^"]\+|TinySTM x86 64|;' \
+									-e 's|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $tmpfile
+						NLINES="$(wc -l $DATADIR/$filename | cut -d' ' -f1)"
+						echo -e "\n" >> $tmpfile
+					done
+					NCOLUMNS="$(head -n1 $tmpfile | awk -F ' "' 'END{print NF}')"
+					#KEY_POSITION="set key right nobox"
+					#KEY_POSITION="set key left nobox"
+					#KEY_POSITION="set key Left reverse left nobox"
+					KEY_POSITION="set key at screen 1.0,screen 0.98 spacing 1.0 samplen 2.0 maxcols 10 maxrows 1"
+					#plot-clustered-lines "$tmpfile" "lines-${dataplot}-${prefix}${suffix}" "Normilized Throughput" "$_CLUSTER" "3.0"
+					#plot-clustered-bars  "$tmpfile" "bars-${dataplot}-${prefix}${suffix}"  "Normalized Throughput" "$_CLUSTER" "3.0"
+					plot-clustered-lines "$tmpfile" "lines-${dataplot}-${prefix}${suffix}" "Throughput" "$_CLUSTER" "3.0"
+					plot-clustered-bars  "$tmpfile" "bars-${dataplot}-${prefix}${suffix}"  "Throughput" "$_CLUSTER" "3.0"
+					#plot-clustered-bars  "$tmpfile" "bars-${dataplot}-${prefix}${suffix}"  "Capacity Transitions %" "$_CLUSTER" "3.0"
+					rm -f $tmpfile
 				done # FOR EACH PREFIX
-				NCOLUMNS="$(head -n1 $throughputfile | awk -F ' "' 'END{print NF}')"
-				KEY_POSITION="set key right nobox"
-				prefix=$(echo $prefix | sed 's|^[a-z_]\+-\?||')
-				plot-clustered-lines "$throughputfile" "microbench-throughput${prefix}${suffix}"     "Throughput" "_MICROBENCH_APPS"
-				plot-clustered-bars  "$throughputfile" "microbench-bar-throughput${prefix}${suffix}" "Throughput" "_MICROBENCH_APPS"
-				rm -f $throughputfile
 			done # FOR EACH SUFFIX
+			;;
+		microbench-per-app)
+			local dataplot="norm-throughput"
+			local tmpfile="data.tmp"
+			local _INITSIZES_COPY="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
+			local _UPDATERATES_COPY="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
+			local _NTHREADS_COPY="$(sed 's|\([0-9]\+\)|n\1|g' <<<${_NTHREADS})"
+			local APPS="$_MICROBENCH_APPS"
+			for _MICROBENCH_APPS in ${APPS}; do
+				local app="$_MICROBENCH_APPS"
+				_INITSIZES="$_INITSIZES_COPY"
+				_UPDATERATES="$_UPDATERATES_COPY"
+				_NTHREADS="$_NTHREADS_COPY"
+				generate_data "${dataplot}" "_MICROBENCH_APPS" "_NTHREADS"
+				for suffix in ${SUFFIXES}; do
+					[ "$suffix" == '@' ] && suffix=''
+					rm -f $tmpfile
+					for prefix in ${PREFIXES}; do
+						local filename=${prefix}${suffix}.${dataplot}
+						cat $DATADIR/$filename | \
+							sed -e 's|phasedTM rtm[^"]\+|PTM|g;s|cap aborts [0-9]\+||g' \
+									-e 's|phasedTM powerTM[^"]\+|PTM|g' \
+									-e 's|rh norec[^"]\+|RH-NOrec|g' \
+									-e 's|hytm norec eager[^"]\+|HyTM-NOrec|g' \
+									-e 's|hytm norec lazy[^"]\+|HyTM-NOrec Lazy|g' \
+									-e 's|norec[^"]\+|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+									-e 's|tinystm x86 64[^"]\+|TinySTM|;' \
+									-e 's|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $tmpfile
+						NLINES="$(wc -l $DATADIR/$filename | cut -d' ' -f1)"
+						echo -e "\n" >> $tmpfile
+					done # FOR EACH PREFIX
+					NCOLUMNS="$(head -n1 $tmpfile | awk -F ' "' 'END{print NF}')"
+					#KEY_POSITION="set key right nobox"
+					KEY_POSITION="set key Left reverse left nobox"
+					#KEY_POSITION="set key at screen 1.0,screen 0.04 spacing 1.0 samplen 2.0 maxcols 10 maxrows 1"
+					prefix=${prefix//${app}/}
+					plot-clustered-lines "$tmpfile" "$app-throughput-${prefix}${suffix}" "Throughput" "_MICROBENCH_APPS" "3.5"
+					plot-clustered-bars  "$tmpfile" "$app-bars-${dataplot}-${prefix}${suffix}"  "Throughput" "_MICROBENCH_APPS" "3.5"
+					rm -f $tmpfile
+				done # FOR EACH SUFFIX
+			done # FOR EACH APP
 			;;
 		microbench-CommitsAndConflictsVsContention)
 			local commitsfile="commits.tmp"
 			local conflictsfile="conflicts.tmp"
-			generate_data "commits" "_MICROBENCH_APPS" "_UPDATERATES"
-			generate_data "conflicts" "_MICROBENCH_APPS" "_UPDATERATES"
+			local capacityfile="capacity.tmp"
+			_INITSIZES="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
+			_UPDATERATES="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
+			_NTHREADS="$(sed 's|\([0-9]\+\)|n\1|g' <<<${_NTHREADS})"
+			generate_data "commits conflicts capacity" "_MICROBENCH_APPS" "_UPDATERATES"
+			#generate_data "conflicts" "_MICROBENCH_APPS" "_UPDATERATES"
+			#generate_data "capacity" "_MICROBENCH_APPS" "_UPDATERATES"
 			for suffix in ${SUFFIXES}; do
 				[ "$suffix" == '@' ] && suffix=''
-				rm -f $commitsfile
-				rm -f $conflictsfile
 				for prefix in ${PREFIXES}; do
-					cat $DATADIR/${prefix}${suffix}.commits >> $commitsfile
-					cat $DATADIR/${prefix}${suffix}.conflicts >> $conflictsfile
+					rm -f $commitsfile $conflictsfile $capacityfile
+					cat $DATADIR/${prefix}${suffix}.commits | \
+						sed -e 's|phasedTM rtm|PhasedTM|g;s|cap aborts [0-9]\+||g' -e 's|norec|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+						-e 's|tinystm x86 64[^"]\+|TinySTM x86 64|;s|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $commitsfile
+					cat $DATADIR/${prefix}${suffix}.conflicts | \
+						sed -e 's|phasedTM rtm|PhasedTM|g' -e 's|norec|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+						-e 's|tinystm x86 64[^"]\+|TinySTM x86 64|;s|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $conflictsfile
+					cat $DATADIR/${prefix}${suffix}.capacity | \
+						sed -e 's|phasedTM rtm|PhasedTM|g' -e 's|norec|NOrec|g;s|rtm[^"]\+|RTM|g;s|powerTM[^"]\+|PowerTM|g' \
+						-e 's|tinystm x86 64[^"]\+|TinySTM x86 64|;s|tinystm ppc64le[^"]\+|TinySTM ppc64le|;s|lock|LOCK|g' >> $capacityfile
 					NLINES="$(wc -l $DATADIR/${prefix}${suffix}.commits | cut -d' ' -f1)"
 					echo -e "\n" >> $commitsfile
 					echo -e "\n" >> $conflictsfile
-				done # FOR EACH PREFIX
+					echo -e "\n" >> $capacityfile
 				NCOLUMNS="$(head -n1 $commitsfile | awk -F ' "' 'END{print NF}')"
-				KEY_POSITION="set key right nobox"
-				prefix=$(echo $prefix | sed 's|^[a-z_]\+-\?||')
-				plot-clustered-bars2  "$commitsfile" "$conflictsfile" "microbench-bar${prefix}${suffix}" "Throughput" "Conflicts" "_MICROBENCH_APPS" "8.0"
-				rm -f $commitsfile
-				rm -f $conflictsfile
+				#KEY_POSITION="set key right nobox"
+				KEY_POSITION="set key at screen 1.0,screen 0.04 spacing 1.0 samplen 2.0 maxcols 10 maxrows 1"
+				plot-clustered-bars2  "$commitsfile" "$conflictsfile" "$capacityfile" "${prefix}${suffix}" \
+					"Taxa de Commits" "Conflicts" "Capacity" "_MICROBENCH_APPS" "12.0"
+				rm -f $commitsfile $conflictsfile $capacityfile
+				done # FOR EACH PREFIX
 			done # FOR EACH SUFFIX
 			;;
 		tinystm-falseConflict)
@@ -431,20 +616,24 @@ function plot {
 
 genFalseConfData=false
 
-while getopts "c:b:d:m:D:l:s:i:z:u:t:M:H:p:h" opt;
+while getopts "c:C:b:v:S:d:m:D:l:s:i:z:u:t:a:M:H:p:h" opt;
 do
 	case $opt in
 		c) _COLUMN=$OPTARG ;;
+		C) _CLUSTER=$OPTARG ;;
 		b) _BUILDS=$OPTARG ;;
+		v) _PHASEDTM_DESIGNS=$OPTARG ;;
+		S) _PHASEDTM_STMS=$OPTARG ;;
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
-		D) _rtm_CMS=$OPTARG ;;
-		l) _tsx_LOCKS=$OPTARG ;;
+		D) _HTM_CMS=$OPTARG ;;
+		l) _TSX_LOCKS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;
 		z) _INITSIZES=$OPTARG ;;
 		u) _UPDATERATES=$OPTARG ;;
 		t) _NTHREADS=$OPTARG ;;
+		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
 		H) _ORT_HASHES=$OPTARG ;;
 		p) PLOTSTYLE=$OPTARG ;;
@@ -454,9 +643,10 @@ do
 	esac
 done
 
-[[ -z "$_STAMP_APPS" && -z "$_MICROBENCH_APPS" ]] \
-	&& echo "error: no app specified to be executed" && exit -1
+[ -z "$_STAMP_APPS" -a -z "$_MICROBENCH_APPS" ] \
+	&& echo "error: no app specified to be ploted" && exit -1
 
-[ -z "$_COLUMN" ] && exit -1
+[ -z "$_COLUMN" ]  && _COLUMN='_BUILDS'
+[ -z "$_CLUSTER" ] && _CLUSTER='APPS'
 
 plot

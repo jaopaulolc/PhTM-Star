@@ -120,9 +120,10 @@ function execute_microbench_apps {
 				local EXEC_FLAGS="$(cross_product "$n")"
 				;;
 		esac
+		local s=$(echo $suffix | sed 's|seq|seq-'$(uname -m)'|')
 		for exec_flags in ${EXEC_FLAGS}; do
-			outputLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.log"
-			phasedLog="$LOGDIR/$app-$suffix-$memalloc-${exec_flags}.transitions"
+			outputLog="$LOGDIR/$app-$s-$memalloc-${exec_flags}.log"
+			phasedLog="$LOGDIR/$app-$s-$memalloc-${exec_flags}.transitions"
 			rm -f $outputLog
 			for j in $(seq 1 ${_NEXEC}); do
 				echo "execution $j: $appRunPath -${exec_flags//-/ -} ($memalloc)"	

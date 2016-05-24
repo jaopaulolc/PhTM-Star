@@ -43,9 +43,23 @@ function getNormVal {
 
 	local n=$(echo ${tokens[@]} | wc -w)
 	local app=${tokens[0]}
-	local mem=${tokens[$n-2]}
+	local build=${tokens[1]}
 
-	local log="$LOGDIR/$app-seq-$mem-1.log"
+	arch=x86_64 # TODO: detect arch
+	
+	case $prefix in
+		intset_* | pintset)
+			local mem=${tokens[$n-4]}
+			local i=${tokens[$n-3]}
+			local u=${tokens[$n-2]}
+			local log="$LOGDIR/$app-seq-$arch-$mem-$i-$u-n1.log"
+			;;
+		*) # STAMP APPS
+			local mem=${tokens[$n-2]}
+			local log="$LOGDIR/$app-seq-$arch-$mem-1.log"
+			;;
+	esac
+
 
 	echo $(grep -e "$regex" $log | awk '{print $3}' | \
 		awk -v normtype=0 "$meanScript")
@@ -53,109 +67,155 @@ function getNormVal {
 
 
 function genDataFile {
-	
-	case $datafile in
-		speedup)
-			local datafileregex='^Time[ ]\+= '
-			local colawkregex='{print $3}'
-			local hasNormVal=1
-			local normtype=1 ;;
-		energy)
-			local datafileregex='^Energy[ ]\+= '
-			local colawkregex='{print $3}'
-			local hasNormVal=1
-			local normtype=2 ;;
-		time)
-			local datafileregex='^Time[ ]\+= '
-			local colawkregex='{print $3}'
-			local hasNormVal=0
-			local normtype=3 ;;
-		throughput)
-			local datafileregex='^#txs[ ]\+: '
-			local colawkregex='{print $3}'
-			local hasNormVal=0
-			local normtype=3 ;;
-		commits)
-			local datafileregex='^#commits[ ]\+: '
-			local colawkregex='{print $3}'
-			local hasNormVal=0
-			local normtype=3 ;;
-		conflicts)
-			local datafileregex='^#conflicts[ ]\+: '
-			local colawkregex='{print $3}'
-			local hasNormVal=0
-			local normtype=3 ;;
-		falseConflict)
-			local datafileregex='^nb_total_conflicts:'
-			local colawkregex='{print $2}'
-			local hasNormVal=0
-			local normtype=3 ;;
-		falseConfRatio)
-			local datafileregex='^nb_total_conflicts:'
-			local colawkregex='{print($2 == 0.00) ? 0.00 : ($5/$2)*100.0 }'
-			local hasNormVal=0
-			local normtype=3 ;;
-	esac
-	
-	for prefix in ${PREFIXES}; do
-		case $prefix in
-			intset_*)
-				SUFFIXES="$INTSET_SUFFIXES" ;;
-			conflict*)
-				SUFFIXES="$CONFLICT_SUFFIXES" ;;
-		esac
-		for suffix in ${SUFFIXES}; do
-			local datafilename=$DATADIR/${prefix}${suffix}.$datafile
-			echo -n "generating '$datafilename'..."
-			echo "$HEADER" > $datafilename
-			for row in ${_ROWS}; do
-				echo -n "$row " >> $datafilename
-				for column in ${COLUMNS}; do
-					local logfilename="$LOGDIR/${prefix}${column}$(sed 's|@|'$row'|' <<<$suffix).log"
-					[[ $hasNormVal != 0 ]] && \
-						local normval="$(getNormVal "$datafileregex" ${prefix}${column}${suffix} | awk '{print $1}')"
-					grep -e "$datafileregex" $logfilename | awk "$colawkregex" | \
-						awk -v normtype=$normtype -v normval=$normval "$meanScript" >> $datafilename
-				done
-				echo >> $datafilename
-			done
-			echo "done."
-		done
-	done
-}
 
-#function genFalseConflictData {
-#
-#	for prefix in ${PREFIXES}; do
-#		for suffix in ${SUFFIXES}; do
-#			[ "$suffix" == '@' ] && suffix=''
-#			falseConflictFile="$DATADIR/${prefix}${suffix}.falseConflict"
-#			falseConfRatioFile="$DATADIR/${prefix}${suffix}.falseConfRatio"
-#			echo "generating '$falseConflictFile' and"
-#			echo -n -e "  '$falseConfRatioFile'..."
-#			echo "$HEADER" >> $falseConflictFile
-#			echo "$HEADER" >> $falseConfRatioFile
-#			for t in ${_NTHREADS}; do
-#				echo -n "$t " >> $falseConflictFile
-#				echo -n "$t " >> $falseConfRatioFile
-#				for column in ${COLUMNS}; do
-#					logfile="$LOGDIR/${prefix}${column}${suffix}-$t.log"
-#					grep -e '^nb_total_conflicts:' $logfile | awk '{print $2}' | \
-#						awk -v normtype=2 -v normval=1.0 "$meanScript" >> $falseConflictFile
-#					grep -e '^nb_total_conflicts:' $logfile | awk '{print($2 == 0.00) ? 0.00 : ($5/$2)*100.0 }' | \
-#						awk -v normtype=2 -v normval=1.0 "$meanScript" >> $falseConfRatioFile
-#				done # FOR EACH COLUMN
-#				echo >> $falseConflictFile
-#				echo >> $falseConfRatioFile
-#			done # FOR EACH NTHREADS
-#			echo ' done.'
-#		done # FOR EACH SUFFIX
-#	done # FOR EACH PREFIX
-#}
+	for	datafile in ${DATA_FILES}; do
+		case $datafile in
+			speedup)
+				local datafileregex='^Time[ ]\+= '
+				local colawkregex='{print $3}'
+				local hasNormVal=1
+				local normtype=1 ;;
+			energy)
+				local datafileregex='^Energy[ ]\+= '
+				local colawkregex='{print $3}'
+				local hasNormVal=1
+				local normtype=2 ;;
+			time)
+				local datafileregex='^Time[ ]\+= '
+				local colawkregex='{print $3}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			throughput)
+				local datafileregex='^#txs[ ]\+: '
+				local colawkregex='{match($4, "[0-9.]+", m); print m[0]}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			norm-throughput)
+				local datafileregex='^#txs[ ]\+: '
+				local colawkregex='{match($4, "[0-9.]+", m); print m[0]}'
+				local hasNormVal=1
+				local normtype=2 ;;
+			transitions)
+				local datafileregex='^hw->sw: '
+				local colawkregex='{print $3}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			commits)
+				local datafileregex='^#commits[ ]\+: '
+				local colawkregex='{print $4}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			conflicts)
+				local datafileregex='^#conflicts[ ]\+: '
+				local colawkregex='{print $3}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			capacity)
+				local datafileregex='^#capacity[ ]\+: '
+				local colawkregex='{print $3}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			falseConflict)
+				local datafileregex='^nb_total_conflicts:'
+				local colawkregex='{print $2}'
+				local hasNormVal=0
+				local normtype=3 ;;
+			falseConfRatio)
+				local datafileregex='^nb_total_conflicts:'
+				local colawkregex='{print($2 == 0.00) ? 0.00 : ($5/$2)*100.0 }'
+				local hasNormVal=0
+				local normtype=3 ;;
+		esac
+		
+
+		for prefix in ${PREFIXES}; do
+			case $prefix in
+				intset_* | pintset)
+					SUFFIXES="$INTSET_SUFFIXES" ;;
+				conflict* | capacity*)
+					SUFFIXES="$CONFLICT_SUFFIXES" ;;
+				phased*)
+					SUFFIXES="$PHASED_SUFFIXES" ;;
+			esac
+			for suffix in ${SUFFIXES}; do
+				local datafilename=$DATADIR/${prefix}${suffix}.$datafile
+				echo -n "generating '$datafilename'..."
+				echo "$HEADER" > $datafilename
+				for row in ${_ROWS}; do
+					echo -n "$row " >> $datafilename
+					for column in ${COLUMNS}; do
+						local logfilename="$LOGDIR/${prefix}${column}$(sed 's|@|'$row'|' <<<$suffix).log"
+						[[ $hasNormVal != 0 ]] && \
+							local normval="$(getNormVal "$datafileregex" ${prefix}${column}${suffix} | awk '{print $1}')"
+						grep -e "$datafileregex" $logfilename | awk "$colawkregex" | \
+							awk -v normtype=$normtype -v normval=$normval "$meanScript" >> $datafilename
+					done # FOR EACH COLUMN
+					echo >> $datafilename
+				done # FOR EACH ROW
+				echo "done."
+			done # FOR EACH SUFFIX
+		done # FOR EACH PREFIX
+
+		for suffix in ${SUFFIXES}; do
+			local tmpfile="tmpfile.dat"
+			echo -n > $tmpfile
+			for prefix in ${PREFIXES}; do
+				sed -n '2,$p' $DATADIR/${prefix}${suffix}.$datafile >> $tmpfile
+				echo >> $tmpfile
+			done # FOR EACH PREFIX
+			local geomeanfile=$DATADIR/geomean${suffix}.$datafile
+			echo "$HEADER" > $geomeanfile
+			cat $tmpfile | awk '
+			BEGIN{
+				first=1;
+				n=0;
+				i=1
+			}
+			{
+				if(first == 1){
+					if($1 != ""){
+						for(j=2; j <= NF; j++){
+							m[i,j] = $j
+						}
+						m[i++,1] = $1
+						ncols = NF
+					} else {
+						nlines=i-1
+						i=1
+						first = 0
+						n++
+					}
+				} else {
+					if($1 != ""){
+						for(j=2; j <= NF; j++){
+							m[i,j] *= $j
+						}
+						m[i++,1] = $1
+						ncols = NF
+					} else {
+						nlines=i-1
+						i=1
+						n++
+					}
+				}
+			}
+			END{
+				for(i=1; i <= nlines; i++){
+					printf("%d ", m[i,1]);
+					for(j=2; j <= ncols; j++){
+						printf("%lf ", m[i,j] ^ (1.0/n));
+					}
+					printf("\n")
+				}
+			}' >> $geomeanfile
+			rm -f $tmpfile
+		done # FOR EACH SUFFIX
+	done # FOR EACH DATA FILE
+}
 
 function generate_data {
 
-	datafile=$1
+	DATA_FILES="$1"
 	local APPS=${2}
 	_APPS=${!APPS}
 	local ROWS=${3}
@@ -171,17 +231,32 @@ function generate_data {
 		BUILDS | MEMALLOCS)
 			perBuildData=false ;;
 	esac
-
+	
 	local AUX=''
 	if [ $perBuildData == false ]; then
 		local TMP=''
 		for build in ${_BUILDS}; do
 			case $build in
-				tinystm)
+				tinystm_*)
 					TMP="$TMP $(cross_product $build "$_tinySTM_DESIGNS" "$_tinySTM_CMS" "$_ORT_HASHES")" ;;
-				rtm)
-					TMP="$TMP $(cross_product $build "$_rtm_CMS" "$_tsx_LOCKS")" ;;
-				hle | lock | norec | rh_norec | phased_norec)
+				phasedTM_*)
+					local b="$(cross_product ${build} "${_PHASEDTM_DESIGNS}" "${_MAX_CAPACITY_ABORTS}")"
+					for stm in ${_PHASEDTM_STMS}; do
+						case $stm in
+							tinystm)
+								local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+								TMP="$TMP $(cross_product "$b" "$tmp")"
+								;;
+							norec)
+								local tmp="norec"
+								TMP="$TMP $(cross_product "$b" "$tmp")"
+								;;
+						esac
+					done
+				;;
+				rtm | powerTM)
+					TMP="$TMP $(cross_product $build "$_TSX_LOCKS")" ;;
+				hle | lock | norec_* | rh_norec_* | hytm_norec_*)
 					TMP="$TMP $build" ;;
 			esac
 		done
@@ -192,10 +267,10 @@ function generate_data {
 			tinystm)
 				AUX=('_BUILDS' '_tinySTM_DESIGNS' '_tinySTM_CMS' '_ORT_HASHES') ;;
 			rtm)
-				AUX=('_BUILDS' '_rtm_CMS' '_tsx_LOCKS') ;;
+				AUX=('_BUILDS' '_TSX_LOCKS') ;;
 		esac
 	fi
-	
+
 	local columns="_${_COLUMN}"
 	HEADER=''
 	COLUMNS=''
@@ -225,13 +300,12 @@ function generate_data {
 	fi
 
 	if [ "$APPS" == "_MICROBENCH_APPS" ]; then
-		local c='i'
-		[ "$ROWS" != "_INITSIZES" ]   && local i="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"   && c='u' || i='@'
-		[ "$ROWS" != "_UPDATERATES" ] && local u="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})" && c='n' || u='@'
-		[ "$ROWS" != "_NTHREADS" ]    && local n="$(sed 's|\([0-9]\+\)|n\1|g' <<<${_NTHREADS})" || n='@'
-		INTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$i" "$u" "$n")"
-		CONFLICT_SUFFIXES="$(cross_product "${SUFFIXES}" "$u" "$n")"
-		_ROWS=$(sed 's|\([0-9]\+\)|'$c'\1|g' <<<${!ROWS})
+		[ "$ROWS" == "_INITSIZES" ]   && _INITSIZES='@'
+		[ "$ROWS" == "_UPDATERATES" ] && _UPDATERATES='@'
+		[ "$ROWS" == "_NTHREADS" ]    && _NTHREADS='@'
+		INTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_INITSIZES" "$_UPDATERATES" "$_NTHREADS")"
+		CONFLICT_SUFFIXES="$(cross_product "${SUFFIXES}" "$_UPDATERATES" "$_NTHREADS")"
+		PHASED_SUFFIXES="$(cross_product "${SUFFIXES}" "$_NTHREADS")"
 	else
 		SUFFIXES="$(cross_product "${SUFFIXES}" '@')"
 	fi
