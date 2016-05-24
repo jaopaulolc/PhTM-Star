@@ -19,7 +19,7 @@ cd ..
 # Hoard
 echo "Compiling Hoard..."
 cd hoard-20151222/src
-make Linux-gcc-$(uname -m) $MAKE_OPTIONS 2>&1 > /dev/null
+make Linux-gcc-unknown $MAKE_OPTIONS 2>&1 > /dev/null
 if [ $? -eq 0 ]; then
 	echo "Hoard compilation succeded!"
 else
@@ -30,7 +30,7 @@ cd ../..
 
 # TCMalloc
 echo "Compiling TCMalloc..."
-cd gperftools-20151222
+cd gperftools
 ./autogen.sh 2>&1 > /dev/null
 ./configure --prefix=$PWD/build --enable-minimal \
 						--enable-shared --enable-libunwind 2>&1 > /dev/null
@@ -48,7 +48,7 @@ echo "Compiling TBBMalloc..."
 cd tbb44_20151115oss
 make tbbmalloc $MAKE_OPTIONS 2>&1 > /dev/null
 if [ $? -eq 0 ]; then
-	mv build/linux_intel64_gcc_*_release/libtbbmalloc*.so.2 .
+	cp build/linux_*_gcc_*_release/libtbbmalloc*.so.2 .
 	echo "TBBMalloc compilation succeded!"
 else
 	echo "TBBMalloc compilation failed!"

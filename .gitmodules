@@ -1,0 +1,3 @@
+[submodule "allocators/gperftools"]
+	path = allocators/gperftools
+	url = https://github.com/gperftools/gperftools.git
