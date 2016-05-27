@@ -354,7 +354,9 @@ namespace stm
 					/* inicializando apenas o NOrec (por enquanto) */
 					initTM<CGL>(); /* precisa para não bloquear a inicialização  */
 					initTM<NOrec>();
+#if defined(__x86_64__)					
 					initTM<RH_NOrec>();
+#endif /* __x86_64__ */
 					initTM<HyTM_NOrec>();
 
           // guess a default configuration, then check env for a better option

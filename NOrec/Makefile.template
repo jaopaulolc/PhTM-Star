@@ -2,7 +2,28 @@
 
 TARGET = libnorec.a
 
-SRCS = $(wildcard *.cpp)
+ARCH = $(shell uname -m)
+
+SRCS = algs.cpp \
+			 cbr.cpp \
+			 hytm-norec.cpp \
+			 inst.cpp \
+			 irrevocability.cpp \
+			 policies.cpp \
+			 profiling.cpp \
+			 static.cpp \
+			 txthread.cpp \
+			 types.cpp \
+			 WBMMPolicy.cpp \
+			 serial.cpp \
+			 cgl.cpp \
+			 norec.cpp
+ifeq ($(ARCH), x86_64)
+	# RH-NOrec not implemented with generic HTM library yet!
+	# Only works with TSX
+  SRCS += rh-norec.cpp
+endif
+
 OBJS = $(SRCS:.cpp=.o)
 
 CPPFLAGS = -I./include -D_GNU_SOURCE -I../htm
@@ -17,7 +38,6 @@ CXXFLAGS = -O3 -Wall
 
 CPPFLAGS += $(DEFINES)
 
-ARCH = $(shell uname -m)
 
 ifeq ($(ARCH), x86_64)
   # Intel RTM

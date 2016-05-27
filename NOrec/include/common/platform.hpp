@@ -49,8 +49,11 @@
 #define NOINLINE        __attribute__((noinline))
 #define ALWAYS_INLINE   __attribute__((always_inline))
 #define USED            __attribute__((used))
+#if !defined(STM_CPU_POWERPC)
 #define REGPARM(N)      __attribute__((regparm(N)))
-
+#else
+#define REGPARM(N)      /* nothing */
+#endif
 /**
  *  Pick up the BITS define from the __LP64__ token.
  */
@@ -109,10 +112,18 @@
  *  64bit) and using the GNU compiler collection.  This assumes that the
  *  compiler is recent enough that it supports the builtin __sync operations
  */
-#if defined(STM_CPU_X86) && !defined(STM_CC_SUN)
+//#if defined(STM_CPU_X86) && !defined(STM_CC_SUN)
+#if (defined(STM_CPU_X86) || defined(STM_CPU_POWERPC)) && !defined(STM_CC_SUN)
 
+#if defined(STM_CPU_X86)
 #define CFENCE              __asm__ volatile ("":::"memory")
 #define WBR                 __sync_synchronize()
+#endif /* STM_CPU_X86 */
+
+#if defined (STM_CPU_POWERPC)
+#define CFENCE           __asm__ volatile ("lwsync":::"memory")
+#define WBR              __asm__ volatile ("lwsync":::"memory")
+#endif /* STM_CPU_POWERPC */
 
 #define cas32(p, o, n)      __sync_val_compare_and_swap(p, o, n)
 #define cas64(p, o, n)      __sync_val_compare_and_swap(p, o, n)
@@ -326,7 +337,28 @@ inline uint64_t tick()
     __asm__ ("rdtsc" : "=a" (tmp[1]), "=d" (tmp[0]) : "c" (0x10) );
     return (((uint64_t)tmp[0]) << 32) | tmp[1];
 }
-#endif
+#endif /* STM_CPU_X86 */
+
+#if defined(STM_CPU_POWERPC)
+/**
+ *  On PowerPC, we use the mftb (move from time-base)
+ */
+inline uint64_t tick()
+{
+		uint32_t upper, lower,tmp;
+		__asm__ volatile(
+			"0:                  \n"
+			"\tmftbu   %0        \n"
+			"\tmftb    %1        \n"
+			"\tmftbu   %2        \n"
+			"\tcmpw    %2,%0     \n"
+			"\tbne     0b        \n"
+   	 : "=r"(upper),"=r"(lower),"=r"(tmp)
+	  );
+		return  (((uint64_t)upper) << 32) | lower;
+}
+#endif /* STM_CPU_POWERPC */
+
 
 #if defined(STM_CPU_SPARC) && defined(STM_BITS_64)
 /**

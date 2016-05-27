@@ -18,8 +18,19 @@
 #define RSTM_STM_INCLUDE_CONFIG_H
 
 // Target processor architecture
+#if defined(__x86_64__)
 #define STM_CPU_X86
-/* #undef STM_CPU_SPARC */
+#elif defined (__powerpc__)
+#define STM_CPU_POWERPC
+#elif defined (__sparc__)
+#define STM_CPU_SPARC
+#else
+#error "not abble to detect or unsupported architecture!"
+#endif
+
+#define STM_CPU_HAS_WORD_ATOMIC_SWAP
+#define STM_CPU_LITTLE_ENDIAN
+//#define STM_CPU_BIG_ENDIAN
 
 // Defined when we want to optimize for SSE execution
 #if defined(__x86_64__) || defined(__i386)

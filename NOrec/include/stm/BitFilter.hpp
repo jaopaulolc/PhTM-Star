@@ -82,7 +82,7 @@ namespace stm
           const uint32_t index  = hash(val);
           const uint32_t block  = index / WORD_SIZE;
           const uint32_t offset = index % WORD_SIZE;
-#if defined(STM_CPU_X86)
+#if defined(STM_CPU_HAS_WORD_ATOMIC_SWAP)
           atomicswapptr(&word_filter[block],
                         word_filter[block] | (1u << offset));
 #else
