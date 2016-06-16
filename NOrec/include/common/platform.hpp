@@ -121,8 +121,8 @@
 #endif /* STM_CPU_X86 */
 
 #if defined (STM_CPU_POWERPC)
-#define CFENCE           __asm__ volatile ("lwsync":::"memory")
-#define WBR              __asm__ volatile ("lwsync":::"memory")
+#define CFENCE           __asm__ volatile ("sync":::"memory")
+#define WBR              __asm__ volatile ("sync":::"memory")
 #endif /* STM_CPU_POWERPC */
 
 #define cas32(p, o, n)      __sync_val_compare_and_swap(p, o, n)
