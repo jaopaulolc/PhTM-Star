@@ -5,6 +5,8 @@
 
 #define atomicRead(addr) __atomic_load_n(addr, __ATOMIC_SEQ_CST)
 #define atomicInc(addr) __atomic_fetch_add(addr, 1, __ATOMIC_SEQ_CST)
+#define atomicDec(addr) __atomic_fetch_add(addr, -1, __ATOMIC_SEQ_CST)
+#define atomicWrite(addr, value) __atomic_store_n(addr, value, __ATOMIC_SEQ_CST)
 #define boolCAS(addr, expected, new)  __atomic_compare_exchange_n(addr, expected, new, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
 inline

@@ -27,9 +27,21 @@ static __thread long htm_retries __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 static __thread int isCapacityAbortPersistent __ALIGN__;
 static __thread int isConflictAbortPersistent __ALIGN__;
-#define MAX_STM_RUNS 5
-static __thread long max_stm_runs __ALIGN__ = 1;
+#define MAX_STM_RUNS 1000
+static __thread long max_stm_runs __ALIGN__ = 100;
 static __thread long num_stm_runs __ALIGN__;
+static __thread uint64_t t0 __ALIGN__ = 0;
+static __thread uint64_t sum_cycles __ALIGN__ = 0;
+#define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
+#define NUM_GLOCK_RUNS 10
+static volatile long goToGLOCK __ALIGN__ = 0;
+
+static inline uint64_t getCycles()
+{
+    uint32_t tmp[2];
+    __asm__ ("rdtsc" : "=a" (tmp[1]), "=d" (tmp[0]) : "c" (0x10) );
+    return (((uint64_t)tmp[0]) << 32) | tmp[1];
+}
 #endif /* DESIGN == OPTIMIZED */
 
 #include <utils.h>
@@ -62,6 +74,9 @@ changeMode(uint64_t newMode) {
 			} while (!success && (indicator.mode != SW));
 			if(success){
 				updateTransitionProfilingData(SW);
+#if DESIGN == OPTIMIZED
+				t0 = getCycles();
+#endif /* DESIGN == OPTIMIZED */
 			}
 			break;
 		case HW:
@@ -134,11 +149,11 @@ HTM_Start_Tx() {
 			}
 		}
 		
-#if DESIGN == OPTIMIZED
 		if ( isModeSW() ){
 			return true;
 		}
 
+#if DESIGN == OPTIMIZED
 		if ( isModeGLOCK() ){
 			// locked acquired
 			// wait till lock release and restart
@@ -174,9 +189,10 @@ HTM_Start_Tx() {
 				 (previous_abort_reason == abort_reason)) {
 			isConflictAbortPersistent = 1;
 		} else isConflictAbortPersistent = 0;
-		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent){
-			if (isCapacityAbortPersistent || isConflictAbortPersistent){
-				if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
+		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent ){
+			if ( !atomicRead(&goToGLOCK) && (isCapacityAbortPersistent || isConflictAbortPersistent)){
+			//if ( isCapacityAbortPersistent || isConflictAbortPersistent ){
+				//if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
 				num_stm_runs = 0;
 				changeMode(SW);
 				return true;
@@ -216,6 +232,7 @@ HTM_Commit_Tx() {
 #else  /* DESIGN == OPTIMIZED */
 	if (htm_global_lock_is_mine){
 		unlockMode();
+		if(atomicRead(&goToGLOCK) > 0) atomicDec(&goToGLOCK);
 		htm_global_lock_is_mine = false;
 	} else {
 		htm_end();
@@ -260,9 +277,23 @@ STM_PostCommit_Tx() {
 
 #if DESIGN == OPTIMIZED
 	if (deferredTx) {
+		uint64_t t1 = getCycles();
+		uint64_t tx_cycles = t1 - t0;
+		t0 = t1;
+		sum_cycles += tx_cycles;
 		num_stm_runs++;
 		if (num_stm_runs < max_stm_runs) {
 			return;
+		}
+		uint64_t mean_cycles = sum_cycles / max_stm_runs;
+		num_stm_runs = 0;
+		sum_cycles = 0;
+		if (mean_cycles > TX_CYCLES_THRESHOLD){
+			atomicWrite(&goToGLOCK,0);
+			if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
+			return;
+		}else {
+			atomicWrite(&goToGLOCK,atomicRead(&goToGLOCK) + NUM_GLOCK_RUNS);
 		}
 	}
 #endif /* DESIGN == OPTIMIZED */
