@@ -190,9 +190,8 @@ HTM_Start_Tx() {
 			isConflictAbortPersistent = 1;
 		} else isConflictAbortPersistent = 0;
 		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent ){
-			if ( !atomicRead(&goToGLOCK) && (isCapacityAbortPersistent || isConflictAbortPersistent)){
-			//if ( isCapacityAbortPersistent || isConflictAbortPersistent ){
-				//if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
+			//if ( !atomicRead(&goToGLOCK) && (isCapacityAbortPersistent || isConflictAbortPersistent)){
+			if ( !atomicRead(&goToGLOCK) && isCapacityAbortPersistent){
 				num_stm_runs = 0;
 				changeMode(SW);
 				return true;

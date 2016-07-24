@@ -13,7 +13,7 @@
 
 static __thread long __tx_status __ALIGN__;  // htm_begin() return status
 static __thread long __tx_id __ALIGN__;  // tx thread id
-#define HTM_MAX_RETRIES 16
+#define HTM_MAX_RETRIES 9
 static __thread long __tx_retries __ALIGN__; // current number of retries for non-lock aborts
 
 static lock_t __htm_global_lock __ALIGN__ = LOCK_INITIALIZER;
