@@ -23,18 +23,20 @@ volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
 static __thread long __tx_tid __ALIGN__;
 static __thread long htm_retries __ALIGN__;
+static __thread uint32_t abort_reason __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
+static __thread uint32_t previous_abort_reason __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
-static __thread int isCapacityAbortPersistent __ALIGN__;
-static __thread int isConflictAbortPersistent __ALIGN__;
+static __thread bool isCapacityAbortPersistent __ALIGN__;
+static __thread bool isConflictAbortPersistent __ALIGN__;
 #define MAX_STM_RUNS 1000
+#define MAX_GLOCK_RUNS 100
 static __thread long max_stm_runs __ALIGN__ = 100;
 static __thread long num_stm_runs __ALIGN__;
 static __thread uint64_t t0 __ALIGN__ = 0;
 static __thread uint64_t sum_cycles __ALIGN__ = 0;
 #define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
-#define NUM_GLOCK_RUNS 10
-static volatile long goToGLOCK __ALIGN__ = 0;
+static long goToGLOCK __ALIGN__ = 1;
 
 static inline uint64_t getCycles()
 {
@@ -125,6 +127,7 @@ unlockMode(){
 }
 #endif /* DESIGN == OPTIMIZED */
 
+
 inline
 bool
 HTM_Start_Tx() {
@@ -132,9 +135,8 @@ HTM_Start_Tx() {
 	phase_profiling_start();
 	
 	htm_retries = 0;
-	uint32_t abort_reason = 0;
+	abort_reason = 0;
 #if DESIGN == OPTIMIZED
-	uint32_t previous_abort_reason;
 	isCapacityAbortPersistent = 0;
 	isConflictAbortPersistent = 0;
 #endif /* DESIGN == OPTIMIZED */
@@ -181,17 +183,12 @@ HTM_Start_Tx() {
 		}
 #else  /* DESIGN == OPTIMIZED */
 		htm_retries++;
-		if ( (abort_reason & ABORT_CAPACITY) &&
-				 (previous_abort_reason == abort_reason)) {
-			isCapacityAbortPersistent = 1;
-		}
-		if ( (abort_reason & ABORT_TX_CONFLICT) &&
-				 (previous_abort_reason == abort_reason)) {
-			isConflictAbortPersistent = 1;
-		} else isConflictAbortPersistent = 0;
+		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
+		                 && (previous_abort_reason == abort_reason);
+		isConflictAbortPersistent = (abort_reason & ABORT_TX_CONFLICT)
+		                 && (previous_abort_reason == abort_reason);
 		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent ){
-			//if ( !atomicRead(&goToGLOCK) && (isCapacityAbortPersistent || isConflictAbortPersistent)){
-			if ( !atomicRead(&goToGLOCK) && isCapacityAbortPersistent){
+			if ( (isCapacityAbortPersistent || isConflictAbortPersistent) && (goToGLOCK == 1)){
 				num_stm_runs = 0;
 				changeMode(SW);
 				return true;
@@ -231,7 +228,7 @@ HTM_Commit_Tx() {
 #else  /* DESIGN == OPTIMIZED */
 	if (htm_global_lock_is_mine){
 		unlockMode();
-		if(atomicRead(&goToGLOCK) > 0) atomicDec(&goToGLOCK);
+		if(goToGLOCK > 1) goToGLOCK--;
 		htm_global_lock_is_mine = false;
 	} else {
 		htm_end();
@@ -264,6 +261,11 @@ STM_PreStart_Tx(bool restarted) {
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success);
 	}
+#if DESIGN == OPTIMIZED
+	else {
+		t0 = getCycles();
+	}
+#endif /* DESIGN == OPTIMIZED */
 	return false;
 }
 
@@ -287,12 +289,13 @@ STM_PostCommit_Tx() {
 		uint64_t mean_cycles = sum_cycles / max_stm_runs;
 		num_stm_runs = 0;
 		sum_cycles = 0;
+	
 		if (mean_cycles > TX_CYCLES_THRESHOLD){
-			atomicWrite(&goToGLOCK,0);
+			goToGLOCK = 1;
 			if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
 			return;
 		}else {
-			atomicWrite(&goToGLOCK,atomicRead(&goToGLOCK) + NUM_GLOCK_RUNS);
+			if (goToGLOCK < MAX_GLOCK_RUNS) goToGLOCK = goToGLOCK*2;
 		}
 	}
 #endif /* DESIGN == OPTIMIZED */
