@@ -28,7 +28,7 @@ static __thread uint32_t abort_reason __ALIGN__ = 0;
 static __thread uint32_t previous_abort_reason __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 static __thread bool isCapacityAbortPersistent __ALIGN__;
-static __thread bool isConflictAbortPersistent __ALIGN__;
+//static __thread bool isConflictAbortPersistent __ALIGN__;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
 static __thread long max_stm_runs __ALIGN__ = 100;
@@ -138,7 +138,7 @@ HTM_Start_Tx() {
 	abort_reason = 0;
 #if DESIGN == OPTIMIZED
 	isCapacityAbortPersistent = 0;
-	isConflictAbortPersistent = 0;
+//	isConflictAbortPersistent = 0;
 #endif /* DESIGN == OPTIMIZED */
 
 	while (true) {
@@ -185,10 +185,11 @@ HTM_Start_Tx() {
 		htm_retries++;
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
-		isConflictAbortPersistent = (abort_reason & ABORT_TX_CONFLICT)
-		                 && (previous_abort_reason == abort_reason);
+/*		isConflictAbortPersistent = (abort_reason & ABORT_TX_CONFLICT)
+		                 && (previous_abort_reason == abort_reason); */
 		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent ){
-			if ( (isCapacityAbortPersistent || isConflictAbortPersistent) && (goToGLOCK == 1)){
+			//if ( (isCapacityAbortPersistent || isConflictAbortPersistent) && (goToGLOCK == 1)){
+			if ( isCapacityAbortPersistent && (goToGLOCK == 1)){
 				num_stm_runs = 0;
 				changeMode(SW);
 				return true;
