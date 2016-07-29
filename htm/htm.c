@@ -11,12 +11,13 @@
 #include <aborts_profiling.h>
 #include <locks.h>
 
-static __thread long __tx_status __ALIGN__;  // htm_begin() return status
 static __thread long __tx_id __ALIGN__;  // tx thread id
 #define HTM_MAX_RETRIES 9
 static __thread long __tx_retries __ALIGN__; // current number of retries for non-lock aborts
 
 static lock_t __htm_global_lock __ALIGN__ = LOCK_INITIALIZER;
+volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(lock_t)] __ALIGN__;
+
 static long __nThreads __ALIGN__;
 
 
@@ -52,7 +53,7 @@ void TX_START(){
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 
 	do{
-		__tx_status = htm_begin();
+		uint32_t __tx_status = htm_begin();
 		if ( htm_has_started(__tx_status) ) {
 			if( isLocked(&__htm_global_lock) ){
 				htm_abort();
@@ -168,7 +169,6 @@ void HTM_SHUTDOWN(){
 void HTM_THREAD_ENTER(long id){
 
 	__tx_id      = id;
-	__tx_status  = 0;
 	__tx_retries = 0;
 }
 
