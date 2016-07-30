@@ -29,6 +29,8 @@ static __thread uint32_t previous_abort_reason __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 static __thread bool isCapacityAbortPersistent __ALIGN__;
 //static __thread bool isConflictAbortPersistent __ALIGN__;
+static __thread uint32_t abort_rate __ALIGN__ = 0;
+static __thread uint32_t serial_rate __ALIGN__ = 0;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
 static __thread long max_stm_runs __ALIGN__ = 100;
@@ -138,6 +140,11 @@ HTM_Start_Tx() {
 	abort_reason = 0;
 #if DESIGN == OPTIMIZED
 	isCapacityAbortPersistent = 0;
+
+  // abort_rate = 0;  -> colocando essa linha resolve o problema com o rb-tree
+  // (note que nao estah correto, no entanto - algum problema com variavel
+  // __thread?)
+  
 //	isConflictAbortPersistent = 0;
 #endif /* DESIGN == OPTIMIZED */
 
@@ -150,6 +157,7 @@ HTM_Start_Tx() {
 				htm_abort();
 			}
 		}
+
 		
 		if ( isModeSW() ){
 			return true;
@@ -187,18 +195,27 @@ HTM_Start_Tx() {
 		                 && (previous_abort_reason == abort_reason);
 /*		isConflictAbortPersistent = (abort_reason & ABORT_TX_CONFLICT)
 		                 && (previous_abort_reason == abort_reason); */
-		if (htm_retries >= HTM_MAX_RETRIES || isCapacityAbortPersistent ){
-			//if ( (isCapacityAbortPersistent || isConflictAbortPersistent) && (goToGLOCK == 1)){
-			if ( isCapacityAbortPersistent && (goToGLOCK == 1)){
-				num_stm_runs = 0;
+
+    //if ( !(abort_reason & ABORT_CAPACITY) )
+    if ( (abort_reason & ABORT_TX_CONFLICT)
+		     || (abort_reason & ABORT_ILLEGAL)
+		     || (abort_reason & ABORT_NESTED)
+		     || (abort_reason & ABORT_EXPLICIT))
+       abort_rate = (abort_rate * 75 + 25*100) / 100;
+
+
+			if ( (isCapacityAbortPersistent && (abort_rate > 70))
+			     || (isCapacityAbortPersistent && (serial_rate > 30))){
+        num_stm_runs = 0;
 				changeMode(SW);
 				return true;
-			} else {
+			} else if (htm_retries >= HTM_MAX_RETRIES) {
 				int status = changeMode(GLOCK);
 				if(status == 0){
 					// Mode already changed to SW
 					return true;
 				} else {
+       		serial_rate = (serial_rate * 75 + 25*100) / 100;
 					// Success! We are in LOCK mode
 					if ( status == 1 ){
 						htm_retries = 0;
@@ -214,7 +231,7 @@ HTM_Start_Tx() {
 					}
 				}
 			}
-		}
+	///	}
 #endif /* DESIGN == OPTIMIZED */
 	}
 }
@@ -229,12 +246,14 @@ HTM_Commit_Tx() {
 #else  /* DESIGN == OPTIMIZED */
 	if (htm_global_lock_is_mine){
 		unlockMode();
-		if(goToGLOCK > 1) goToGLOCK--;
+		//if(goToGLOCK > 1) goToGLOCK--;
 		htm_global_lock_is_mine = false;
 	} else {
 		htm_end();
 		__inc_commit_counter(__tx_tid);
-	}
+   serial_rate = (serial_rate * 75) / 100;
+  }
+  abort_rate = (abort_rate * 75) / 100;
 #endif /* DESIGN == OPTIMIZED */
 
 }
@@ -296,7 +315,7 @@ STM_PostCommit_Tx() {
 			if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
 			return;
 		}else {
-			if (goToGLOCK < MAX_GLOCK_RUNS) goToGLOCK = goToGLOCK*2;
+			//if (goToGLOCK < MAX_GLOCK_RUNS) goToGLOCK = goToGLOCK*2;
 		}
 	}
 #endif /* DESIGN == OPTIMIZED */
@@ -328,6 +347,9 @@ phTM_init(long nThreads){
 void
 phTM_thread_init(long tid){
 	__tx_tid = tid;
+#if DESIGN == OPTIMIZED
+  abort_rate = 0.0;
+#endif
 }
 
 void
