@@ -28,9 +28,7 @@ static __thread uint32_t abort_reason __ALIGN__ = 0;
 static __thread uint32_t previous_abort_reason __ALIGN__;
 static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 static __thread bool isCapacityAbortPersistent __ALIGN__;
-//static __thread bool isConflictAbortPersistent __ALIGN__;
 static __thread uint32_t abort_rate __ALIGN__ = 0;
-static __thread uint32_t serial_rate __ALIGN__ = 0;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
 static __thread long max_stm_runs __ALIGN__ = 100;
@@ -193,45 +191,36 @@ HTM_Start_Tx() {
 		htm_retries++;
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
-/*		isConflictAbortPersistent = (abort_reason & ABORT_TX_CONFLICT)
-		                 && (previous_abort_reason == abort_reason); */
 
-    //if ( !(abort_reason & ABORT_CAPACITY) )
-    if ( (abort_reason & ABORT_TX_CONFLICT)
-		     || (abort_reason & ABORT_ILLEGAL)
-		     || (abort_reason & ABORT_NESTED)
-		     || (abort_reason & ABORT_EXPLICIT))
+   if ( !(abort_reason & ABORT_CAPACITY) )
        abort_rate = (abort_rate * 75 + 25*100) / 100;
 
 
-			if ( (isCapacityAbortPersistent && (abort_rate > 70))
-			     || (isCapacityAbortPersistent && (serial_rate > 30))){
+		if ( (isCapacityAbortPersistent && (abort_rate > 60)) ) {
         num_stm_runs = 0;
-				changeMode(SW);
+			changeMode(SW);
+			return true;
+		} else if (htm_retries >= HTM_MAX_RETRIES) {
+			int status = changeMode(GLOCK);
+			if(status == 0){
+				// Mode already changed to SW
 				return true;
-			} else if (htm_retries >= HTM_MAX_RETRIES) {
-				int status = changeMode(GLOCK);
-				if(status == 0){
-					// Mode already changed to SW
-					return true;
+			} else {
+				// Success! We are in LOCK mode
+				if ( status == 1 ){
+					htm_retries = 0;
+					// I own the lock, so return and
+					// execute in mutual exclusion
+					htm_global_lock_is_mine = true;
+					return false;
 				} else {
-       		serial_rate = (serial_rate * 75 + 25*100) / 100;
-					// Success! We are in LOCK mode
-					if ( status == 1 ){
-						htm_retries = 0;
-						// I own the lock, so return and
-						// execute in mutual exclusion
-						htm_global_lock_is_mine = true;
-						return false;
-					} else {
-						// I don't own the lock, so wait
-						// till lock is release and restart
-						while( isModeGLOCK() ) pthread_yield();
-						continue;
-					}
+					// I don't own the lock, so wait
+					// till lock is release and restart
+					while( isModeGLOCK() ) pthread_yield();
+					continue;
 				}
 			}
-	///	}
+		}
 #endif /* DESIGN == OPTIMIZED */
 	}
 }
@@ -251,7 +240,6 @@ HTM_Commit_Tx() {
 	} else {
 		htm_end();
 		__inc_commit_counter(__tx_tid);
-   serial_rate = (serial_rate * 75) / 100;
   }
   abort_rate = (abort_rate * 75) / 100;
 #endif /* DESIGN == OPTIMIZED */
