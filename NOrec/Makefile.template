@@ -45,7 +45,7 @@ ifeq ($(ARCH), x86_64)
 else
   ifeq ($(ARCH), ppc64le)
     # IBM PowerTM
-    CXXFLAGS += -mhtm
+    CXXFLAGS += -mhtm -mtune=power8
   else
 	  $(error unsupported architecture)
   endif

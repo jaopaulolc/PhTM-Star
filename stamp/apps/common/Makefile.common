@@ -15,6 +15,7 @@ endif
 
 ifeq ($(ARCH), ppc64le)
   CPPFLAGS += -DCACHE_LINE_SIZE=128
+  CFLAGS += -mtune=power8
 endif
 
 # ======== Rules ========

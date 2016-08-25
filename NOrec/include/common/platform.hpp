@@ -121,8 +121,8 @@
 #endif /* STM_CPU_X86 */
 
 #if defined (STM_CPU_POWERPC)
-#define CFENCE           __asm__ volatile ("sync":::"memory")
-#define WBR              __asm__ volatile ("sync":::"memory")
+#define CFENCE           asm volatile ("sync":::"memory")
+#define WBR              __sync_synchronize()
 #endif /* STM_CPU_POWERPC */
 
 #define cas32(p, o, n)      __sync_val_compare_and_swap(p, o, n)
@@ -135,6 +135,7 @@
 #define tas(p)              __sync_lock_test_and_set(p, 1)
 
 #define nop()               __asm__ volatile("nop")
+
 
 // NB: GCC implements test_and_set via swap
 #define atomicswap8(p, v)   __sync_lock_test_and_set(p, v)
@@ -151,6 +152,7 @@
 
 #endif
 
+#if 0
 /**
  *  Here is the declaration of atomic operations when we're on a sparc (32bit)
  *  and using the GNU compiler collection.  For some reason, gcc 4.3.1 __sync_*
@@ -280,6 +282,8 @@ inline uint64_t internal_cas64(volatile uint64_t* ptr, uint64_t old,
 #define __builtin_expect(a, b) a
 #endif
 
+#endif
+
 /**
  *  Now we must deal with the ability to load/store 64-bit values safely.  In
  *  32-bit mode, this is potentially a problem, so we handle 64-bit atomic
@@ -359,6 +363,7 @@ inline uint64_t tick()
 }
 #endif /* STM_CPU_POWERPC */
 
+#if 0
 
 #if defined(STM_CPU_SPARC) && defined(STM_BITS_64)
 /**
@@ -400,6 +405,8 @@ inline uint64_t tick()
     ans |= lo;
     return ans;
 }
+#endif
+
 #endif
 
 /**
@@ -446,6 +453,8 @@ inline uint64_t getElapsedTime()
 
 #endif // STM_OS_LINUX
 
+#if 0
+
 #if defined(STM_OS_SOLARIS)
 #include <sys/time.h>
 
@@ -490,5 +499,7 @@ inline uint64_t getElapsedTime()
 }
 
 #endif // STM_OS_MACOS
+
+#endif
 
 #endif // PLATFORM_HPP__

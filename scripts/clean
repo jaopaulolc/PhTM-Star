@@ -28,6 +28,9 @@ function clean {
 				test -e $tinySTM/Makefile && rm $tinySTM/Makefile
 				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean
 				;;
+			wlpdstm)
+				make $MAKE_OPTIONS -C $WLPDSTM clean
+				;;
 			phasedTM)
 				test -e $tinySTM/Makefile && rm $tinySTM/Makefile
 				make $MAKE_OPTIONS -C $tinySTM/ -f Makefile.template clean

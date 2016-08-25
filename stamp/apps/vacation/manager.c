@@ -775,7 +775,7 @@ manager_queryCustomerBill (TM_ARGDECL  manager_t* managerPtr, long customerId)
 }
 
 long
-manager_queryCustomerBill_seq (TM_ARGDECL  manager_t* managerPtr, long customerId)
+manager_queryCustomerBill_seq (manager_t* managerPtr, long customerId)
 {
     long bill = -1;
     customer_t* customerPtr;

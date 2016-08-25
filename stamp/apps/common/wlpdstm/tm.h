@@ -35,7 +35,9 @@
 
 #define TM_THREAD_ENTER()             wlpdstm_thread_init(); \
                                       tx_desc *tx = wlpdstm_get_tx_desc(); \
-                                      wlpdstm_start_thread_profiling_desc(tx)
+                                      wlpdstm_start_thread_profiling_desc(tx); \
+																			set_affinity(thread_getId())
+
 #define TM_THREAD_EXIT()              wlpdstm_end_thread_profiling_desc(tx); \
                                       wlpdstm_thread_shutdown()
 
@@ -50,7 +52,8 @@
 #define TM_BEGIN_ID(ID)               BEGIN_TRANSACTION_DESC_ID(ID)
 #define TM_BEGIN_RO()                 STM_BEGIN()
 #define TM_END()                      END_TRANSACTION
-#define TM_RESTART()                  wlpdstm_restart_tx_desc(tx)
+#define TM_RESTART()                  tx_desc *tx = wlpdstm_get_tx_desc(); \
+																			wlpdstm_restart_tx_desc(tx)
 
 #define TM_EARLY_RELEASE(var)         /* nothing */
 
