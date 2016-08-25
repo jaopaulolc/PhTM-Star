@@ -144,7 +144,6 @@ function compile_with_wlpdstm {
 
 function compile_with_phasedTM {
 
-	test -z "$_MAX_CAPACITY_ABORTS"    && _MAX_CAPACITY_ABORTS=1
 	test -z "$_PHASEDTM_STMS"          && _PHASEDTM_STMS='tinystm'
 	test "$_PHASEDTM_STMS" == "ALL"    && _PHASEDTM_STMS=$PHASEDTM_STMS
 	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
@@ -157,11 +156,9 @@ function compile_with_phasedTM {
 			sed -e "/${!design}/s|# ||" \
 				$PhasedTM/Makefile.template > $PhasedTM/Makefile
 			touch $PhasedTM/Makefile
-			for max_capacity_aborts in ${_MAX_CAPACITY_ABORTS}; do
-				make -C $PhasedTM clean ${MAKE_OPTIONS}
-				make -C $PhasedTM ${MAKE_OPTIONS} MAX_CAPACITY_ABORTS=$max_capacity_aborts
-				compile_with_$stm "$design-cap_aborts_$max_capacity_aborts"
-			done # FOR EACH MAX CAPACITY ABORT
+			make -C $PhasedTM clean ${MAKE_OPTIONS}
+			make -C $PhasedTM ${MAKE_OPTIONS}
+			compile_with_$stm "$design"
 		done # FOR EACH PHASEDTM DESIGN
 	done # FOR EACH STM
 	MAKE_OPTIONS="$MAKE_OPTIONS_copy"

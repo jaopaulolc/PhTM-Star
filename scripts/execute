@@ -160,7 +160,6 @@ function execute {
 	test -z "$_TSX_LOCKS"             && _TSX_LOCKS='simple_lock'
 	test "$_TSX_LOCKS" == "ALL"       && _TSX_LOCKS=$TSX_LOCKS
 	########################### phasedTM #################################
-	test -z "$_MAX_CAPACITY_ABORTS"    && _MAX_CAPACITY_ABORTS="1"
 	test -z "$_PHASEDTM_STMS"          && _PHASEDTM_STMS='tinystm'
 	test "$_PHASEDTM_STMS" == "ALL"    && _PHASEDTM_STMS=$PHASEDTM_STMS
 	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
@@ -178,8 +177,7 @@ function execute {
 			phasedTM)
 				SUFFIXES=""
 				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-				local c="$(cross_product2 cap_aborts_ "${_MAX_CAPACITY_ABORTS}")"
-				local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}" "$c")"
+				local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}")"
 				for stm in ${_PHASEDTM_STMS}; do
 					case $stm in
 						tinystm)

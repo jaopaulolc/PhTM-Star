@@ -55,6 +55,7 @@ namespace
    *  the row with 5.
    */
   TM_INLINE unsigned long
+  //inline unsigned long
   norm_dist(unsigned long a, unsigned long b)
   {
       return (a == b) ? 0 : (100*abs((int)(a-b)))/MAXIMUM(a, b);
