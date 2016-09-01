@@ -38,12 +38,32 @@ static __thread uint64_t sum_cycles __ALIGN__ = 0;
 #define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
 static long goToGLOCK __ALIGN__ = 1;
 
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+static inline uint64_t getCycles()
+{
+		uint32_t upper, lower,tmp;
+		__asm__ volatile(
+			"0:                  \n"
+			"\tmftbu   %0        \n"
+			"\tmftb    %1        \n"
+			"\tmftbu   %2        \n"
+			"\tcmpw    %2,%0     \n"
+			"\tbne     0b        \n"
+   	 : "=r"(upper),"=r"(lower),"=r"(tmp)
+	  );
+		return  (((uint64_t)upper) << 32) | lower;
+}
+#elif defined(__x86_64__)
 static inline uint64_t getCycles()
 {
     uint32_t tmp[2];
     __asm__ ("rdtsc" : "=a" (tmp[1]), "=d" (tmp[0]) : "c" (0x10) );
     return (((uint64_t)tmp[0]) << 32) | tmp[1];
 }
+#else
+#error "unsupported architecture!"
+#endif
+
 #endif /* DESIGN == OPTIMIZED */
 
 #include <utils.h>

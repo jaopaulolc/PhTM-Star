@@ -66,6 +66,11 @@
 #define XSTR(s)                         STR(s)
 #define STR(s)                          #s
 
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#define CACHE_LINE_SIZE 128
+#else /* Haswell */
+#define CACHE_LINE_SIZE  64
+#endif /* Haswell*/
 
 #include <unistd.h>
 #include <sched.h>
@@ -160,7 +165,7 @@ typedef struct thread_data {
 #ifdef USE_LINKEDLIST
   int unit_tx;
 #endif /* LINKEDLIST */
-  char padding[64];
+  char padding[CACHE_LINE_SIZE];
 } thread_data_t;
 
 #if defined(USE_LINKEDLIST)
