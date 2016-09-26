@@ -10,3 +10,5 @@ LD       := $(CC)
 LDFLAGS  += -lpthread
 
 TMLIB    = 
+
+include ../common/Makefile.common

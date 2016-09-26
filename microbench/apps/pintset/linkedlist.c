@@ -2,6 +2,8 @@
  * LINKEDLIST
  * ################################################################### */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <linkedlist.h>
 
 # define INIT_SET_PARAMETERS            /* Nothing */
