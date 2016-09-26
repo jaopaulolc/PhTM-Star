@@ -104,21 +104,25 @@ function execute_microbench_apps {
 	test "$_MICROBENCH_APPS" == "ALL" && local _MICROBENCH_APPS=$MICROBENCH_APPS
 	test -z "$_INITSIZES"             && local _INITSIZES=$INITSIZES
 	test -z "$_UPDATERATES"           && local _UPDATERATES=$UPDATERATES
+	test -z "$_PHASECONFIGS"          && local _PHASECONFIGS=$PHASECONFIGS
 
 	local i="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
 	local u="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
 	local n="$(sed 's|\([0-9]\+\)|n\1|g' <<<${NUMTHREADS})"
 
+	local p="$(sed 's|\([A-Z]\+:[0-9]\+:[0-9]\+\)|p\1|g' <<<${_PHASECONFIGS})"
+
 	for app in ${_MICROBENCH_APPS}; do
 		appRunPath="$MICROBENCH/$build/$app-$suffix"
 		case $app in
-			intset_* | pintset)
+			intset_*)
 				local EXEC_FLAGS="$(cross_product "$i" "$u" "$n")" ;;
+			pintset)
+				local EXEC_FLAGS="$(cross_product "$p" "$n")" ;;
 			conflict | capacity)
 				local EXEC_FLAGS="$(cross_product "$u" "$n")" ;;
 			phased)
-				local EXEC_FLAGS="$(cross_product "$n")"
-				;;
+				local EXEC_FLAGS="$(cross_product "$n")" ;;
 		esac
 		local s=$(echo $suffix | sed 's|seq|seq-'$(uname -m)'|')
 		for exec_flags in ${EXEC_FLAGS}; do
@@ -218,7 +222,7 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:v:S:d:m:l:s:w:i:z:u:t:n:a:M:H:h" opt;
+while getopts "b:v:S:d:m:l:s:w:i:z:u:t:f:n:a:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -233,6 +237,7 @@ do
 		z) _INITSIZES=$OPTARG ;;
 		u) _UPDATERATES=$OPTARG ;;
 		t) _NTHREADS=$OPTARG ;;
+		f) _PHASECONFIGS=$OPTARG ;;
 		n) _NEXEC=$OPTARG ;;
 		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;

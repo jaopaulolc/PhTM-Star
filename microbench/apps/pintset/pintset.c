@@ -400,8 +400,8 @@ int main(int argc, char **argv)
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},
-    {"num-threads",               required_argument, NULL, 't'},
-    {"number-of-phases",          required_argument, NULL, 'n'},
+    {"num-threads",               required_argument, NULL, 'n'},
+    {"number-of-phases",          required_argument, NULL, 'm'},
     {"phase-config",              required_argument, NULL, 'p'},
     {"duration",                  required_argument, NULL, 'd'},
     {"seed",                      required_argument, NULL, 's'},
@@ -431,7 +431,7 @@ int main(int argc, char **argv)
   while(1) {
   	i = 0;
     c = getopt_long(argc, argv, "h"
-                    "t:n:p:d:s:"
+                    "n:m:p:d:s:"
                     , long_options, &i);
 
     if(c == -1)
@@ -459,12 +459,16 @@ int main(int argc, char **argv)
               "        percentage of update transactions (default=" XSTR(DEFAULT_NB_PHASES) ")\n"
               "  -p, --phase-config <string>\n"
               "        phase configuration string, ex: 'LL:4096:0' (default=NONE)\n"
+	      			"  -d, --duration <int>\n"
+              "        Test duration in milliseconds (0=infinite, default=" XSTR(DEFAULT_DURATION) ")\n"
+              "  -s, --seed <int>\n"
+              "        RNG seed (0=time-based, default=" XSTR(DEFAULT_SEED) ")\n"
         );
       	exit(0);
-			case 't':
+			case 'n':
       	nb_threads = atoi(optarg);
       	break;
-			case 'n':
+			case 'm':
       	nb_phases = atoi(optarg);
 				if ( nb_phases < 1 ) {
 					fprintf(stderr,"error: invalid number of phases (must be at least 1)!\n");
