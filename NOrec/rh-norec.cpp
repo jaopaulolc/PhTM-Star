@@ -130,10 +130,12 @@ namespace {
 	bool FAST_PATH_START(TxThread* tx){
 
 		while(tx->htm_retries < MAX_HTM_RETRIES){
-			if ( (tx->xbegin_status = _xbegin()) == _XBEGIN_STARTED ){
+			uint32_t tx_status;
+			if ( (tx_status = _xbegin()) == _XBEGIN_STARTED ){
 				if ( isLocked(&global_htm_lock) ) _xabort(_XABORT_LOCKED);
 				return false;
 			}
+			tx->xbegin_status = tx_status;
 			tx->htm_retries++;
 
 			while(isLocked(&global_htm_lock));
@@ -192,7 +194,8 @@ namespace {
 	//+++ MIXED SLOW PATH FUNCTIONS +++//
 	static bool START_RH_HTM_PREFIX(TxThread* tx){
 
-		if ( (tx->xbegin_status = _xbegin()) == _XBEGIN_STARTED ){
+		uint32_t tx_status;
+		if ( (tx_status = _xbegin()) == _XBEGIN_STARTED ){
 			tx->is_rh_prefix_active = true;
 			if( isLocked(&global_htm_lock) ) _xabort(_XABORT_LOCKED);
 			if( isLocked(&serial_lock) ) _xabort(_XABORT_LOCKED);

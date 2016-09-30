@@ -23,6 +23,11 @@ void msrInitialize(){
 	// open file descriptor for only one socket
 	// TODO: handle file descriptors for more sockets
 	__msrFileDescriptor = __msrOpen(0);
+	
+	if (__msrFileDescriptor == 0) {
+		fprintf(stderr, "warning: msr-based measurements are disabled!\n");
+		return;
+	}
   
   // read power and energy units
 	result = __msrRead(__msrFileDescriptor,MSR_RAPL_POWER_UNIT);
@@ -33,10 +38,12 @@ void msrInitialize(){
 }
 
 void msrTerminate(){
+	if (__msrFileDescriptor == 0) return; // msr-based measurements are disabled
 	__msrClose(__msrFileDescriptor);
 }
 
 double msrDiffCounter(unsigned int before,unsigned int after){
+	if (__msrFileDescriptor == 0) return 0; // msr-based measurements are disabled
 	if(before > after){
 		return (after + (UINT_MAX - before))*__energyUnit;
 	} else {
@@ -47,6 +54,8 @@ double msrDiffCounter(unsigned int before,unsigned int after){
 unsigned int msrGetCounter(){
 
 	uint64_t counter;
+	
+	if (__msrFileDescriptor == 0) return 0; // msr-based measurements are disabled
 
   counter = __msrRead(__msrFileDescriptor, MSR_PKG_ENERGY_STATUS);
   return (unsigned int)counter;
@@ -67,15 +76,16 @@ int __msrOpen(int core) {
   if ( fd < 0 ) {
     if ( errno == ENXIO ) {
       fprintf(stderr, "rdmsr: No CPU %d\n", core);
-      exit(2);
+      //exit(2);
     } else if ( errno == EIO ) {
       fprintf(stderr, "rdmsr: CPU %d doesn't support MSRs\n", core);
-      exit(3);
+      //exit(3);
     } else {
       perror("rdmsr:open");
       fprintf(stderr,"Trying to open %s\n",msr_filename);
-      exit(127);
+      //exit(127);
     }
+		return 0;
   }
 	
 	if(core == 0) __isCore0MsrFileOpen++;

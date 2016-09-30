@@ -6,7 +6,7 @@
 #define NUM_PROF_COUNTERS 7
 #endif /* Haswell */
 
-static enum {
+enum {
 	ABORT_EXPLICIT_IDX=0,
 	ABORT_TX_CONFLICT_IDX,
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
