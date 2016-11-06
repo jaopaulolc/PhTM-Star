@@ -7,7 +7,7 @@ include ../common/$(TMBUILD)/Makefile.common
 BUILDDIR = ../../$(TMBUILD)
 
 TARGET = $(BUILDDIR)/pintset
-SRCS = hashset.c linkedlist.c pintset.c 
+SRCS = utils.c hashset.c linkedlist.c skiplist.c rbtree.c pintset.c 
 OBJS = $(patsubst  %.c, $(BUILDDIR)/%.o, $(SRCS))
 
 CPPFLAGS += -DNUMBER_OF_TRANSACTIONS=3 -I./includes

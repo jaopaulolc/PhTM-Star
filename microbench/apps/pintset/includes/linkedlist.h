@@ -7,14 +7,7 @@
 extern "C" {
 #endif
 
-typedef struct node {
-  val_t val;
-  struct node *next;
-} node_t;
-
-typedef struct llistset {
-  node_t *head;
-} llistset_t;
+typedef struct llistset llistset_t;
 
 llistset_t *llistset_new();
 void llistset_delete(llistset_t *set);

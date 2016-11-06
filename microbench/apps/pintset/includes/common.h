@@ -39,6 +39,7 @@ typedef struct phase_data {
 	void *set_ptr;
   int initial;
   int update;
+	int duration;
   int range;
   int alternate;
   int diff;
@@ -65,6 +66,9 @@ typedef struct thread_data {
 /* Annotations used in this benchmark */
 # define TM_SAFE
 # define TM_PURE
+
+void rand_init(unsigned short *seed);
+int rand_range(int n, unsigned short *seed);
 
 #ifdef __cplusplus
 }

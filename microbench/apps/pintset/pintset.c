@@ -35,7 +35,6 @@
 #include <time.h>
 #include <string.h>
 
-
 #include <tm.h>
 
 #ifdef DEBUG
@@ -45,7 +44,9 @@
 
 #include <common.h>
 #include <linkedlist.h>
+#include <skiplist.h>
 #include <hashset.h>
+#include <rbtree.h>
 
 #define DEFAULT_NB_PHASES               1
 #define DEFAULT_SET_IMPL                LL
@@ -106,22 +107,7 @@ void set_affinity(long id){
  * GLOBALS
  * ################################################################### */
 static volatile int stop;
-static unsigned short main_seed[3];
-
-static inline void rand_init(unsigned short *seed)
-{
-  seed[0] = (unsigned short)rand();
-  seed[1] = (unsigned short)rand();
-  seed[2] = (unsigned short)rand();
-}
-
-static inline int rand_range(int n, unsigned short *seed)
-{
-  /* Return a random number in range [0;n) */
-  int v = (int)(erand48(seed) * n);
-  assert (v >= 0 && v < n);
-  return v;
-}
+unsigned short main_seed[3];
 
 /* ################################################################### *
  * BARRIER
@@ -213,7 +199,9 @@ static void barrier_cross(barrier_t *b)
 	} \
 
 STRESS_TEST(llistset, llistset_t)
+STRESS_TEST(slistset, slistset_t)
 STRESS_TEST(hashset, hashset_t)
+STRESS_TEST(rbtreeset, rbtree_t)
 
 static void *test(void *data)
 {
@@ -235,14 +223,10 @@ static void *test(void *data)
 				hashset_test(d, p, (hashset_t*)p->set_ptr);
 				break;
 			case RB:
-				/*TODO*/
-				fprintf(stderr,"error: red-black tree not implemented yet!\n");
-				exit(-1);
+				rbtreeset_test(d, p, (rbtree_t*)p->set_ptr);
 				break;
 		  case SL:
-				/*TODO*/
-				fprintf(stderr,"error: red-black tree not implemented yet!\n");
-				exit(-1);
+				slistset_test(d, p, (slistset_t*)p->set_ptr);
 				break;
 			default:
 				fprintf(stderr,"error: invalid set type!\n");
@@ -271,7 +255,9 @@ static void *test(void *data)
 	}
 
 INIT_SET(llistset, llistset_t)
+INIT_SET(slistset, slistset_t)
 INIT_SET(hashset, hashset_t)
+INIT_SET(rbtreeset, rbtree_t)
 
 static void init_set(phase_data_t *p){
 	switch(p->setImpl) {
@@ -282,14 +268,10 @@ static void init_set(phase_data_t *p){
 			hashset_init(p, (hashset_t*)p->set_ptr);
 			break;
 		case RB:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			rbtreeset_init(p, (rbtree_t*)p->set_ptr);
 			break;
 	  case SL:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			slistset_init(p, (slistset_t*)p->set_ptr);
 			break;
 		default:
 			fprintf(stderr,"error: invalid set type!\n");
@@ -298,7 +280,7 @@ static void init_set(phase_data_t *p){
 	}
 }
 
-void* set_new(set_impl_t setImpl) {
+static void* set_new(set_impl_t setImpl) {
 	switch(setImpl) {
 		case LL:
 			return (void*)llistset_new();
@@ -307,14 +289,10 @@ void* set_new(set_impl_t setImpl) {
 			return (void*)hashset_new();
 			break;
 		case RB:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			return (void*)rbtreeset_new();
 			break;
 	  case SL:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			return (void*)slistset_new();
 			break;
 		default:
 			fprintf(stderr,"error: invalid set type!\n");
@@ -323,7 +301,7 @@ void* set_new(set_impl_t setImpl) {
 	}
 }
 
-void set_delete(phase_data_t *p) {
+static void set_delete(phase_data_t *p) {
 	switch(p->setImpl) {
 		case LL:
 			llistset_delete((llistset_t*)p->set_ptr);
@@ -332,14 +310,10 @@ void set_delete(phase_data_t *p) {
 			hashset_delete((hashset_t*)p->set_ptr);
 			break;
 		case RB:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			rbtreeset_delete((rbtree_t*)p->set_ptr);
 			break;
 	  case SL:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			slistset_delete((slistset_t*)p->set_ptr);
 			break;
 		default:
 			fprintf(stderr,"error: invalid set type!\n");
@@ -348,7 +322,7 @@ void set_delete(phase_data_t *p) {
 	}
 }
 
-int set_size(phase_data_t* p) {
+static int set_size(phase_data_t* p) {
 	switch(p->setImpl) {
 		case LL:
 			return llistset_size((llistset_t*)p->set_ptr);
@@ -357,14 +331,10 @@ int set_size(phase_data_t* p) {
 			return hashset_size((hashset_t*)p->set_ptr);
 			break;
 		case RB:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			return rbtreeset_size((rbtree_t*)p->set_ptr);
 			break;
 	  case SL:
-			/*TODO*/
-			fprintf(stderr,"error: red-black tree not implemented yet!\n");
-			exit(-1);
+			return slistset_size((slistset_t*)p->set_ptr);
 			break;
 		default:
 			fprintf(stderr,"error: invalid set type!\n");
@@ -373,19 +343,20 @@ int set_size(phase_data_t* p) {
 	}
 }
 
-void init_phase_data(phase_data_t *p, int nb_phases){
+static void init_phase_data(phase_data_t *p, int nb_phases){
 	
 	int i;
 	for (i = 0; i < nb_phases; i++) {
 		p[i].setImpl = LL;
 		p[i].initial = DEFAULT_INITIAL;
 		p[i].update = DEFAULT_UPDATE;
+		p[i].duration = DEFAULT_DURATION;
 		p[i].range = 2*p[i].initial;
 		p[i].alternate = DEFAULT_ALTERNATE;
 	}
 }
 
-phase_data_t *copy_phases(phase_data_t* phases, int nb_phases){
+static phase_data_t *copy_phases(phase_data_t* phases, int nb_phases){
 	
 	phase_data_t *phases_copy = (phase_data_t*)malloc(nb_phases * sizeof(phase_data_t));
 	int i;
@@ -403,12 +374,11 @@ int main(int argc, char **argv)
     {"num-threads",               required_argument, NULL, 'n'},
     {"number-of-phases",          required_argument, NULL, 'm'},
     {"phase-config",              required_argument, NULL, 'p'},
-    {"duration",                  required_argument, NULL, 'd'},
     {"seed",                      required_argument, NULL, 's'},
     {NULL, 0, NULL, 0}
   };
 
-	int size;
+	//int size;
   int i, c, ret = 0;
   thread_data_t *data;
   pthread_t *threads;
@@ -418,7 +388,6 @@ int main(int argc, char **argv)
   struct timespec timeout;
 
   int nb_threads = DEFAULT_NB_THREADS;
-  int duration = DEFAULT_DURATION;
   int seed = DEFAULT_SEED;
 	
 	int nb_phases  = DEFAULT_NB_PHASES;
@@ -458,9 +427,7 @@ int main(int argc, char **argv)
               "  -n, --number-of-phases <int>\n"
               "        percentage of update transactions (default=" XSTR(DEFAULT_NB_PHASES) ")\n"
               "  -p, --phase-config <string>\n"
-              "        phase configuration string, ex: 'LL:4096:0' (default=NONE)\n"
-	      			"  -d, --duration <int>\n"
-              "        Test duration in milliseconds (0=infinite, default=" XSTR(DEFAULT_DURATION) ")\n"
+              "        phase configuration string, ex: 'LL:4096:0:1000' (default=NONE)\n"
               "  -s, --seed <int>\n"
               "        RNG seed (0=time-based, default=" XSTR(DEFAULT_SEED) ")\n"
         );
@@ -512,6 +479,9 @@ int main(int argc, char **argv)
 					// 3rd token is update-rate
 					buffer = strtok(NULL, ":");
 					if ( buffer != 0 ) phases[j].update = atoi(buffer);
+					// 4rd token is duration
+					buffer = strtok(NULL, ":");
+					if ( buffer != 0 ) phases[j].duration = atoi(buffer);
 					// setting range as twice the initial size
 					phases[j].range = 2*phases[j].initial;
 					// using default for the remaining parameters
@@ -521,9 +491,6 @@ int main(int argc, char **argv)
 					fprintf(stderr,"error: nb_phases is smaller than the number of phase-config specifications!\n");
 					exit(EXIT_FAILURE);
 				}
-				break;
-			case 'd':
-				duration = atoi(optarg);
 				break;
 			case 's':
 				seed = atoi(optarg);
@@ -535,11 +502,15 @@ int main(int argc, char **argv)
 				exit(1);
     }
   }
+	// if no arguments were given, then init with default values
+	if ( phases == NULL ) {
+		phases = (phase_data_t*)calloc(nb_phases, sizeof(phase_data_t));
+		init_phase_data(phases, nb_phases);
+	}
 
   /* Thread-local seed for main thread */
   rand_init(main_seed);
 
-  printf("Duration           : %d\n", duration);
 	printf("Nb threads         : %d\n", nb_threads);
 	printf("Seed               : %d\n", seed);
 	printf("--------------------------------\n");
@@ -549,6 +520,7 @@ int main(int argc, char **argv)
  		printf("Value range        : %d\n", phases[i].range);
 		printf("Update rate        : %d\n", phases[i].update);
 		printf("Alternate          : %d\n", phases[i].alternate);
+  	printf("Duration           : %d\n", phases[i].duration);
   	/* Populate set */
   	printf("Adding %d entries to set\n", phases[i].initial);
 		phases[i].set_ptr = set_new(phases[i].setImpl);
@@ -564,9 +536,6 @@ int main(int argc, char **argv)
          (int)sizeof(long),
          (int)sizeof(void *),
          (int)sizeof(size_t));
-
-  timeout.tv_sec = duration / 1000;
-  timeout.tv_nsec = (duration % 1000) * 1000000;
 
   if ((data = (thread_data_t *)malloc(nb_threads * sizeof(thread_data_t))) == NULL) {
     perror("malloc");
@@ -608,22 +577,24 @@ int main(int argc, char **argv)
   pthread_attr_destroy(&attr);
 
   printf("STARTING...\n");
-  gettimeofday(&start, NULL);
 	int _i;
 	for(_i=0; _i < nb_phases; _i++){
+  	gettimeofday(&start, NULL);
+  	timeout.tv_sec = phases[_i].duration / 1000;
+  	timeout.tv_nsec = (phases[_i].duration % 1000) * 1000000;
   	/* Start threads */
   	barrier_cross(&barrier);
-  	if (duration > 0) {
+  	if (phases[_i].duration > 0) {
     	nanosleep(&timeout, NULL);
   	} else {
     	sigemptyset(&block_set);
     	sigsuspend(&block_set);
   	}
   	stop = 1;
-  timeout.tv_sec = duration / 1000;
-  timeout.tv_nsec = (duration % 1000) * 1000000;
+  	gettimeofday(&end, NULL);
+  	phases[_i].duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+    printf("  #duration   : %d\n", phases[_i].duration);
 	}
-  gettimeofday(&end, NULL);
   printf("STOPPING...\n");
 
   /* Wait for thread completion */
@@ -634,8 +605,8 @@ int main(int argc, char **argv)
     }
   }
 
-  duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
 
+  int duration = 0;
   unsigned long reads = 0;
   unsigned long updates = 0;
 	printf("--------------------------------\n");
@@ -648,22 +619,32 @@ int main(int argc, char **argv)
 			phases[j].nb_found    += data[i].phases[j].nb_found;
 			phases[j].diff        += data[i].phases[j].diff;
    	}
+		unsigned long phase_updates =  phases[j].nb_add + phases[j].nb_remove;
+		unsigned long phase_reads   =  phases[j].nb_contains;
     printf("  #add        : %lu\n", phases[j].nb_add);
     printf("  #remove     : %lu\n", phases[j].nb_remove);
     printf("  #contains   : %lu\n", phases[j].nb_contains);
     printf("  #found      : %lu\n", phases[j].nb_found);
+    printf("  #txs        : %lu (%f / s)\n", phase_reads + phase_updates,
+		                                (phase_reads + phase_updates)*1000.0 / phases[j].duration);
+    printf("  #read txs   : %lu (%f / s)\n", phase_reads,
+		                                phase_reads * 1000.0 / phases[j].duration);
+    printf("  #update txs : %lu (%f / s)\n", phase_updates,
+		                                phase_updates * 1000.0 / phases[j].duration);
 		unsigned long size = phases[j].initial + phases[j].diff;
-  	printf("set size : %d (expected: %d)\n", set_size(&(phases[j])), size);
+    printf("  #duration   : %d\n", phases[j].duration);
+  	printf("set size : %d (expected: %lu)\n", set_size(&(phases[j])), size);
 		printf("--------------------------------\n");
-		reads   += phases[j].nb_contains;
-   	updates += (phases[j].nb_add + phases[j].nb_remove);
+		reads   += phase_reads;
+   	updates += phase_updates;
+		duration += phases[j].duration;
    	//size    += data[i].diff;
 	}
 	
   printf("Duration      : %d (ms)\n", duration);
-  printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration);
-  printf("#read txs     : %lu (%f / s)\n", reads, reads * 1000.0 / duration);
-  printf("#update txs   : %lu (%f / s)\n", updates, updates * 1000.0 / duration);
+  printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration );
+  printf("#read txs     : %lu (%f / s)\n", reads, reads * 1000.0 / duration );
+  printf("#update txs   : %lu (%f / s)\n", updates, updates * 1000.0 / duration );
 
   /* Cleanup STM */
   TM_EXIT(nb_threads);

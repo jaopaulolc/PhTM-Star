@@ -12,6 +12,16 @@
 # define NB_BUCKETS                     (1UL << 17)
 # define HASH(a)                        (hash((uint32_t)a) & (NB_BUCKETS - 1))
 
+typedef struct bucket {
+  val_t val;
+  struct bucket *next;
+} bucket_t;
+
+struct hashset {
+  bucket_t **buckets;
+};
+
+
 TM_PURE
 static uint32_t hash(uint32_t a)
 {

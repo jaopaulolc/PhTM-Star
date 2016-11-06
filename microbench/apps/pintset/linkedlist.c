@@ -8,6 +8,15 @@
 
 # define INIT_SET_PARAMETERS            /* Nothing */
 
+typedef struct node {
+  val_t val;
+  struct node *next;
+} node_t;
+
+struct llistset {
+  node_t *head;
+};
+
 TM_SAFE
 static node_t *new_node(val_t val, node_t *next, int transactional)
 {

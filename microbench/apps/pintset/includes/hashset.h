@@ -7,14 +7,7 @@
 extern "C" {
 #endif
 
-typedef struct bucket {
-  val_t val;
-  struct bucket *next;
-} bucket_t;
-
-typedef struct hashset {
-  bucket_t **buckets;
-} hashset_t;
+typedef struct hashset hashset_t;
 
 hashset_t *hashset_new();
 void hashset_delete(hashset_t *set);
