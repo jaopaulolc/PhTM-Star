@@ -508,6 +508,11 @@ int main(int argc, char **argv)
 		init_phase_data(phases, nb_phases);
 	}
 
+  if (seed == 0)
+		srand((int)time(NULL));
+  else
+		srand(seed);
+
   /* Thread-local seed for main thread */
   rand_init(main_seed);
 
@@ -545,12 +550,6 @@ int main(int argc, char **argv)
     perror("malloc");
     exit(1);
   }
-
-
-  if (seed == 0)
-    srand((int)time(NULL));
-  else
-    srand(seed);
 
   stop = 0;
 
