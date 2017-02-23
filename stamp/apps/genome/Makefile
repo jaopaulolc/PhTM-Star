@@ -22,17 +22,21 @@ LIBSRCS += \
 
 OBJS := ${SRCS:.c=.o} ${LIBSRCS:%.c=lib_%.o}
 
-CFLAGS += -DNUMBER_OF_TRANSACTIONS=5
+CFLAGS += -DGENOME -DNUMBER_OF_TRANSACTIONS=5
 
 CFLAGS += -DLIST_NO_DUPLICATES
 
-ifeq ($(TMBUILD), powerTM)
-  CFLAGS += -DCHUNK_STEP1=2
+ifdef PROFILING
+  CFLAGS += -DCHUNK_STEP1=12
 else
-  ifeq ($(TMBUILD), rtm)
+  ifeq ($(TMBUILD), powerTM)
     CFLAGS += -DCHUNK_STEP1=2
   else
-    CFLAGS += -DCHUNK_STEP1=12
+    ifeq ($(TMBUILD), rtm)
+      CFLAGS += -DCHUNK_STEP1=2
+    else
+      CFLAGS += -DCHUNK_STEP1=12
+    endif
   endif
 endif
 

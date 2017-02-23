@@ -9,19 +9,9 @@
 #include "stream.h"
 #include "thread.h"
 #include "timer.h"
-#include "tm.h"
 
-#ifdef STM
-#ifdef COMMIT_RATE_PROFILING
-unsigned int **coreSTM_commits;
-unsigned int **coreSTM_aborts;
-#endif /* COMMIT_RATE_PROFILING */
-#ifdef RW_SET_PROFILING
-unsigned int ***coreSTM_r_set_size;
-unsigned int ***coreSTM_w_set_size;
-unsigned int **coreSTM_counter;
-#endif /* RW_SET_PROFILING */
-#endif /* STM */
+#define MAIN_FUNCTION_FILE 1
+#include "tm.h"
 
 enum param_types {
     PARAM_ATTACK = (unsigned char)'a',

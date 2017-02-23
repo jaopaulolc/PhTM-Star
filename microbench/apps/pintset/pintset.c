@@ -34,6 +34,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <string.h>
+#include <malloc.h> // memalign
 
 #include <tm.h>
 
@@ -62,6 +63,8 @@
 #define XSTR(s)                         STR(s)
 #define STR(s)                          #s
 
+#define TARGET_NUM_SAMPLES 1000
+#define INIT_MAX_SAMPLES (2*TARGET_NUM_SAMPLES)
 
 #include <unistd.h>
 #include <sched.h>
@@ -102,6 +105,32 @@ void set_affinity(long id){
 
 	while( hw_tid != sched_getcpu() );
 }
+
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+static inline uint64_t getCycles()
+{
+		uint32_t upper, lower,tmp;
+		__asm__ volatile(
+			"0:                  \n"
+			"\tmftbu   %0        \n"
+			"\tmftb    %1        \n"
+			"\tmftbu   %2        \n"
+			"\tcmpw    %2,%0     \n"
+			"\tbne     0b        \n"
+   	 : "=r"(upper),"=r"(lower),"=r"(tmp)
+	  );
+		return  (((uint64_t)upper) << 32) | lower;
+}
+#elif defined(__x86_64__)
+static inline uint64_t getCycles()
+{
+    uint32_t tmp[2];
+    __asm__ ("rdtsc" : "=a" (tmp[1]), "=d" (tmp[0]) : "c" (0x10) );
+    return (((uint64_t)tmp[0]) << 32) | tmp[1];
+}
+#else
+#error "unsupported architecture!"
+#endif
 
 /* ################################################################### *
  * GLOBALS
@@ -145,13 +174,71 @@ static void barrier_cross(barrier_t *b)
   pthread_mutex_unlock(&b->mutex);
 }
 
+#ifdef THROUGHPUT_PROFILING
+
+inline static
+uint64_t getTime(){
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
+}
+
+void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uint64_t newLength) {
+	double *newPtr;
+	int r = posix_memalign((void**)&newPtr, __CACHE_ALIGNMENT__, newLength*sizeof(double));
+	if ( r ) {
+		perror("posix_memalign");
+		fprintf(stderr, "error: increaseThroughputSamplesSize failed to increase throughputSamples array!\n");
+		exit(EXIT_FAILURE);
+	}
+	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(double));
+	free(*ptr);
+	*ptr = newPtr;
+	*oldLength = newLength;
+}
+
+#define THROUGHPUT_PROFILING_VARS \
+		uint64_t stepCount; \
+		stepCount = 0; \
+		uint64_t sample_step; \
+		sample_step = TARGET_NUM_SAMPLES; \
+		uint64_t before; \
+		before = getTime(); \
+		double *throughputSamples = p->throughputSamples; 
+
+#define THROUGHPUT_PROFILING_CODE \
+			if (stepCount == sample_step) { \
+				uint64_t now = getTime(); \
+				double t = now - before; \
+				double th = (sample_step*1.0e9)/t; \
+				throughputSamples[p->sampleCount] = th; \
+				sample_step = ((uint64_t)th)/TARGET_NUM_SAMPLES; \
+				p->sampleCount++; \
+				if ( p->sampleCount == p->maxSamples ) { \
+					increaseThroughputSamplesSize(&(p->throughputSamples), &(p->maxSamples), 2*p->maxSamples); \
+					throughputSamples = p->throughputSamples; \
+				} \
+				before = now; \
+				stepCount = 0; \
+			} else { \
+				stepCount++; \
+			} 
+
+#else
+
+#define THROUGHPUT_PROFILING_VARS /* nothing */
+#define THROUGHPUT_PROFILING_CODE /* nothing */
+
+#endif /* ! THROUGHPUT_PROFILING */
+
 /* ################################################################### *
  * STRESS TEST
  * ################################################################### */
 
-#define STRESS_TEST(SET_NAME, SET_TYPE) \
+#define STRESS_TEST(SET_NAME, SET_TYPE, SET_PREFIX) \
 	static void SET_NAME##_test(thread_data_t *d, phase_data_t *p, SET_TYPE *set_ptr) \
 	{ \
+		THROUGHPUT_PROFILING_VARS \
 		int op, val, last = -1; \
 	  while (stop == 0) { \
 	    op = rand_range(100, d->seed); \
@@ -195,13 +282,14 @@ static void barrier_cross(barrier_t *b)
 	        p->nb_found++; \
 	      p->nb_contains++; \
 	    } \
+			THROUGHPUT_PROFILING_CODE \
 	  } \
 	} \
 
-STRESS_TEST(llistset, llistset_t)
-STRESS_TEST(slistset, slistset_t)
-STRESS_TEST(hashset, hashset_t)
-STRESS_TEST(rbtreeset, rbtree_t)
+STRESS_TEST(llistset, llistset_t, LL_)
+STRESS_TEST(slistset, slistset_t, SL_)
+STRESS_TEST(hashset, hashset_t, HS_)
+STRESS_TEST(rbtreeset, rbtree_t, RB_)
 
 static void *test(void *data)
 {
@@ -395,6 +483,14 @@ int main(int argc, char **argv)
   
 	sigset_t block_set;
 
+#ifdef THROUGHPUT_PROFILING
+	FILE *outfile = fopen("transactions.throughput", "w");
+	if ( outfile == NULL ) {
+		perror("fopen");
+		exit(EXIT_FAILURE);
+	}
+#endif /* THROUGHPUT_PROFILING */
+
 	int j = 0;
 	char *buffer;
   while(1) {
@@ -568,6 +664,19 @@ int main(int argc, char **argv)
     data[i].barrier = &barrier;
 		data[i].nb_phases = nb_phases;
 		data[i].phases = copy_phases(phases, nb_phases);
+#ifdef THROUGHPUT_PROFILING
+		int j;
+		for (j = 0; j < nb_phases; j++) {
+			data[i].phases[j].sampleCount = 0;
+			data[i].phases[j].maxSamples = INIT_MAX_SAMPLES;
+			int r = posix_memalign((void**)&(data[i].phases[j].throughputSamples), __CACHE_ALIGNMENT__, data[i].phases[j].maxSamples*sizeof(double));
+			if ( r ) {
+				perror("posix_memalign");
+				fprintf(stderr, "error: failed to allocate samples array!\n"); \
+				exit(EXIT_FAILURE);
+			}
+		}
+#endif /* THROUGHPUT_PROFILING */
     if (pthread_create(&threads[i], &attr, test, (void *)(&data[i])) != 0) {
       fprintf(stderr, "Error creating thread\n");
       exit(1);
@@ -576,14 +685,13 @@ int main(int argc, char **argv)
   pthread_attr_destroy(&attr);
 
   printf("STARTING...\n");
-	int _i;
-	for(_i=0; _i < nb_phases; _i++){
+	for (i=0; i < nb_phases; i++){
   	gettimeofday(&start, NULL);
-  	timeout.tv_sec = phases[_i].duration / 1000;
-  	timeout.tv_nsec = (phases[_i].duration % 1000) * 1000000;
+  	timeout.tv_sec = phases[i].duration / 1000;
+  	timeout.tv_nsec = (phases[i].duration % 1000) * 1000000;
   	/* Start threads */
   	barrier_cross(&barrier);
-  	if (phases[_i].duration > 0) {
+  	if (phases[i].duration > 0) {
     	nanosleep(&timeout, NULL);
   	} else {
     	sigemptyset(&block_set);
@@ -591,8 +699,8 @@ int main(int argc, char **argv)
   	}
   	stop = 1;
   	gettimeofday(&end, NULL);
-  	phases[_i].duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-    printf("  #duration   : %d\n", phases[_i].duration);
+  	phases[i].duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+    printf("  #duration   : %d\n", phases[i].duration);
 	}
   printf("STOPPING...\n");
 
@@ -648,6 +756,37 @@ int main(int argc, char **argv)
   /* Cleanup STM */
   TM_EXIT(nb_threads);
 
+#ifdef THROUGHPUT_PROFILING
+	for (i=0; i < nb_phases; i++) {
+		uint64_t maxSamples = 0;
+		uint64_t j;
+		for (j = 0; j < nb_threads; j++) {
+			if (data[j].phases[i].maxSamples > maxSamples) {
+				maxSamples = data[j].phases[i].maxSamples;
+			}
+		}
+		phases[i].throughputSamples = (double*)calloc(sizeof(double), maxSamples);
+		for (j = 0; j < nb_threads; j++) {
+			uint64_t sampleCount = data[j].phases[i].sampleCount;
+			uint64_t k;
+			for (k = 0; k < sampleCount; k++) {
+				phases[i].throughputSamples[k] += data[j].phases[i].throughputSamples[k];
+			}
+			free(data[j].phases[i].throughputSamples);
+			if ( data[j].phases[i].sampleCount > phases[i].sampleCount ) {
+				phases[i].sampleCount = data[j].phases[i].sampleCount;
+			}
+		}
+		uint64_t nSamples = phases[i].sampleCount;
+		fprintf(outfile, "#%d %lu\n", i, nSamples);
+		for (j = 0; j < nSamples; j++) {
+			fprintf(outfile, "%0.3lf\n", phases[i].throughputSamples[j] );
+		}
+		free(phases[i].throughputSamples);
+	}
+	fclose(outfile);
+#endif /* THROUGHPUT_PROFILING */
+
 	// free thread-local phase data
   for (i = 0; i < nb_threads; i++) {
 		free(data[i].phases);
@@ -658,6 +797,7 @@ int main(int argc, char **argv)
 	}
 	// free phase data
 	free(phases);
+
 
   free(threads);
   free(data);

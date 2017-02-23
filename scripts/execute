@@ -84,15 +84,18 @@ function execute_stamp_apps {
 			appRunPath="$STAMP/$build/$app/$app-$suffix"
 			for t in $NUMTHREADS; do
 				local s=$(echo $suffix | sed 's|seq|seq-'$(uname -m)'|')
-				outputLog="$LOGDIR/$app-$s-$memalloc-$t.log"
+				local prefix="$LOGDIR/$app-$s-$memalloc-$t"
+				local outputLog="${prefix}.log"
+				local thrputLog="${prefix}.throughput"
+				rm -f $outputLog $thrputLog
 				rm -f $outputLog
 				for j in $(seq 1 ${_NEXEC}); do
-					echo "execution $j: $appRunPath ${exec_flags}$t ($memalloc) ($work)"
-					if [ $HOSTNAME == node03 ]; then
-						sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
-					else
-						LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t  >> $outputLog
-					fi
+					echo "execution $j: $(basename $appRunPath) ${exec_flags}$t ($memalloc) ($work)"
+					LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t 2>> $outputLog >> $outputLog
+					local thputfile="transactions.throughput"
+					local separator="---"
+					[ -e $thputfile ] && cat $thputfile >> $thrputLog && \
+						echo "$separator" >> $thrputLog && rm -f $thputfile
 				done # FOR EACH EXECUTION
 			done # FOR EACH NUMBER OF THREADS
 		done # FOR EACH WORK SIZE
@@ -126,18 +129,21 @@ function execute_microbench_apps {
 		esac
 		local s=$(echo $suffix | sed 's|seq|seq-'$(uname -m)'|')
 		for exec_flags in ${EXEC_FLAGS}; do
-			outputLog="$LOGDIR/$app-$s-$memalloc-${exec_flags}.log"
-			phasedLog="$LOGDIR/$app-$s-$memalloc-${exec_flags}.transitions"
-			rm -f $outputLog
+			local prefix="$LOGDIR/$app-$s-$memalloc-${exec_flags}"
+			local outputLog="${prefix}.log"
+			local phasedLog="${prefix}.transitions"
+			local thrputLog="${prefix}.throughput"
+			rm -f $outputLog $phasedLog $thrputLog
 			for j in $(seq 1 ${_NEXEC}); do
-				echo "execution $j: $appRunPath -${exec_flags//-/ -} ($memalloc)"	
-				if [ $HOSTNAME == node03 ]; then
-					sudo LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
-				else
-					LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
-				fi
+				echo "execution $j: $(basename $appRunPath) -${exec_flags//-/ -} ($memalloc)"	
+				LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} -${exec_flags//-/ -}  >> $outputLog
 				local transfile="transitions.timestamp"
-				[ -e $transfile ] && cat $transfile >> $phasedLog && rm -f $transfile
+				local thputfile="transactions.throughput"
+				local separator="---"
+				[ -e $transfile ] && cat $transfile >> $phasedLog && \
+					echo "$separator" >> $phasedLog && rm -f $transfile
+				[ -e $thputfile ] && cat $thputfile >> $thrputLog && \
+					echo "$separator" >> $thrputLog && rm -f $thputfile
 			done # FOR EACH EXECUTION
 		done # FOR EACH EXEC FLAGS
 	done # FOR EACH APPS

@@ -9,20 +9,10 @@
 #include "sequencer.h"
 #include "thread.h"
 #include "timer.h"
+
+#define MAIN_FUNCTION_FILE 1
 #include "tm.h"
 #include "vector.h"
-
-#ifdef STM
-#ifdef COMMIT_RATE_PROFILING
-unsigned int **coreSTM_commits;
-unsigned int **coreSTM_aborts;
-#endif /* COMMIT_RATE_PROFILING */
-#ifdef RW_SET_PROFILING
-unsigned int ***coreSTM_r_set_size;
-unsigned int ***coreSTM_w_set_size;
-unsigned int **coreSTM_counter;
-#endif /* RW_SET_PROFILING */
-#endif /* STM */
 
 enum param_types {
     PARAM_GENE    = (unsigned char)'g',

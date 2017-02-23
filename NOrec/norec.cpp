@@ -28,32 +28,30 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
-__thread long __txId__;
+__thread uint64_t __txId__;
 
-__thread uint32_t *__thread_commits = NULL;
-__thread uint32_t *__thread_aborts = NULL;
+__thread uint64_t *__thread_commits = NULL;
+__thread uint64_t *__thread_aborts = NULL;
 
-void norecInitThreadCommits(uint32_t *addr){
+void norecInitThreadCommits(uint64_t *addr){
 	__thread_commits = addr;
 }
 
-void norecInitThreadAborts(uint32_t *addr){
+void norecInitThreadAborts(uint64_t *addr){
 	__thread_aborts = addr;
 }
 
 #if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 
-long **__numCommits;
-long **__numAborts;
 #ifdef COMMIT_RATE_PROFILING
-long **__readSetSize;
-long **__writeSetSize;
+uint64_t **__readSetSize;
+uint64_t **__writeSetSize;
 #endif /* COMMIT_RATE_PROFILING */
 
 #ifdef RW_SET_PROFILING
-long **__counter;
-long ***__readSetSize;
-long ***__writeSetSize;
+uint64_t **__counter;
+uint64_t ***__readSetSize;
+uint64_t ***__writeSetSize;
 #endif /* RW_SET_PROFILING */
 #endif /*  COMMIT_RATE_PROFILING || RW_SET_PROFILING */
 
@@ -211,16 +209,12 @@ namespace {
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
 			
-			// FIXME: this counter should be allocated
-			// in stamp/apps/commom/norec/tm.h as well
 			if(__thread_commits != NULL)
 				__thread_commits[__txId__]++;
 		#ifdef COMMIT_RATE_PROFILING
-			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 		#endif /* COMMIT_RATE_PROFILING */
 		#ifdef RW_SET_PROFILING
-			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__counter[tx->id -1][__txId__]++;
 		#endif /* RW_SET_PROFILING */
@@ -249,17 +243,14 @@ namespace {
 
       // notify CM
       CM::onCommit(tx);
-			// FIXME: this counter should be allocated
-			// in stamp/apps/commom/norec/tm.h as well
+
 			if(__thread_commits != NULL)
 				__thread_commits[__txId__]++;
 		#ifdef COMMIT_RATE_PROFILING
-			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
 		#endif /* COMMIT_RATE_PROFILING */
 		#ifdef RW_SET_PROFILING
-			__numCommits[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
 			__counter[tx->id -1][__txId__]++;
@@ -350,17 +341,13 @@ namespace {
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
 		
-			// FIXME: this counter should be allocated
-			// in stamp/apps/commom/norec/tm.h as well
 			if(__thread_aborts != NULL)
 				__thread_aborts[__txId__]++;
 		#ifdef COMMIT_RATE_PROFILING
-			__numAborts[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
 		#endif /* COMMIT_RATE_PROFILING */
 		#ifdef RW_SET_PROFILING
-			__numAborts[tx->id - 1][__txId__]++;
 			__readSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__][__counter[tx->id -1][__txId__]] = tx->writes.size();
 			__counter[tx->id -1][__txId__]++;

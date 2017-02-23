@@ -41,52 +41,63 @@
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */
 
+#define P_MALLOC(size)                malloc(size)
+#define P_FREE(ptr)                   free(ptr)
+#define SEQ_MALLOC(size)              malloc(size)
+#define SEQ_FREE(ptr)                 free(ptr)
+#define TM_MALLOC(size)               TM_ALLOC(size)
+/* TM_FREE(ptr) is already defined in the file interface. */
+
 #if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 
 extern __thread long __txId__;
-extern long **__numCommits;
-extern long **__numAborts;
+extern uint64_t **__stm_commits;
+extern uint64_t **__stm_aborts;
+
+extern void norecInitThreadCommits(uint64_t* addr);
+extern void norecInitThreadAborts(uint64_t* addr);
+
 #ifdef COMMIT_RATE_PROFILING
-extern long **__readSetSize;
-extern long **__writeSetSize;
+extern uint64_t **__readSetSize;
+extern uint64_t **__writeSetSize;
 
 #define TM_STARTUP(numThread)	msrInitialize();                                                     \
 															pmuStartup(NUMBER_OF_TRANSACTIONS);                                  \
 															STM_STARTUP(numThread);                                              \
 										{ int i;                                                                       \
-											__numCommits   = (long**)malloc(numThread*sizeof(long*));                    \
-											__numAborts    = (long**)malloc(numThread*sizeof(long*));                    \
-											__readSetSize  = (long**)malloc(numThread*sizeof(long*));                    \
-											__writeSetSize = (long**)malloc(numThread*sizeof(long*));                    \
-											for(i=0; i < numThread; i++){                                                \
-												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__readSetSize[i]  = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__writeSetSize[i] = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-											}                                                                            \
+											__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
+								    	__stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
+											__readSetSize  = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                  \
+											__writeSetSize = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                  \
+											for(i=0; i < numThread; i++){                                                      \
+												__stm_commits[i] = (uint64_t*)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));   \
+												__stm_aborts[i]  = (uint64_t*)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));   \
+												__readSetSize[i]  = (uint64_t *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t)); \
+												__writeSetSize[i] = (uint64_t *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t)); \
+											}                                                                                  \
 										}
 
 #define TM_SHUTDOWN()	STM_SHUTDOWN(); \
-					{ int i;                                                               \
-						int __numThreads__  = thread_getNumThread();                         \
-						int ncustomCounters = pmuNumberOfCustomCounters();                 \
-						int nfixedCounters  = pmuNumberOfFixedCounters();                  \
-						int ntotalCounters  = nfixedCounters + ncustomCounters;            \
-						int nmeasurements   = pmuNumberOfMeasurements();                   \
+					{ uint64_t i;                                                             \
+						uint64_t __numThreads__  = thread_getNumThread();                       \
+						uint64_t ncustomCounters = pmuNumberOfCustomCounters();                 \
+						uint64_t nfixedCounters  = pmuNumberOfFixedCounters();                  \
+						uint64_t ntotalCounters  = nfixedCounters + ncustomCounters;            \
+						uint64_t nmeasurements   = pmuNumberOfMeasurements();                   \
 						printf("Tx #  | %10s | %19s | %20s | %20s | %21s | %21s | %20s\n",               \
 						"STARTS", "COMMITS", "READS", "WRITES", "INSTRUCTIONS", "CYCLES", "CYCLES REF"); \
 						for(i=0; i < __numThreads__; i++) {                                \
 							uint64_t **measurements = pmuGetMeasurements(i);                 \
-							int j, k;                                                        \
+							uint64_t j, k;                                                   \
 							uint64_t total[3] = {0,0,0};                                     \
 							for(j=ncustomCounters; j < ntotalCounters; j++)                  \
 								for(k=0; k < nmeasurements; k++)                               \
 									total[j-ncustomCounters] += measurements[k][j];              \
-							printf("Thread %d\n",i);                                         \
+							printf("Thread %lu\n",i);                                         \
 					  	for(j=0; j < nmeasurements; j++) {                               \
-								long numCommits = __numCommits[i][j];                          \
-								long numStarts  = numCommits + __numAborts[i][j];              \
-								printf("Tx %2d | %10ld | %10ld (%6.2lf) | %9ld (%8.2lf) | %9ld (%8.2lf) | %12lu (%6.2lf) | %12lu (%6.2lf) | %11lu (%6.2lf)\n"   \
+								uint64_t numCommits = __stm_commits[i][j];                     \
+								uint64_t numStarts  = numCommits + __stm_aborts[i][j];         \
+								printf("Tx %2lu | %10lu | %10lu (%6.2lf) | %9ld (%8.2lf) | %9ld (%8.2lf) | %12lu (%6.2lf) | %12lu (%6.2lf) | %11lu (%6.2lf)\n"  \
 								, j, numStarts, numCommits, 1.0e2*((double)numCommits/(double)numStarts), __readSetSize[i][j]                                   \
 								, 1.0e0*((double)__readSetSize[i][j]/(double)numStarts), __writeSetSize[i][j]                                                   \
 								, 1.0e0*((double)__writeSetSize[i][j]/(double)numStarts), measurements[j][ncustomCounters+0]                                    \
@@ -95,10 +106,10 @@ extern long **__writeSetSize;
 								, 1.0e2*((double)measurements[j][ncustomCounters+2]/(double)total[2]));                                                         \
 							}                                                                \
 							printf("\n");                                                    \
-							free(__numCommits[i]);  free(__numAborts[i]);                    \
+							free(__stm_commits[i]);  free(__stm_aborts[i]);                  \
 							free(__readSetSize[i]); free(__writeSetSize[i]);                 \
 						}                                                                  \
-						free(__numCommits);  free(__numAborts);                            \
+						free(__stm_commits);  free(__stm_aborts);                          \
 						free(__readSetSize); free(__writeSetSize);                         \
 					}                                                                    \
 					pmuShutdown();                                                       \
@@ -108,53 +119,53 @@ extern long **__writeSetSize;
 
 #ifdef RW_SET_PROFILING
 #define MAX_TRANSACTIONS 40000000L
-extern long **__counter;
-extern long ***__readSetSize;
-extern long ***__writeSetSize;
+extern uint64_t **__counter;
+extern uint64_t ***__readSetSize;
+extern uint64_t ***__writeSetSize;
 
 #define TM_STARTUP(numThread)	msrInitialize();                                                     \
 															pmuStartup(NUMBER_OF_TRANSACTIONS);                                  \
 															STM_STARTUP(numThread);                                              \
 										{ int i;                                                                       \
-											__numCommits   = (long**)malloc(numThread*sizeof(long*));                    \
-											__numAborts    = (long**)malloc(numThread*sizeof(long*));                    \
-											__counter      = (long**)malloc(numThread*sizeof(long*));                    \
-											__readSetSize  = (long***)malloc(numThread*sizeof(long**));                  \
-											__writeSetSize = (long***)malloc(numThread*sizeof(long**));                  \
+											__stm_commits   = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                   \
+											__stm_aborts    = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                   \
+											__counter      = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                    \
+											__readSetSize  = (uint64_t***)malloc(numThread*sizeof(uint64_t**));                  \
+											__writeSetSize = (uint64_t***)malloc(numThread*sizeof(uint64_t**));                  \
 											for(i=0; i < numThread; i++){                                                \
-												__counter[i]      = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__numCommits[i]   = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__numAborts[i]    = (long *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(long));   \
-												__readSetSize[i]  = (long**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(long*));  \
-												__writeSetSize[i] = (long**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(long*));  \
+												__counter[i]      = (uint64_t *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));   \
+												__stm_commits[i]   = (uint64_t *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));  \
+												__stm_aborts[i]    = (uint64_t *)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));  \
+												__readSetSize[i]  = (uint64_t**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(uint64_t*));  \
+												__writeSetSize[i] = (uint64_t**)malloc(NUMBER_OF_TRANSACTIONS*sizeof(uint64_t*));  \
 												int j;                                                                     \
 												for(j=0; j < NUMBER_OF_TRANSACTIONS; j++){                                 \
-													__readSetSize[i][j]  = (long*)calloc(MAX_TRANSACTIONS,sizeof(long));     \
-													__writeSetSize[i][j] = (long*)calloc(MAX_TRANSACTIONS,sizeof(long));     \
+													__readSetSize[i][j]  = (uint64_t*)calloc(MAX_TRANSACTIONS,sizeof(uint64_t));     \
+													__writeSetSize[i][j] = (uint64_t*)calloc(MAX_TRANSACTIONS,sizeof(uint64_t));     \
 												}                                                                          \
 											}                                                                            \
 										}
 
 #define TM_SHUTDOWN() STM_SHUTDOWN();                                  \
-					{ long i;                                                    \
-						long __numThreads__  = thread_getNumThread();              \
+					{ uint64_t i;                                                \
+						uint64_t __numThreads__  = thread_getNumThread();          \
 						for(i=0; i < __numThreads__; i++) {                        \
-							long j;                                                  \
+							uint64_t j;                                              \
 							printf("Thread %ld\n",i);                                \
 					  	for(j=0; j < NUMBER_OF_TRANSACTIONS; j++) {              \
-								printf("Tx %2ld\n", j);                                \
-								long k;                                                \
+								printf("Tx %2lu\n", j);                                \
+								uint64_t k;                                            \
 								for(k=0; k < __counter[i][j]; k++)                     \
-									printf("%ld %ld\n", __readSetSize[i][j][k]           \
+									printf("%lu %lu\n", __readSetSize[i][j][k]           \
 										,__writeSetSize[i][j][k]);                         \
 								free(__readSetSize[i][j]); free(__writeSetSize[i][j]); \
 							}                                                        \
 							free(__counter[i]);                                      \
-							free(__numCommits[i]);  free(__numAborts[i]);            \
+							free(__stm_commits[i]);  free(__stm_aborts[i]);          \
 							free(__readSetSize[i]); free(__writeSetSize[i]);         \
 						}                                                          \
 						free(__counter);                                           \
-						free(__numCommits);  free(__numAborts);                    \
+						free(__stm_commits);  free(__stm_aborts);                  \
 						free(__readSetSize); free(__writeSetSize);                 \
 					}                                                            \
 					pmuShutdown();                                               \
@@ -162,30 +173,14 @@ extern long ***__writeSetSize;
 
 #endif /* RW_SET_PROFILING */
 
-#else /* NO PROFILING */
-
-#define TM_STARTUP(numThread)	msrInitialize();                    \
-															STM_STARTUP(numThread)
-
-#define TM_SHUTDOWN()	STM_SHUTDOWN(); \
-											msrTerminate()
-#endif /* NO PROFILING */
-
 #define TM_THREAD_ENTER()    long __threadId__ = thread_getId(); \
 														 TM_ARGDECL_ALONE = STM_NEW_THREAD(); \
                              STM_INIT_THREAD(TM_ARG_ALONE, thread_getId()); \
-														 set_affinity(__threadId__)
+														 set_affinity(__threadId__); \
+														 norecInitThreadCommits(__stm_commits[__threadId__]); \
+														 norecInitThreadAborts(__stm_aborts[__threadId__])
 
-#define TM_THREAD_EXIT()              STM_FREE_THREAD(TM_ARG_ALONE)
-
-#define P_MALLOC(size)                malloc(size)
-#define P_FREE(ptr)                   free(ptr)
-#define SEQ_MALLOC(size)              malloc(size)
-#define SEQ_FREE(ptr)                 free(ptr)
-#define TM_MALLOC(size)               TM_ALLOC(size)
-/* TM_FREE(ptr) is already defined in the file interface. */
-
-#ifdef PROFILING
+#define TM_THREAD_EXIT()     STM_FREE_THREAD(TM_ARG_ALONE)
 
 #define TM_BEGIN()                    __txId__ = __COUNTER__;                   \
 																			pmuStartCounting(__threadId__, __txId__); \
@@ -196,11 +191,163 @@ extern long ***__writeSetSize;
 #define TM_END()                      STM_END();                    \
 																			pmuStopCounting(__threadId__)
 
-#else /* NO PROFILING */
+#elif defined(THROUGHPUT_PROFILING)
+
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#define __CACHE_ALIGNMENT__ 0x10000
+#define CACHE_LINE_SIZE 128
+#endif
+
+#if defined(__x86_64__) || defined(__i386)
+#define __CACHE_ALIGNMENT__ 0x1000
+#define CACHE_LINE_SIZE  64
+#endif
+
+typedef struct throughputProfilingData_ {
+	uint64_t sampleCount;
+	uint64_t maxSamples;
+	uint64_t stepCount;
+	uint64_t sampleStep;	
+	uint64_t before;
+	double*  samples;
+  char padding[CACHE_LINE_SIZE];
+} throughputProfilingData_t;
+
+#if defined(GENOME)
+#define INIT_SAMPLE_STEP 1000 
+#elif defined(INTRUDER)
+#define INIT_SAMPLE_STEP 5000
+#elif defined(KMEANS)
+#define INIT_SAMPLE_STEP 2000
+#elif defined(LABYRINTH)
+#define INIT_SAMPLE_STEP 10
+#elif defined(SSCA2)
+#define INIT_SAMPLE_STEP 5000
+#elif defined(VACATION)
+#define INIT_SAMPLE_STEP 2000
+#elif defined(YADA)
+#define INIT_SAMPLE_STEP 1000
+#else
+#error "unknown application!"
+#endif
+
+#define INIT_MAX_SAMPLES 1000000
+
+extern throughputProfilingData_t *__throughputProfilingData;
+
+static inline uint64_t getTime() __attribute__((always_inline));
+static inline uint64_t getTime() {
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)(t.tv_sec*1.0e6) + (uint64_t)(t.tv_nsec*1.0e-3);
+}
+
+extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uint64_t newLength);
+
+
+#define TM_STARTUP(numThread)	msrInitialize();                    \
+															STM_STARTUP(numThread);             \
+															{ \
+																__throughputProfilingData = (throughputProfilingData_t*)calloc(numThread, \
+																	sizeof(throughputProfilingData_t)); \
+																uint64_t i; \
+																for (i=0; i < numThread; i++) { \
+																	__throughputProfilingData[i].sampleStep = INIT_SAMPLE_STEP; \
+																	__throughputProfilingData[i].maxSamples = INIT_MAX_SAMPLES; \
+																	int r = posix_memalign((void**)&(__throughputProfilingData[i].samples),\
+																		__CACHE_ALIGNMENT__, __throughputProfilingData[i].maxSamples*sizeof(double)); \
+																	if ( r ) { \
+																		fprintf(stderr, "error: failed to allocate samples array!\n"); \
+																		exit(EXIT_FAILURE); \
+																	} \
+																} \
+															}
+
+#define TM_SHUTDOWN()	STM_SHUTDOWN(); \
+											msrTerminate(); \
+											{ \
+												uint64_t nb_threads = (uint64_t)thread_getNumThread(); \
+												uint64_t maxSamples = 0; \
+												uint64_t i; \
+												for (i = 0; i < nb_threads; i++) { \
+													if (__throughputProfilingData[i].maxSamples > maxSamples) { \
+														maxSamples = __throughputProfilingData[i].maxSamples; \
+													} \
+												} \
+												double *samples = (double*)calloc(sizeof(double), maxSamples); \
+												uint64_t nSamples = 0; \
+												for (i = 0; i < nb_threads; i++) { \
+													uint64_t j; \
+													uint64_t n = __throughputProfilingData[i].sampleCount; \
+													for (j=0; j < n; j++) { \
+														samples[j] += __throughputProfilingData[i].samples[j]; \
+													} \
+													if (n > nSamples) nSamples = n; \
+													free(__throughputProfilingData[i].samples); \
+												} \
+												free(__throughputProfilingData); \
+												FILE* outfile = fopen("transactions.throughput", "w"); \
+												for (i = 0; i < nSamples; i++) { \
+													fprintf(outfile, "%0.3lf\n", samples[i]); \
+												} \
+												free(samples); \
+												fclose(outfile); \
+											}
+
+#define TM_THREAD_ENTER()    long __threadId__ = thread_getId(); \
+														 TM_ARGDECL_ALONE = STM_NEW_THREAD(); \
+                             STM_INIT_THREAD(TM_ARG_ALONE, thread_getId()); \
+														 set_affinity(__threadId__); \
+														 throughputProfilingData_t *__thProfData = &__throughputProfilingData[__threadId__]; \
+														 __thProfData->before = getTime()
+
+#define TM_THREAD_EXIT()     STM_FREE_THREAD(TM_ARG_ALONE); \
+														 { \
+															 uint64_t now = getTime(); \
+															 if (__thProfData->stepCount) { \
+																 double t = now - __thProfData->before; \
+																 double th = (__thProfData->stepCount*1.0e6)/t; \
+																 __thProfData->samples[__thProfData->sampleCount] = th; \
+															 } \
+														 }
 
 #define TM_BEGIN()                    STM_BEGIN_WR()
 #define TM_BEGIN_RO()                 STM_BEGIN_RD()
-#define TM_END()                      STM_END()
+#define TM_END()                      STM_END(); \
+																			{ \
+																				__thProfData->stepCount++; \
+																				if (__thProfData->stepCount == __thProfData->sampleStep) { \
+																					uint64_t now = getTime(); \
+																					double t = now - __thProfData->before; \
+																					double th = (__thProfData->sampleStep*1.0e6)/t; \
+																					__thProfData->samples[__thProfData->sampleCount] = th; \
+																					__thProfData->sampleCount++; \
+																					if ( __thProfData->sampleCount == __thProfData->maxSamples ) { \
+																						increaseThroughputSamplesSize(&(__thProfData->samples), \
+																							&(__thProfData->maxSamples), 2*__thProfData->maxSamples); \
+																					} \
+																					__thProfData->before = now; \
+																					__thProfData->stepCount = 0; \
+																				} \
+																			}
+#else /* NO PROFILING */
+
+#define TM_STARTUP(numThread)	msrInitialize();                    \
+															STM_STARTUP(numThread)
+
+#define TM_SHUTDOWN()	        STM_SHUTDOWN(); \
+											        msrTerminate()
+
+#define TM_THREAD_ENTER()     long __threadId__ = thread_getId(); \
+														  TM_ARGDECL_ALONE = STM_NEW_THREAD(); \
+                              STM_INIT_THREAD(TM_ARG_ALONE, thread_getId()); \
+														  set_affinity(__threadId__)
+
+#define TM_THREAD_EXIT()      STM_FREE_THREAD(TM_ARG_ALONE)
+
+#define TM_BEGIN()            STM_BEGIN_WR()
+#define TM_BEGIN_RO()         STM_BEGIN_RD()
+#define TM_END()              STM_END()
 
 #endif /* NO PROFILING */
 
@@ -230,3 +377,33 @@ extern long ***__writeSetSize;
 
 #endif /* TM_H */
 
+#ifdef MAIN_FUNCTION_FILE
+
+#if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
+
+uint64_t **__stm_commits;
+uint64_t **__stm_aborts;
+
+#endif /* defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING) */
+
+#if defined(THROUGHPUT_PROFILING)
+
+throughputProfilingData_t *__throughputProfilingData = NULL;
+
+
+void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uint64_t newLength) {
+	double *newPtr;
+	int r = posix_memalign((void**)&newPtr, __CACHE_ALIGNMENT__, newLength*sizeof(double));
+	if ( r ) {
+		perror("posix_memalign");
+		fprintf(stderr, "error: increaseThroughputSamplesSize failed to increase throughputSamples array!\n");
+		exit(EXIT_FAILURE);
+	}
+	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(double));
+	free(*ptr);
+	*ptr = newPtr;
+	*oldLength = newLength;
+}
+#endif /* THROUGHPUT_PROFILING */
+
+#endif /* MAIN_FUNCTION_FILE */

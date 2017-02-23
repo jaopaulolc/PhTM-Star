@@ -59,6 +59,7 @@
 
 #if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 #include <locale.h>
+extern __thread long __txId__;
 #ifdef COMMIT_RATE_PROFILING
 #define TM_STARTUP(numThread)       msrInitialize(); \
 																		pmuStartup(NUMBER_OF_TRANSACTIONS); \
@@ -66,8 +67,10 @@
 																		coreSTM_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
 																		stm_init(); \
                                     mod_mem_init(0);
+
 extern unsigned int **coreSTM_commits;
 extern unsigned int **coreSTM_aborts;
+
 #define TM_SHUTDOWN()								setlocale(LC_ALL, ""); \
 		int __numThreads__  = thread_getNumThread(); \
 		int nfixedCounters  = pmuNumberOfFixedCounters(); \
@@ -114,14 +117,12 @@ extern unsigned int **coreSTM_aborts;
 																		} \
 																		stm_exit_thread()
 
-int __TX_COUNT__;
-
-#define TM_BEGIN()									__TX_COUNT__ = __COUNTER__; \
-																		pmuStartCounting(__threadId__, __TX_COUNT__); \
-																		TM_START(0, __TX_COUNT__)
-#define TM_BEGIN_RO()               __TX_COUNT__ = __COUNTER__; \
-																		pmuStartCounting(__threadId__, __TX_COUNT__); \
-																		TM_START(1, __TX_COUNT__)
+#define TM_BEGIN()									__txId__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __txId__); \
+																		TM_START(0, __txId__)
+#define TM_BEGIN_RO()               __txId__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __txId__); \
+																		TM_START(1, __txId__)
 #define TM_END()                    stm_commit(); \
 																		pmuStopCounting(__threadId__)
 #endif /* COMMIT_RATE_PROFILING */
@@ -134,9 +135,11 @@ int __TX_COUNT__;
 																		coreSTM_counter    = (unsigned int **)malloc(sizeof(unsigned int *)*numThread); \
 																		stm_init(); \
                                     mod_mem_init(0);
+
 extern unsigned int ***coreSTM_r_set_size;
 extern unsigned int ***coreSTM_w_set_size;
 extern unsigned int **coreSTM_counter;
+
 #define TM_SHUTDOWN() setlocale(LC_ALL, ""); \
 		{                                                         \
 			long i, __numThreads__  = thread_getNumThread();         \
@@ -179,14 +182,12 @@ extern unsigned int **coreSTM_counter;
 																		} \
 																		stm_exit_thread()
 
-int __TX_COUNT__;
-
-#define TM_BEGIN()									__TX_COUNT__ = __COUNTER__; \
-																		pmuStartCounting(__threadId__, __TX_COUNT__); \
-																		TM_START(0, __TX_COUNT__)
-#define TM_BEGIN_RO()               __TX_COUNT__ = __COUNTER__; \
-																		pmuStartCounting(__threadId__, __TX_COUNT__); \
-																		TM_START(1, __TX_COUNT__)
+#define TM_BEGIN()									__txId__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __txId__); \
+																		TM_START(0, __txId__)
+#define TM_BEGIN_RO()               __txId__ = __COUNTER__; \
+																		pmuStartCounting(__threadId__, __txId__); \
+																		TM_START(1, __txId__)
 #define TM_END()                    stm_commit(); \
 																		pmuStopCounting(__threadId__)
 
@@ -243,3 +244,16 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 
 #endif /* TM_H */
 
+#ifdef MAIN_FUNCTION_FILE
+#if defined(COMMIT_RATE_PROFILING)
+__thread long __txId__;
+unsigned int **coreSTM_commits;
+unsigned int **coreSTM_aborts;
+#elif defined(RW_SET_PROFILING)
+__thread long __txId__;
+unsigned int ***coreSTM_r_set_size;
+unsigned int ***coreSTM_w_set_size;
+unsigned int **coreSTM_counter;
+#else
+#endif
+#endif /* MAIN_FUNCTION_FILE */

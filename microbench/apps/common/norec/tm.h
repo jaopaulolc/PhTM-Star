@@ -18,30 +18,30 @@
 #define TM_ARGDECL                    /* nothing */
 #define TM_ARGDECL_ALONE              /* nothing */
 
-extern __thread long __txId__;
-static uint32_t **__stm_commits;
-static uint32_t **__stm_aborts;
+extern __thread uint64_t __txId__;
+static uint64_t **__stm_commits;
+static uint64_t **__stm_aborts;
 
-extern void norecInitThreadCommits(uint32_t* addr);
-extern void norecInitThreadAborts(uint32_t* addr);
+extern void norecInitThreadCommits(uint64_t* addr);
+extern void norecInitThreadAborts(uint64_t* addr);
 
 #define TM_INIT(nThreads)	            stm::sys_init(NULL); \
-										__stm_commits = (uint32_t **)malloc(sizeof(uint32_t *)*nThreads); \
-								    __stm_aborts  = (uint32_t **)malloc(sizeof(uint32_t *)*nThreads); \
+										__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
+								    __stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
 										{ \
-											int i; \
+											uint64_t i; \
 											for (i=0; i < nThreads; i++) { \
-												__stm_commits[i] = (uint32_t*)malloc(sizeof(uint32_t)*NUMBER_OF_TRANSACTIONS); \
-												__stm_aborts[i]  = (uint32_t*)malloc(sizeof(uint32_t)*NUMBER_OF_TRANSACTIONS); \
+												__stm_commits[i] = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
+												__stm_aborts[i]  = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
 											} \
 										}
 
 #define TM_EXIT(nThreads)             stm::sys_shutdown(); \
 								{ \
 										uint64_t starts = 0, aborts = 0, commits = 0;                                   \
-										long ii;                                                                        \
+										uint64_t ii;                                                                        \
 										for(ii=0; ii < nThreads; ii++){                                                 \
-											long i;                                                                       \
+											uint64_t i;                                                                       \
 											for(i=0; i < NUMBER_OF_TRANSACTIONS; i++){                                    \
 												aborts  += __stm_aborts[ii][i];                                             \
 												commits += __stm_commits[ii][i];                                            \

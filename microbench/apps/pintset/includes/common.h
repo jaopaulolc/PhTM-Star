@@ -12,6 +12,20 @@
 #define CACHE_LINE_SIZE  64
 #endif /* Haswell*/
 
+#ifndef __ALIGN__
+
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#define __CACHE_ALIGNMENT__ 0x10000
+#endif
+
+#if defined(__x86_64__) || defined(__i386)
+#define __CACHE_ALIGNMENT__ 0x1000
+#endif
+
+#define __ALIGN__ __attribute__ ((aligned (__CACHE_ALIGNMENT__)))
+
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,8 +61,11 @@ typedef struct phase_data {
   unsigned long nb_remove;
   unsigned long nb_contains;
   unsigned long nb_found;
+	uint64_t sampleCount;
+	uint64_t maxSamples;
+	double *throughputSamples;
   char padding[CACHE_LINE_SIZE];
-} phase_data_t;
+} __ALIGN__ phase_data_t;
 
 typedef struct thread_data {
 	long threadId;
@@ -57,7 +74,7 @@ typedef struct thread_data {
 	int nb_phases;
 	phase_data_t* phases;
   char padding[CACHE_LINE_SIZE];
-} thread_data_t;
+} __ALIGN__ thread_data_t;
 
 
 #define RO                              1
