@@ -9,7 +9,6 @@
 #define atomicWrite(addr, value) __atomic_store_n(addr, value, __ATOMIC_SEQ_CST)
 #define boolCAS(addr, expected, new)  __atomic_compare_exchange_n(addr, expected, new, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
-inline
 uint64_t
 getMode(){
 	modeIndicator_t indicator;
@@ -17,56 +16,56 @@ getMode(){
 	return indicator.mode;
 }
 
-inline static
+inline
 modeIndicator_t
 setMode(modeIndicator_t indicator, uint64_t mode){
 	indicator.mode = mode;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 setUndeferredCount(modeIndicator_t indicator, uint64_t undeferredCount){
 	indicator.undeferredCount = undeferredCount;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 setDeferredCount(modeIndicator_t indicator, uint64_t deferredCount){
 	indicator.deferredCount = deferredCount;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 incUndeferredCount(modeIndicator_t indicator){
 	indicator.undeferredCount++;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 decUndeferredCount(modeIndicator_t indicator){
 	indicator.undeferredCount--;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 incDeferredCount(modeIndicator_t indicator){
 	indicator.deferredCount++;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 decDeferredCount(modeIndicator_t indicator){
 	indicator.deferredCount--;
 	return indicator;
 }
 
-inline static
+inline
 modeIndicator_t
 atomicReadModeIndicator(){
 	modeIndicator_t indicator;
@@ -74,7 +73,7 @@ atomicReadModeIndicator(){
 	return indicator;
 }
 
-inline static
+inline
 void
 atomicIncUndeferredCount(){
 	bool success;
@@ -85,7 +84,7 @@ atomicIncUndeferredCount(){
 	} while (!success);
 }
 
-inline static
+inline
 void
 atomicDecUndeferredCount(){
 	bool success;
@@ -96,14 +95,14 @@ atomicDecUndeferredCount(){
 	} while (!success);
 }
 
-inline static
+inline
 bool
 isModeSW(){
 	modeIndicator_t indicator = atomicReadModeIndicator();
 	return (indicator.mode == SW || indicator.deferredCount != 0);
 }
 
-inline static
+inline
 bool
 isModeGLOCK(){
 	modeIndicator_t indicator = atomicReadModeIndicator();

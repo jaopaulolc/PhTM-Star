@@ -21,20 +21,20 @@ volatile modeIndicator_t modeIndicator	__ALIGN__ = {
 																};
 volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
-static __thread long __tx_tid __ALIGN__;
-static __thread long htm_retries __ALIGN__;
-static __thread uint32_t abort_reason __ALIGN__ = 0;
+__thread long __tx_tid __ALIGN__;
+__thread long htm_retries __ALIGN__;
+__thread uint32_t abort_reason __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
-static __thread uint32_t previous_abort_reason __ALIGN__;
-static __thread bool htm_global_lock_is_mine __ALIGN__ = false;
-static __thread bool isCapacityAbortPersistent __ALIGN__;
-static __thread uint32_t abort_rate __ALIGN__ = 0;
+__thread uint32_t previous_abort_reason __ALIGN__;
+__thread bool htm_global_lock_is_mine __ALIGN__ = false;
+__thread bool isCapacityAbortPersistent __ALIGN__;
+__thread uint32_t abort_rate __ALIGN__ = 0;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
-static __thread long max_stm_runs __ALIGN__ = 100;
-static __thread long num_stm_runs __ALIGN__;
-static __thread uint64_t t0 __ALIGN__ = 0;
-static __thread uint64_t sum_cycles __ALIGN__ = 0;
+__thread long max_stm_runs __ALIGN__ = 100;
+__thread long num_stm_runs __ALIGN__;
+__thread uint64_t t0 __ALIGN__ = 0;
+__thread uint64_t sum_cycles __ALIGN__ = 0;
 #define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
 static long goToGLOCK __ALIGN__ = 1;
 
@@ -69,7 +69,6 @@ static inline uint64_t getCycles()
 #include <utils.h>
 #include <phase_profiling.h>
 
-static
 int
 changeMode(uint64_t newMode) {
 	
@@ -134,7 +133,7 @@ changeMode(uint64_t newMode) {
 }
 
 #if DESIGN == OPTIMIZED
-static inline
+inline
 void
 unlockMode(){
 	bool success;
@@ -147,8 +146,6 @@ unlockMode(){
 }
 #endif /* DESIGN == OPTIMIZED */
 
-
-inline
 bool
 HTM_Start_Tx() {
 
@@ -245,7 +242,6 @@ HTM_Start_Tx() {
 	}
 }
 
-inline
 void
 HTM_Commit_Tx() {
 

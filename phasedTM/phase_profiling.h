@@ -29,7 +29,7 @@ uint64_t getTime(){
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
 }
 
-inline static
+inline
 void updateTransitionProfilingData(uint64_t mode){
 	uint64_t now = getTime();
 	if(mode == SW){
@@ -62,7 +62,7 @@ void phase_profiling_init(){
 	memset(trans_labels, 0, sizeof(trans_label_t)*MAX_TRANS);
 }
 
-inline static
+inline
 void phase_profiling_start(){
 	if(started == 0){
 		started = 1;
