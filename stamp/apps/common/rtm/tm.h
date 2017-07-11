@@ -135,7 +135,7 @@ typedef struct throughputProfilingData_ {
 #elif defined(KMEANS)
 #define INIT_SAMPLE_STEP 2000
 #elif defined(LABYRINTH)
-#define INIT_SAMPLE_STEP 10
+#define INIT_SAMPLE_STEP 5
 #elif defined(SSCA2)
 #define INIT_SAMPLE_STEP 5000
 #elif defined(VACATION)
