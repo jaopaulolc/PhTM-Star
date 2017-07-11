@@ -45,7 +45,13 @@ function getNormVal {
 	local app=${tokens[0]}
 	local build=${tokens[1]}
 
-	arch=x86_64 # TODO: detect arch
+	if [[ "$2" =~ "rtm" || "$2" =~ "x64_64" ]]; then
+		arch=x86_64
+	elif [[ "$2" =~ "powerTM" || "$2" =~ "ppc64le" ]]; then
+		arch=ppc64le
+	else
+		echo 'error: unknown arch!' && exit -1
+	fi
 	
 	case $prefix in
 		intset_* | pintset)
@@ -68,7 +74,13 @@ function getNormVal {
 
 function genDataFile {
 
-	for	datafile in ${DATA_FILES}; do
+	local DATAFILES="$1"
+	local PREFIXES="$2"
+	local HEADER="$3"
+	local ROWS="$4"
+	local COLS="$5"
+
+	for	datafile in ${DATAFILES}; do
 		case $datafile in
 			speedup)
 				local datafileregex='^Time[ ]\+= '
@@ -127,24 +139,28 @@ function genDataFile {
 				local normtype=3 ;;
 		esac
 		
-
 		for prefix in ${PREFIXES}; do
 			case $prefix in
-				intset_* | pintset)
-					SUFFIXES="$INTSET_SUFFIXES" ;;
+				intset_*)
+					local SUFFIXES="$INTSET_SUFFIXES" ;;
+				pintset)
+					local SUFFIXES="$PINTSET_SUFFIXES" ;;
+				hintset)
+					local SUFFIXES="$HINTSET_SUFFIXES" ;;
 				conflict* | capacity*)
-					SUFFIXES="$CONFLICT_SUFFIXES" ;;
+					local SUFFIXES="$CONFLICT_SUFFIXES" ;;
 				phased*)
-					SUFFIXES="$PHASED_SUFFIXES" ;;
+					local SUFFIXES="$PHASED_SUFFIXES" ;;
 			esac
 			for suffix in ${SUFFIXES}; do
 				local datafilename=$DATADIR/${prefix}${suffix}.$datafile
 				echo -n "generating '$datafilename'..."
 				echo "$HEADER" > $datafilename
-				for row in ${_ROWS}; do
+				for row in ${ROWS}; do
 					echo -n "$row " >> $datafilename
-					for column in ${COLUMNS}; do
+					for column in ${COLS}; do
 						local logfilename="$LOGDIR/${prefix}${column}$(sed 's|@|'$row'|' <<<$suffix).log"
+						[[ ! -e $logfilename ]] && echo -n "1 0 " >> $datafilename && continue
 						[[ $hasNormVal != 0 ]] && \
 							local normval="$(getNormVal "$datafileregex" ${prefix}${column}${suffix} | awk '{print $1}')"
 						grep -e "$datafileregex" $logfilename | awk "$colawkregex" | \
@@ -215,11 +231,11 @@ function genDataFile {
 
 function generate_data {
 
-	DATA_FILES="$1"
+	local DATAFILES="$1"
 	local APPS=${2}
-	_APPS=${!APPS}
+	local _APPS=${!APPS}
 	local ROWS=${3}
-	_ROWS=${!3}
+	local _ROWS=${!3}
 
 	[ -d $DATADIR ] || mkdir $DATADIR
 	
@@ -240,7 +256,7 @@ function generate_data {
 				tinystm_*)
 					TMP="$TMP $(cross_product $build "$_tinySTM_DESIGNS" "$_tinySTM_CMS" "$_ORT_HASHES")" ;;
 				phasedTM_*)
-					local b="$(cross_product ${build} "${_PHASEDTM_DESIGNS}" "${_MAX_CAPACITY_ABORTS}")"
+					local b="$(cross_product ${build} "${_PHASEDTM_DESIGNS}")"
 					for stm in ${_PHASEDTM_STMS}; do
 						case $stm in
 							tinystm)
@@ -271,18 +287,18 @@ function generate_data {
 		esac
 	fi
 
-	local columns="_${_COLUMN}"
-	HEADER=''
-	COLUMNS=''
-	for column in ${!columns}; do
-		COLUMNS="${COLUMNS} -$column"
+	local cols="_${_COLUMN}"
+	local HEADER=''
+	local COLS=''
+	for column in ${!cols}; do
+		COLS="${COLS} -$column"
 		h="$(echo $column | sed 's|^|"|;s|$|"|;s|-| |g;s|_| |g')"
 		HEADER="${HEADER}$h $h "
 	done
 	HEADER="- ${HEADER}"
 	
 	local i=0
-	PREFIXES="${_APPS}"
+	local PREFIXES="${_APPS}"
 	while [ ! -z "${AUX[$i]}" -a "_$_COLUMN" != "${AUX[$i]}" ]; do
 		PREFIXES="$(cross_product "${PREFIXES}" "${!AUX[$i]}")"
 		i=$((i+1))
@@ -306,6 +322,8 @@ function generate_data {
 		INTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_INITSIZES" "$_UPDATERATES" "$_NTHREADS")"
 		CONFLICT_SUFFIXES="$(cross_product "${SUFFIXES}" "$_UPDATERATES" "$_NTHREADS")"
 		PHASED_SUFFIXES="$(cross_product "${SUFFIXES}" "$_NTHREADS")"
+		PINTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_PHASECONFIGS" "$_NTHREADS")"
+		HINTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_INITSIZES" "$_NTHREADS")"
 	else
 		SUFFIXES="$(cross_product "${SUFFIXES}" '@')"
 	fi
@@ -313,5 +331,5 @@ function generate_data {
 	# restore _BUILDS variable
 	_BUILDS="$BUILDS_BACKUP"
 	
-	genDataFile
+	genDataFile "${DATAFILES}" "${PREFIXES}" "$HEADER" "${_ROWS}" "${COLS}"
 }
