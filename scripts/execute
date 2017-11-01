@@ -208,7 +208,7 @@ function execute {
 			powerTM)
 				SUFFIXES="$(cross_product $build "simple_lock")"
 				;;
-			norec | rh_norec | hytm_norec_eager | hytm_norec_lazy)
+			norec | rh_norec | hytm_norec_eager | hytm_norec_lazy | hyco)
 				SUFFIXES="${build}_$(uname -m)"
 				;;
 			*)

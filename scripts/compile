@@ -285,7 +285,7 @@ function compile {
 			phasedTM)
 				compile_with_phasedTM
 				;;
-			norec | rh_norec)
+			norec | rh_norec | hyco)
 				compile_with_norec
 				;;
 			hytm_norec_eager)
