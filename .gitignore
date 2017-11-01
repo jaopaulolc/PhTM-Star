@@ -3,3 +3,4 @@
 results
 *.tgz
 *.tbz2
+.tags/*

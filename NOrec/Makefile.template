@@ -7,6 +7,7 @@ ARCH = $(shell uname -m)
 SRCS = algs.cpp \
 			 cbr.cpp \
 			 hytm-norec.cpp \
+			 hybrid-cohorts.cpp \
 			 inst.cpp \
 			 irrevocability.cpp \
 			 policies.cpp \

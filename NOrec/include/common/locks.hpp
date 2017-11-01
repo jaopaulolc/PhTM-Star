@@ -19,6 +19,8 @@
 
 #include <common/platform.hpp>
 
+#define SCALAR_TICKET_LOCK_T_INITILIAZER {0,0}
+
 /**
  *  Tune backoff parameters
  *

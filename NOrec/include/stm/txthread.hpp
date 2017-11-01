@@ -35,6 +35,11 @@ namespace htm {
 
 } // namespace htm
 
+namespace HyCo {
+
+	bool TxBeginHTx();
+	void TxCommitHTx();
+} // namespace HyCo
 
 namespace stm
 {
@@ -64,6 +69,12 @@ namespace stm
 			bool is_rh_prefix_active;
 			uint64_t htm_retries;
 			uint64_t slow_retries;
+
+			/*** Hybrid Cohorts fields ***/
+			uint32_t tx_state; // state of thread's transaction
+			uint64_t my_order; // commit order of this transaction if it is in STx
+			                   // mode and using serial commit (SC)
+			uint32_t failed_validations;
 
 			/*** HyTM-NOrec fields ***/
 			uintptr_t hw_commit_counter;

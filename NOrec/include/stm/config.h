@@ -73,6 +73,7 @@
 
 // Configured options
 /* #undef STM_PROTECT_STACK */
+#define STM_PROTECT_STACK
 /* #undef STM_ABORT_ON_THROW */
 
 #endif // RSTM_STM_INCLUDE_CONFIG_H

@@ -48,6 +48,8 @@ namespace stm
       NOrec,     NOrecHour,     NOrecBackoff,     NOrecHB,
 			// HyTM-NOrec
       HyTM_NOrec, HyTM_NOrecHour, HyTM_NOrecBackoff, HyTM_NOrecHB,
+			// Hybrid Cohorts
+      HyCo, HyCoHour, HyCoBackoff, HyCoHB,
 			// RH-NOrec
 			RH_NOrec,
       // ProfileTM support.  These are not true STMs

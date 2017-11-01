@@ -24,7 +24,7 @@ namespace
   }
 }
 
-pad_word_t stm::trans_nums[MAX_THREADS] = {{0}};
+pad_word_t stm::trans_nums[MAX_THREADS] = VECTOR_PAD_WORD_INITIALIZER;
 
 
 void WBMMPolicy::handle_full_prelimbo()

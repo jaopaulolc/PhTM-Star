@@ -53,7 +53,7 @@ namespace
 namespace stm
 {
   /*** BACKING FOR GLOBAL VARS DECLARED IN TXTHREAD.HPP */
-  pad_word_t threadcount          = {0}; // thread count
+  pad_word_t threadcount          = SCALAR_PAD_WORD_INITIALIZER; // thread count
   TxThread*  threads[MAX_THREADS] = {0}; // all TxThreads
   THREAD_LOCAL_DECL_TYPE(TxThread*) Self; // this thread's TxThread
 
@@ -65,6 +65,8 @@ namespace stm
 			:	tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
 				xbegin_status(0), tx_version(0), is_rh_active(false),
 				is_rh_prefix_active(false), slow_retries(0),
+				// Hybrid Cohorts
+				tx_state(0), my_order(0), failed_validations(0),
 				// HyTM-NOrec fields
 				hw_commit_counter(0),
       	nesting_depth(0),
@@ -358,6 +360,7 @@ namespace stm
 					initTM<RH_NOrec>();
 #endif /* __x86_64__ */
 					initTM<HyTM_NOrec>();
+					initTM<HyCo>();
 
           // guess a default configuration, then check env for a better option
           const char* cfg = "NOrec";

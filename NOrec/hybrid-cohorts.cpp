@@ -1,0 +1,481 @@
+/**
+ *  Copyright (C) 2011
+ *  University of Rochester Department of Computer Science
+ *    and
+ *  Lehigh University Department of Computer Science and Engineering
+ *
+ * License: Modified BSD
+ *          Please see the file LICENSE.RSTM for licensing information
+ */
+
+/**
+ *  NOrec Implementation
+ *
+ *    This STM was published by Dalessandro et al. at PPoPP 2010.  The
+ *    algorithm uses a single sequence lock, along with value-based validation,
+ *    for concurrency control.  This variant offers semantics at least as
+ *    strong as Asymmetric Lock Atomicity (ALA).
+ */
+
+#include <stdint.h>
+#include <cm.hpp>
+#include <algs/algs.hpp>
+#include <RedoRAWUtils.hpp>
+#include <stm/metadata.hpp>
+#include <htm.h>
+
+// Don't just import everything from stm. This helps us find bugs.
+using stm::TxThread;
+using stm::timestamp;
+using stm::WriteSetEntry;
+using stm::ValueList;
+using stm::ValueListEntry;
+
+enum { NON_TX=0, SERIAL, HW, SW, } ;
+
+#define atomicRead(addr) __atomic_load_n(addr, __ATOMIC_SEQ_CST)
+#define atomicInc(addr) __atomic_fetch_add(addr, 1, __ATOMIC_SEQ_CST)
+#define atomicDec(addr) __atomic_fetch_add(addr, -1, __ATOMIC_SEQ_CST)
+#define atomicWrite(addr, value) __atomic_store_n(addr, value, __ATOMIC_SEQ_CST)
+#define boolCAS(addr, expected, new)  __atomic_compare_exchange_n(addr, expected, new, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+
+#define UNUSED __attribute__((unused))
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
+static const uint64_t TRUE = 1UL; // used with boolCAS
+static const uint64_t FALSE = 0UL; // used with boolCAS
+
+static volatile uint64_t started __ALIGN__ = 0; // Count of current active STx transactions
+// Flag to allow Serial Transaction to force immediate HTx aborts
+static volatile uint64_t ser_kill __ALIGN__ = 0;
+// Flag to allow STx in SC mode to force immediate HTx aborts
+static volatile uint64_t stx_kill __ALIGN__ = 0;
+// Indicate that all STx are ready to commit
+static volatile uint64_t stx_comm __ALIGN__ = 0;
+static volatile uint64_t cpending __ALIGN__ = 0; // Count of STx that are in the CP state
+// Counter for ordering any STx that require SC mode to commit
+static volatile uint64_t order __ALIGN__ = 0;
+static volatile uint64_t hyco_time __ALIGN__ = 0; // Second counter dor STx that require SC mode to commit
+// Token for granting a transaction permission to run in Serial mode
+static volatile uint64_t serial __ALIGN__ = 0;
+
+static const uint32_t HTM_MAX_RETRIES __ALIGN__ = 20;
+static const uint32_t HC_MAX_RETRIES __ALIGN__ = 2;
+static const uint32_t MAX_FAILED_VALIDATIONS = 5;
+static __thread uint32_t htm_retries __ALIGN__ = 0;
+static __thread uint32_t hc_retries __ALIGN__ = 0; // hardware-assisted commit tries
+
+namespace HyCo {
+	
+	bool
+	TxBeginHTx()
+	{
+		while(1){
+			TxThread* tx = (TxThread*)stm::Self;
+			tx->tx_state = HW;
+			uint32_t status = htm_begin();
+			if(htm_has_started(status)) {
+				if (ser_kill || stx_kill) {
+					htm_abort();
+				}
+				return true;
+			}
+			tx->tx_state = NON_TX;
+			while (atomicRead(&ser_kill) || atomicRead(&stx_kill));
+
+			htm_retries++;
+			if(htm_retries >= HTM_MAX_RETRIES) {
+				htm_retries = 0;
+				// restart in SW mode
+				return false;
+			}
+		}
+	}
+
+	void
+	TxCommitHTx()
+	{
+		if ( stx_comm || (started == 0) ) {
+			htm_end();
+			CFENCE;
+			TxThread* tx = (TxThread*)stm::Self;
+			tx->tx_state = NON_TX;
+			return;
+		}
+		htm_abort();
+	}
+
+}
+
+namespace {
+
+  const uintptr_t VALIDATION_FAILED = 1;
+  const uintptr_t VALIDATION_PASSED = 0;
+  NOINLINE uintptr_t validate(TxThread*);
+  bool irrevoc(STM_IRREVOC_SIG(,));
+  void onSwitchTo();
+
+  template <class CM>
+  struct HyCo_Generic
+  {
+      static TM_FASTCALL bool begin(TxThread*);
+      static TM_FASTCALL void commit(STM_COMMIT_SIG(,));
+      static TM_FASTCALL void commit_ro(STM_COMMIT_SIG(,));
+      static TM_FASTCALL void commit_rw(STM_COMMIT_SIG(,));
+      static TM_FASTCALL void* read_ro(STM_READ_SIG(,,));
+      static TM_FASTCALL void* read_rw(STM_READ_SIG(,,));
+      static TM_FASTCALL void write_ro(STM_WRITE_SIG(,,,));
+      static TM_FASTCALL void write_rw(STM_WRITE_SIG(,,,));
+      static stm::scope_t* rollback(STM_ROLLBACK_SIG(,,,));
+      static void initialize(int id, const char* name);
+			static TM_FASTCALL bool TxBeginSerial();
+			static TM_FASTCALL void TxCommitSerial(STM_COMMIT_SIG(, UNUSED));
+			static TM_FASTCALL void* SerialTxRead(STM_READ_SIG(,,));
+			static TM_FASTCALL void SerialTxWrite(STM_WRITE_SIG(,,,));
+
+  };
+
+  uintptr_t
+  validate(TxThread* tx)
+  {
+			bool valid = true;
+      foreach (ValueList, i, tx->vlist)
+				valid &= i->isValid();
+
+      if (!valid)
+				return VALIDATION_FAILED;
+			return VALIDATION_PASSED;
+  }
+
+  bool
+  irrevoc(STM_IRREVOC_SIG(tx,upper_stack_bound))
+  {
+		fprintf(stderr, "HyCo: irrevoc not implemented yet!\n");
+		exit(EXIT_FAILURE);
+		return false;
+  }
+
+  void
+  onSwitchTo() {
+  }
+	
+  template <typename CM>
+  void
+  HyCo_Generic<CM>::initialize(int id, const char* name)
+  {
+      // set the name
+      stm::stms[id].name = name;
+
+      // set the pointers
+      stm::stms[id].begin     = HyCo_Generic<CM>::begin;
+      stm::stms[id].commit    = HyCo_Generic<CM>::commit_ro;
+      stm::stms[id].read      = HyCo_Generic<CM>::read_ro;
+      stm::stms[id].write     = HyCo_Generic<CM>::write_ro;
+      stm::stms[id].irrevoc   = irrevoc;
+      stm::stms[id].switcher  = onSwitchTo;
+      stm::stms[id].privatization_safe = true;
+      stm::stms[id].rollback  = HyCo_Generic<CM>::rollback;
+  }
+
+	template <class CM>
+	bool
+	HyCo_Generic<CM>::TxBeginSerial()
+	{
+			bool success;
+			do {
+				uint64_t expected;
+				expected = FALSE;
+				success = boolCAS(&serial, &expected, TRUE);
+			} while ( !success );
+			CFENCE;
+			TxThread* tx = (TxThread*)stm::Self;
+			tx->tx_state = SERIAL;
+			// wait for commiting STx
+			while ( atomicRead(&started) > 0 );
+			// Optional: allow HTx to complete
+			// uint64_t i, nthreads = stm::threadcount;
+			// for (i = 0; i < nthreads; i++) {
+			//   if (threads[i] != tx) {
+			//     while(threads[i]->tx_state != NON_TX);
+			//   }
+			// }
+			// Interrupt remaining HTx
+			atomicWrite(&ser_kill, TRUE);
+			CFENCE;
+			return true;
+	}
+
+	template <class CM>
+	void
+	HyCo_Generic<CM>::TxCommitSerial(STM_COMMIT_SIG(tx,upper_stack_bound))
+	{
+		atomicWrite(&ser_kill, FALSE);
+		atomicWrite(&serial, FALSE);
+		CFENCE;
+		tx->tx_state = NON_TX;
+		tx->tmread = read_ro;
+		tx->tmwrite = write_ro;
+    tx->tmcommit = commit_ro;
+		tx->failed_validations = 0;
+	}
+  
+	template <class CM>
+  void*
+  HyCo_Generic<CM>::SerialTxRead(STM_READ_SIG(tx,addr,mask))
+	{
+		return *addr;
+	}
+	
+	template <class CM>
+	void
+  HyCo_Generic<CM>::SerialTxWrite(STM_WRITE_SIG(tx,addr,val,mask))
+	{
+		*addr = val;
+	}
+
+  template <class CM>
+  bool
+  HyCo_Generic<CM>::begin(TxThread* tx)
+  {
+			if ( unlikely(tx->failed_validations >= MAX_FAILED_VALIDATIONS) ) {
+				tx->tmread = HyCo_Generic<CM>::SerialTxRead;
+				tx->tmwrite = HyCo_Generic<CM>::SerialTxWrite;
+				tx->tmcommit = HyCo_Generic<CM>::TxCommitSerial;
+				return HyCo_Generic<CM>::TxBeginSerial();
+			}
+
+			//while(1) {
+RETRY:
+				while ( atomicRead(&serial) || atomicRead(&cpending) );
+				atomicInc(&started);
+				CFENCE;
+				if ( atomicRead(&serial) || atomicRead(&cpending) ) {
+					atomicDec(&started);
+					CFENCE;
+					goto RETRY;
+				}
+			//}
+			tx->tx_state = SW;
+			// Lazy cleanup of STx-SC flag
+			//if (atomicRead(&stx_comm)) atomicWrite(&stx_comm, FALSE);
+			{
+				uint64_t expected;
+				expected = TRUE;
+				boolCAS(&stx_comm, &expected, FALSE);
+			}
+
+     	// notify the allocator
+     	tx->allocator.onTxBegin();
+
+     	// notify CM
+     	CM::onBegin(tx);
+
+     	return false;
+  }
+
+  template <class CM>
+  void
+  HyCo_Generic<CM>::commit(STM_COMMIT_SIG(tx,upper_stack_bound))
+  {
+		fprintf(stderr, "HyCo: commit not implemented yet!\n");
+		exit(EXIT_FAILURE);
+		return;
+  }
+
+  template <class CM>
+  void
+  HyCo_Generic<CM>::commit_ro(STM_COMMIT_SIG(tx,))
+  {
+			atomicDec(&started);
+			// Since all reads were consistent, and no writes were done, the
+			// read-only transaction just resets itself and is done.
+      CM::onCommit(tx);
+			
+			tx->vlist.reset(); // reads <- 0
+      OnReadOnlyCommit(tx);
+  }
+
+  template <class CM>
+  void
+  HyCo_Generic<CM>::commit_rw(STM_COMMIT_SIG(tx,upper_stack_bound))
+  {
+
+			// Wait until all STx ready to commit
+			atomicInc(&cpending);
+			while ( atomicRead(&cpending) < atomicRead(&started) );
+			if ( hc_retries < HC_MAX_RETRIES ) {
+				hc_retries++;
+				// STx will try to commit via HTM
+				//if ( !atomicRead(&stx_comm) ) atomicWrite(&stx_comm, TRUE);
+				{
+					uint64_t expected;
+					expected = FALSE;
+					boolCAS(&stx_comm, &expected, TRUE);
+				}
+				uint32_t status = htm_begin();
+				if (htm_has_started(status)) {
+					if ( validate(tx) == VALIDATION_PASSED ) {
+						tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
+						htm_end();
+						atomicDec(&started);
+						atomicDec(&cpending);
+   		   		// notify CM
+   		   		CM::onCommit(tx);
+   	 	  		tx->vlist.reset();
+   	 	  		tx->writes.reset();
+      			// This switches the thread back to RO mode.
+      			OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
+						hc_retries = 0;
+						tx->failed_validations = 0;
+						return;
+					} else htm_abort();
+				} else {
+					atomicDec(&started);
+					atomicDec(&cpending);
+					CFENCE;
+					tx->tx_state = NON_TX;
+					tx->tmabort(tx);
+				}
+			}
+			// STx couldn't commit via HTM. Use serialized commit
+			tx->my_order = atomicInc(&order);
+			if (tx->my_order == 0) {
+				while (atomicRead(&order) < atomicRead(&started));
+				// Optional: allow HTx to complete
+				// uint64_t i, nthreads = stm::threadcount;
+				// for (i = 0; i < nthreads; i++) {
+				//   if (threads[i] != tx) {
+				//     while(threads[i]->tx_state == HW);
+				//   }
+				// }
+				// Interrupt remaining HTx
+				atomicWrite(&stx_kill, TRUE);
+			} else {
+				while (atomicRead(&hyco_time) != tx->my_order);
+			}
+
+			bool failed = false;
+			if ( validate(tx) == VALIDATION_PASSED ) {
+				tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
+			} else {
+				failed = true;
+				tx->failed_validations++;
+			}	
+			atomicInc(&hyco_time);
+			uint64_t old = atomicDec(&started);
+			if (old == 1 || atomicRead(&cpending) == 1) {
+				atomicWrite(&stx_kill, FALSE);
+			  atomicWrite(&order, 0);
+				atomicWrite(&hyco_time, 0);
+			}
+			atomicDec(&cpending);
+			CFENCE;
+			tx->tx_state = NON_TX;
+			if ( failed ) {
+				tx->tmabort(tx);
+			}
+
+      // notify CM
+      CM::onCommit(tx);
+
+      tx->vlist.reset();
+      tx->writes.reset();
+
+      // This switches the thread back to RO mode.
+      OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
+			hc_retries = 0;
+			tx->failed_validations = 0;
+  }
+
+  template <class CM>
+  void*
+  HyCo_Generic<CM>::read_ro(STM_READ_SIG(tx,addr,mask))
+  {
+      // read the location to a temp
+      void* tmp = *addr;
+      CFENCE;
+
+      // log the address and value
+      tx->vlist.insert(STM_VALUE_LIST_ENTRY(addr, tmp, mask));
+      return tmp;
+  }
+
+  template <class CM>
+  void*
+  HyCo_Generic<CM>::read_rw(STM_READ_SIG(tx,addr,mask))
+  {
+      // check the log for a RAW hazard, we expect to miss
+      WriteSetEntry log(STM_WRITE_SET_ENTRY(addr, NULL, mask));
+      bool found = tx->writes.find(log);
+      REDO_RAW_CHECK(found, log, mask);
+
+      // Use the code from the read-only read barrier. This is complicated by
+      // the fact that, when we are byte logging, we may have successfully read
+      // some bytes from the write log (if we read them all then we wouldn't
+      // make it here). In this case, we need to log the mask for the rest of the
+      // bytes that we "actually" need, which is computed as bytes in mask but
+      // not in log.mask. This is only correct because we know that a failed
+      // find also reset the log.mask to 0 (that's part of the find interface).
+      void* val = read_ro(tx, addr STM_MASK(mask & ~log.mask));
+      REDO_RAW_CLEANUP(val, found, log, mask);
+      return val;
+  }
+
+  template <class CM>
+  void
+  HyCo_Generic<CM>::write_ro(STM_WRITE_SIG(tx,addr,val,mask))
+  {
+      // buffer the write, and switch to a writing context
+      tx->writes.insert(WriteSetEntry(STM_WRITE_SET_ENTRY(addr, val, mask)));
+      OnFirstWrite(tx, read_rw, write_rw, commit_rw);
+  }
+
+  template <class CM>
+  void
+  HyCo_Generic<CM>::write_rw(STM_WRITE_SIG(tx,addr,val,mask))
+  {
+      // just buffer the write
+      tx->writes.insert(WriteSetEntry(STM_WRITE_SET_ENTRY(addr, val, mask)));
+  }
+
+  template <class CM>
+  stm::scope_t*
+  HyCo_Generic<CM>::rollback(STM_ROLLBACK_SIG(tx, upper_stack_bound, except, len))
+  {
+      stm::PreRollback(tx);
+
+      // notify CM
+      CM::onAbort(tx);
+
+      // Perform writes to the exception object if there were any... taking the
+      // branch overhead without concern because we're not worried about
+      // rollback overheads.
+      STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
+
+      tx->vlist.reset();
+      tx->writes.reset();
+      return stm::PostRollback(tx, read_ro, write_ro, commit_ro);
+  }
+} // (anonymous namespace)
+
+// Register NOrec initializer functions. Do this as declaratively as
+// possible. Remember that they need to be in the stm:: namespace.
+#define FOREACH_NOREC(MACRO)                    \
+    MACRO(HyCo, HyperAggressiveCM)             \
+    MACRO(HyCoHour, HourglassCM)               \
+    MACRO(HyCoBackoff, BackoffCM)              \
+    MACRO(HyCoHB, HourglassBackoffCM)
+
+#define INIT_NOREC(ID, CM)                      \
+    template <>                                 \
+    void initTM<ID>() {                         \
+        HyCo_Generic<CM>::initialize(ID, #ID);     \
+    }
+
+namespace stm {
+  FOREACH_NOREC(INIT_NOREC)
+}
+
+#undef FOREACH_NOREC
+#undef INIT_NOREC
