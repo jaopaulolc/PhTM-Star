@@ -34,7 +34,7 @@ static void __init_prof_counters(long nThreads){
 }
 
 #ifdef PHASEDTM
-void __term_prof_counters(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
+void __term_prof_counters(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts){
 #else
 static void __term_prof_counters(long nThreads){
 #endif

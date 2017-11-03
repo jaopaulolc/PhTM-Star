@@ -362,7 +362,7 @@ phTM_thread_exit(void){
 }
 
 void
-phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts){
+phTM_term(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts){
 	__term_prof_counters(nThreads, nTxs, stmCommits, stmAborts);
 	phase_profiling_report();
 }

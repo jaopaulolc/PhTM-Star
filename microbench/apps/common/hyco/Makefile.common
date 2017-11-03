@@ -1,8 +1,8 @@
-# TMBUILD = hytm_norec_(eager|lazy)
+# TMBUILD = HyCo
 # ======== Defines ========
 CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
-CPPFLAGS += -I../common/$(TMBUILD) -DHW_SW_PATHS
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DHW_SW_PATHS
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -O3
 
@@ -11,7 +11,7 @@ LDFLAGS  += -lpthread
 
 LIBDIR   ?= ../../../NOrec
 CPPFLAGS += -I../../../htm -I$(LIBDIR)/include 
-LDFLAGS  += -L$(LIBDIR) -lnorec
+LDFLAGS  += -L$(LIBDIR) -lnorec -lrt
 TMLIB    += $(LIBDIR)/libnorec.a
 
 ARCH = $(shell uname -m)

@@ -41,6 +41,10 @@ namespace HyCo {
 	void TxCommitHTx();
 } // namespace HyCo
 
+		
+void norecInitThreadCommits(uint64_t *addr);
+void norecInitThreadAborts(uint64_t *addr);
+
 namespace stm
 {
   /**

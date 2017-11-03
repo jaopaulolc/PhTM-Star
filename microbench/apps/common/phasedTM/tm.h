@@ -160,21 +160,18 @@ static unsigned int **__stm_aborts;
 #define TM_ARGDECL_ALONE              /* nothing */
 
 extern __thread long __txId__;
-static uint32_t **__stm_commits;
-static uint32_t **__stm_aborts;
-
-extern void norecInitThreadCommits(uint32_t* addr);
-extern void norecInitThreadAborts(uint32_t* addr);
+static uint64_t **__stm_commits;
+static uint64_t **__stm_aborts;
 
 #define TM_INIT(nThreads)	            stm::sys_init(NULL); \
                                       phTM_init(nThreads); \
-										__stm_commits = (uint32_t **)malloc(sizeof(uint32_t *)*nThreads); \
-								    __stm_aborts  = (uint32_t **)malloc(sizeof(uint32_t *)*nThreads); \
+										__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
+								    __stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
 										{ \
 											int i; \
 											for (i=0; i < nThreads; i++) { \
-												__stm_commits[i] = (uint32_t*)malloc(sizeof(uint32_t)*NUMBER_OF_TRANSACTIONS); \
-												__stm_aborts[i]  = (uint32_t*)malloc(sizeof(uint32_t)*NUMBER_OF_TRANSACTIONS); \
+												__stm_commits[i] = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
+												__stm_aborts[i]  = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
 											} \
 										}
 

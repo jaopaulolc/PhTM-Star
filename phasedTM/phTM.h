@@ -31,7 +31,7 @@ void
 phTM_init(long nThreads);
 
 void
-phTM_term(long nThreads, long nTxs, unsigned int **stmCommits, unsigned int **stmAborts);
+phTM_term(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts);
 
 void
 phTM_thread_init(long tid);
