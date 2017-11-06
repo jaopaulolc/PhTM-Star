@@ -26,17 +26,17 @@ CFLAGS += -DGENOME -DNUMBER_OF_TRANSACTIONS=5
 
 CFLAGS += -DLIST_NO_DUPLICATES
 
-ifdef PROFILING
-  CFLAGS += -DCHUNK_STEP1=12
+ifeq ($(TMBUILD), powerTM)
+  CFLAGS += -DCHUNK_STEP1=2
 else
-  ifeq ($(TMBUILD), powerTM)
-    CFLAGS += -DCHUNK_STEP1=2
-  else
-    ifeq ($(TMBUILD), rtm)
-      CFLAGS += -DCHUNK_STEP1=2
-    else
+  ifeq ($(TMBUILD), rtm)
+    ifdef PROFILING
       CFLAGS += -DCHUNK_STEP1=12
+    else
+      CFLAGS += -DCHUNK_STEP1=2
     endif
+  else
+    CFLAGS += -DCHUNK_STEP1=12
   endif
 endif
 
