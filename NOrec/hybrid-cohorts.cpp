@@ -203,6 +203,8 @@ namespace {
 			// Interrupt remaining HTx
 			atomicWrite(&ser_kill, TRUE);
 			CFENCE;
+     	// notify the allocator
+     	tx->allocator.onTxBegin();
 			return true;
 	}
 
@@ -214,9 +216,9 @@ namespace {
 		atomicWrite(&serial, FALSE);
 		CFENCE;
 		tx->tx_state = NON_TX;
-		tx->tmread = read_ro;
-		tx->tmwrite = write_ro;
-    tx->tmcommit = commit_ro;
+		tx->allocator.onTxCommit();
+    // This switches the thread back to RO mode.
+    OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
 		tx->failed_validations = 0;
 	}
   
@@ -245,20 +247,17 @@ namespace {
 				return HyCo_Generic<CM>::TxBeginSerial();
 			}
 
-			//while(1) {
 RETRY:
-				while ( atomicRead(&serial) || atomicRead(&cpending) );
-				atomicInc(&started);
+			while ( atomicRead(&serial) || atomicRead(&cpending) );
+			atomicInc(&started);
+			CFENCE;
+			if ( atomicRead(&serial) || atomicRead(&cpending) ) {
+				atomicDec(&started);
 				CFENCE;
-				if ( atomicRead(&serial) || atomicRead(&cpending) ) {
-					atomicDec(&started);
-					CFENCE;
-					goto RETRY;
-				}
-			//}
+				goto RETRY;
+			}
 			tx->tx_state = SW;
 			// Lazy cleanup of STx-SC flag
-			//if (atomicRead(&stx_comm)) atomicWrite(&stx_comm, FALSE);
 			{
 				uint64_t expected;
 				expected = TRUE;
@@ -307,7 +306,6 @@ RETRY:
 			if ( hc_retries < HC_MAX_RETRIES ) {
 				hc_retries++;
 				// STx will try to commit via HTM
-				//if ( !atomicRead(&stx_comm) ) atomicWrite(&stx_comm, TRUE);
 				{
 					uint64_t expected;
 					expected = FALSE;
@@ -324,10 +322,10 @@ RETRY:
    		   		CM::onCommit(tx);
    	 	  		tx->vlist.reset();
    	 	  		tx->writes.reset();
-      			// This switches the thread back to RO mode.
-      			OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
 						hc_retries = 0;
 						tx->failed_validations = 0;
+      			// This switches the thread back to RO mode.
+      			OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
 						return;
 					} else htm_abort();
 				} else {
@@ -382,10 +380,10 @@ RETRY:
       tx->vlist.reset();
       tx->writes.reset();
 
-      // This switches the thread back to RO mode.
-      OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
 			hc_retries = 0;
 			tx->failed_validations = 0;
+      // This switches the thread back to RO mode.
+      OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
   }
 
   template <class CM>
@@ -459,23 +457,23 @@ RETRY:
   }
 } // (anonymous namespace)
 
-// Register NOrec initializer functions. Do this as declaratively as
+// Register HyCo initializer functions. Do this as declaratively as
 // possible. Remember that they need to be in the stm:: namespace.
-#define FOREACH_NOREC(MACRO)                    \
+#define FOREACH_HYCO(MACRO)                    \
     MACRO(HyCo, HyperAggressiveCM)             \
     MACRO(HyCoHour, HourglassCM)               \
     MACRO(HyCoBackoff, BackoffCM)              \
     MACRO(HyCoHB, HourglassBackoffCM)
 
-#define INIT_NOREC(ID, CM)                      \
+#define INIT_HYCO(ID, CM)                      \
     template <>                                 \
     void initTM<ID>() {                         \
         HyCo_Generic<CM>::initialize(ID, #ID);     \
     }
 
 namespace stm {
-  FOREACH_NOREC(INIT_NOREC)
+  FOREACH_HYCO(INIT_HYCO)
 }
 
-#undef FOREACH_NOREC
-#undef INIT_NOREC
+#undef FOREACH_HYCO
+#undef INIT_HYCO
