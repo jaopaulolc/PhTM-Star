@@ -85,6 +85,10 @@ namespace stm
         allocator(),
         num_commits(0), num_aborts(0), num_restarts(0),
         num_ro(0), scope(NULL),
+#ifdef STM_PROTECT_STACK
+        stack_high(NULL),
+        stack_low((void**)~0x0),
+#endif
         start_time(0), tmlHasLock(false), undo_log(64), vlist(64), writes(64),
         r_orecs(64), locks(64),
         wf((filter_t*)FILTER_ALLOC(sizeof(filter_t))),

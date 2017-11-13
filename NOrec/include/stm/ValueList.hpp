@@ -48,6 +48,18 @@ namespace stm {
       }
 
       /**
+       *  When word logging, we just need to make sure that the value we logged
+       *  wasn't inside the protected stack region. We assume that the stack is
+       *  at least word-aligned.
+       */
+      bool isValidFiltered(void** stack_low, void** stack_high) const {
+          // can't be invalid on a transaction-local stack location.
+          if (addr >= stack_low && addr < stack_high)
+              return true;
+          return isValid();
+      }
+
+      /**
        *  When word logging, we can just check if the address still has the
        *  value that we read earlier.
        */
@@ -100,10 +112,29 @@ namespace stm {
        *  If this becomes a problem we can switch to a loop-when-mask != ~0x0
        *  approach.
        */
+      bool isValidFiltered(void** stack_low, void** stack_high) const {
+          // can't be invalid on a transaction-local stack location.
+          if (addr >= stack_low && addr < stack_high)
+              return true;
+          return isValid();
+      }
+
       bool isValid() const {
           return ((uintptr_t)val & mask) == ((uintptr_t)*addr & mask);
       }
   };
+
+ /**
+   *  Hide the log isValid call behind a macro to deal with the
+   *  STM_PROTECT_STACK macro.
+   */
+#if defined(STM_PROTECT_STACK)
+#define STM_LOG_VALUE_IS_VALID(log, tx) \
+      log->isValidFiltered(tx->stack_low, tx->stack_high);
+#else
+  #define STM_LOG_VALUE_IS_VALID(log, tx) \
+      log->isValid();
+#endif
 
 #if defined(STM_WS_WORDLOG) || defined(STM_USE_WORD_LOGGING_VALUELIST)
   typedef WordLoggingValueListEntry ValueListEntry;
@@ -118,6 +149,26 @@ namespace stm {
   struct ValueList : public MiniVector<ValueListEntry> {
       ValueList(const unsigned long cap) : MiniVector<ValueListEntry>(cap) {
       }
+
+#ifdef STM_PROTECT_STACK
+      /**
+       *  We override the minivector insert to track a "low water mark" for the
+       *  stack address when we're stack filtering. The alternative is to do a
+       *  range check here and avoid actually inserting values that are in the
+       *  current local stack.
+       */
+      TM_INLINE void insert(ValueListEntry data, void**& low) {
+          // we're inside the TM right now, so __builtin_frame_address is fine.
+          low = (__builtin_frame_address(0) > low) ?
+                    low : (void**)__builtin_frame_address(0);
+          MiniVector<ValueListEntry>::insert(data);
+      }
+#define STM_LOG_VALUE(tx, addr, val, mask)                      \
+      tx->vlist.insert(STM_VALUE_LIST_ENTRY(addr, val, mask), tx->stack_low);
+#else
+#define STM_LOG_VALUE(tx, addr, val, mask)                      \
+      tx->vlist.insert(STM_VALUE_LIST_ENTRY(addr, val, mask));
+#endif
   };
 }
 

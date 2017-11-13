@@ -395,7 +395,7 @@ RETRY:
       CFENCE;
 
       // log the address and value
-      tx->vlist.insert(STM_VALUE_LIST_ENTRY(addr, tmp, mask));
+      STM_LOG_VALUE(tx, addr, tmp, mask);
       return tmp;
   }
 
