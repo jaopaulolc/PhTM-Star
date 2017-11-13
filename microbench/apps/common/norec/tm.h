@@ -39,9 +39,9 @@ extern void norecInitThreadAborts(uint64_t* addr);
 #define TM_EXIT(nThreads)             stm::sys_shutdown(); \
 								{ \
 										uint64_t starts = 0, aborts = 0, commits = 0;                                   \
-										uint64_t ii;                                                                        \
+										uint64_t ii;                                                                    \
 										for(ii=0; ii < nThreads; ii++){                                                 \
-											uint64_t i;                                                                       \
+											uint64_t i;                                                                   \
 											for(i=0; i < NUMBER_OF_TRANSACTIONS; i++){                                    \
 												aborts  += __stm_aborts[ii][i];                                             \
 												commits += __stm_commits[ii][i];                                            \

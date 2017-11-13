@@ -31,6 +31,10 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
+extern __thread uint64_t __txId__;
+extern __thread uint64_t* __thread_commits;
+extern __thread uint64_t* __thread_aborts;
+
 namespace htm {
 	
 	const int HTM_MAX_RETRIES = 10;
@@ -297,6 +301,9 @@ namespace {
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
 			
+			if(__thread_commits != NULL)
+				__thread_commits[__txId__]++;
+			
 			tx->vlist.reset();
       OnReadOnlyCommit(tx);
   }
@@ -331,6 +338,9 @@ namespace {
 
       // notify CM
       CM::onCommit(tx);
+			
+			if(__thread_commits != NULL)
+				__thread_commits[__txId__]++;
 
       tx->vlist.reset();
       tx->writes.reset();
@@ -425,6 +435,9 @@ namespace {
       // branch overhead without concern because we're not worried about
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
+			
+			if(__thread_aborts != NULL)
+				__thread_aborts[__txId__]++;
 
       tx->vlist.reset();
       tx->writes.reset();

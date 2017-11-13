@@ -20,6 +20,18 @@
 
 using namespace stm;
 
+__thread uint64_t __txId__;
+__thread uint64_t *__thread_commits = NULL;
+__thread uint64_t *__thread_aborts = NULL;
+
+void norecInitThreadCommits(uint64_t *addr){
+	__thread_commits = addr;
+}
+
+void norecInitThreadAborts(uint64_t *addr){
+	__thread_aborts = addr;
+}
+
 namespace
 {
   /**

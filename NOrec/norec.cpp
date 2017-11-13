@@ -28,18 +28,9 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
-__thread uint64_t __txId__;
-
-__thread uint64_t *__thread_commits = NULL;
-__thread uint64_t *__thread_aborts = NULL;
-
-void norecInitThreadCommits(uint64_t *addr){
-	__thread_commits = addr;
-}
-
-void norecInitThreadAborts(uint64_t *addr){
-	__thread_aborts = addr;
-}
+extern __thread uint64_t __txId__;
+extern __thread uint64_t* __thread_commits;
+extern __thread uint64_t* __thread_aborts;
 
 #if defined(COMMIT_RATE_PROFILING) || defined(RW_SET_PROFILING)
 
