@@ -134,7 +134,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																					__throughputProfilingData[i].sampleStep = INIT_SAMPLE_STEP; \
 																					__throughputProfilingData[i].maxSamples = INIT_MAX_SAMPLES; \
 																					int r = posix_memalign((void**)&(__throughputProfilingData[i].samples),\
-																						__CACHE_ALIGNMENT__, __throughputProfilingData[i].maxSamples*sizeof(double)); \
+																						__CACHE_ALIGNMENT__, INIT_MAX_SAMPLES*sizeof(double)); \
 																					if ( r ) { \
 																						fprintf(stderr, "error: failed to allocate samples array!\n"); \
 																						exit(EXIT_FAILURE); \
@@ -189,12 +189,17 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																				} \
 																			}
 
-#define STM_START(ro, abort_flags)            \
+#define STM_START(ro, abort_flags)    \
+	{                                   \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-    CFENCE; 
+    CFENCE; \
+	{
 
-#define STM_COMMIT   stm::commit(tx)
+#define STM_COMMIT  \
+	} \
+		stm::commit(tx); \
+	}
 
 #define IF_HTM_MODE							do { \
 																	if ( htm::HTM_Begin_Tx() ) {
@@ -238,12 +243,17 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 
 #define TM_THREAD_EXIT()              stm::thread_shutdown()
 
-#define STM_START(ro, abort_flags)            \
+#define STM_START(ro, abort_flags)    \
+	{                                   \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-    CFENCE; 
+    CFENCE; \
+	{
 
-#define STM_COMMIT   stm::commit(tx)
+#define STM_COMMIT  \
+	} \
+		stm::commit(tx); \
+	}
 
 #define IF_HTM_MODE							do { \
 																	if ( HyCo::TxBeginHTx() ) {
@@ -290,7 +300,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 
 throughputProfilingData_t *__throughputProfilingData = NULL;
 
-void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uint64_t newLength) {
+void increaseThroughputSamplesSize(double **ptr, uint64_t* oldLength, uint64_t newLength) {
 	double *newPtr;
 	int r = posix_memalign((void**)&newPtr, __CACHE_ALIGNMENT__, newLength*sizeof(double));
 	if ( r ) {

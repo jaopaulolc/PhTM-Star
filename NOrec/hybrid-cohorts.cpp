@@ -71,9 +71,9 @@ namespace HyCo {
 	bool
 	TxBeginHTx()
 	{
+		//TxThread* tx = (TxThread*)stm::Self;
 		while(1){
-			TxThread* tx = (TxThread*)stm::Self;
-			tx->tx_state = HW;
+			//tx->tx_state = HW;
 			uint32_t status = htm_begin();
 			if(htm_has_started(status)) {
 				if (ser_kill || stx_kill) {
@@ -81,7 +81,7 @@ namespace HyCo {
 				}
 				return true;
 			}
-			tx->tx_state = NON_TX;
+			//tx->tx_state = NON_TX;
 			while (atomicRead(&ser_kill) || atomicRead(&stx_kill));
 
 			htm_retries++;
@@ -99,8 +99,8 @@ namespace HyCo {
 		if ( stx_comm || (started == 0) ) {
 			htm_end();
 			CFENCE;
-			TxThread* tx = (TxThread*)stm::Self;
-			tx->tx_state = NON_TX;
+			//TxThread* tx = (TxThread*)stm::Self;
+			//tx->tx_state = NON_TX;
 			return;
 		}
 		htm_abort();
@@ -141,8 +141,8 @@ namespace {
   {
 			bool valid = true;
       foreach (ValueList, i, tx->vlist)
-				valid &= i->isValid();
-
+				valid &= STM_LOG_VALUE_IS_VALID(i, tx);
+			CFENCE;
       if (!valid)
 				return VALIDATION_FAILED;
 			return VALIDATION_PASSED;
@@ -189,8 +189,8 @@ namespace {
 				success = boolCAS(&serial, &expected, TRUE);
 			} while ( !success );
 			CFENCE;
-			TxThread* tx = (TxThread*)stm::Self;
-			tx->tx_state = SERIAL;
+			//TxThread* tx = (TxThread*)stm::Self;
+			//tx->tx_state = SERIAL;
 			// wait for commiting STx
 			while ( atomicRead(&started) > 0 );
 			// Optional: allow HTx to complete
@@ -204,6 +204,7 @@ namespace {
 			atomicWrite(&ser_kill, TRUE);
 			CFENCE;
      	// notify the allocator
+			TxThread* tx = (TxThread*)stm::Self;
      	tx->allocator.onTxBegin();
 			return true;
 	}
@@ -215,7 +216,7 @@ namespace {
 		atomicWrite(&ser_kill, FALSE);
 		atomicWrite(&serial, FALSE);
 		CFENCE;
-		tx->tx_state = NON_TX;
+		//tx->tx_state = NON_TX;
 		tx->allocator.onTxCommit();
     // This switches the thread back to RO mode.
     OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
@@ -248,15 +249,17 @@ namespace {
 			}
 
 RETRY:
-			while ( atomicRead(&serial) || atomicRead(&cpending) );
-			atomicInc(&started);
-			CFENCE;
-			if ( atomicRead(&serial) || atomicRead(&cpending) ) {
-				atomicDec(&started);
-				CFENCE;
+			if ( atomicRead(&serial) ) {
 				goto RETRY;
+			} else {
+				while ( atomicRead(&cpending) );
+				atomicInc(&started);
+				if ( atomicRead(&serial) || (atomicRead(&cpending) > 0) ) {
+					atomicDec(&started);
+					goto RETRY;
+				}
 			}
-			tx->tx_state = SW;
+			//tx->tx_state = SW;
 			// Lazy cleanup of STx-SC flag
 			{
 				uint64_t expected;
@@ -306,11 +309,13 @@ RETRY:
 			if ( hc_retries < HC_MAX_RETRIES ) {
 				hc_retries++;
 				// STx will try to commit via HTM
-				{
+				bool success;
+				do {
 					uint64_t expected;
 					expected = FALSE;
-					boolCAS(&stx_comm, &expected, TRUE);
-				}
+					success = boolCAS(&stx_comm, &expected, TRUE);
+				} while ( !success && (atomicRead(&stx_comm) == FALSE));
+				CFENCE;
 				uint32_t status = htm_begin();
 				if (htm_has_started(status)) {
 					if ( validate(tx) == VALIDATION_PASSED ) {
@@ -332,13 +337,14 @@ RETRY:
 					atomicDec(&started);
 					atomicDec(&cpending);
 					CFENCE;
-					tx->tx_state = NON_TX;
+					//tx->tx_state = NON_TX;
 					tx->tmabort(tx);
 				}
 			}
 			// STx couldn't commit via HTM. Use serialized commit
-			tx->my_order = atomicInc(&order);
-			if (tx->my_order == 0) {
+			//tx->my_order = atomicInc(&order);
+			uint64_t my_order = atomicInc(&order);
+			if (my_order == 0) {
 				while (atomicRead(&order) < atomicRead(&started));
 				// Optional: allow HTx to complete
 				// uint64_t i, nthreads = stm::threadcount;
@@ -350,7 +356,7 @@ RETRY:
 				// Interrupt remaining HTx
 				atomicWrite(&stx_kill, TRUE);
 			} else {
-				while (atomicRead(&hyco_time) != tx->my_order);
+				while (atomicRead(&hyco_time) != my_order);
 			}
 
 			bool failed = false;
@@ -369,7 +375,7 @@ RETRY:
 			}
 			atomicDec(&cpending);
 			CFENCE;
-			tx->tx_state = NON_TX;
+			//tx->tx_state = NON_TX;
 			if ( failed ) {
 				tx->tmabort(tx);
 			}

@@ -159,7 +159,7 @@ namespace {
           // validation early
           bool valid = true;
           foreach (ValueList, i, tx->vlist)
-              valid &= i->isValid();
+              valid &= STM_LOG_VALUE_IS_VALID(i, tx);
 
           if (!valid)
               return VALIDATION_FAILED;
