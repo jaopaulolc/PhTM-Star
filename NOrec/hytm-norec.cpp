@@ -35,7 +35,7 @@ extern __thread uint64_t __txId__;
 extern __thread uint64_t* __thread_commits;
 extern __thread uint64_t* __thread_aborts;
 
-namespace htm {
+namespace HyTM {
 	
 	const int HTM_MAX_RETRIES = 10;
 
@@ -149,8 +149,8 @@ namespace {
   {
       while (true) {
 					// Sample hw commit counter
-					uintptr_t hw_commit_counter = htm::commit_counter.val;
-          if (hw_commit_counter != htm::commit_counter.val)
+					uintptr_t hw_commit_counter = HyTM::commit_counter.val;
+          if (hw_commit_counter != HyTM::commit_counter.val)
               continue;
 
           // check the read set
@@ -166,7 +166,7 @@ namespace {
 
           // restart if timestamp changed during read set iteration
           CFENCE;
-          if (hw_commit_counter == htm::commit_counter.val){
+          if (hw_commit_counter == HyTM::commit_counter.val){
               return hw_commit_counter;
 					}
       }
@@ -230,7 +230,7 @@ namespace {
      	tx->start_time = timestamp.val & ~(1L);
 
 			// Sample hw commit counter
-			tx->hw_commit_counter = htm::commit_counter.val;
+			tx->hw_commit_counter = HyTM::commit_counter.val;
 
      	// notify the allocator
      	tx->allocator.onTxBegin();
@@ -250,7 +250,7 @@ namespace {
 
       // read-only is trivially successful at last read
       if (!tx->writes.size()) {
-					while (tx->hw_commit_counter != htm::commit_counter.val) {
+					while (tx->hw_commit_counter != HyTM::commit_counter.val) {
       			if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
       				tx->tmabort(tx);
       		}
@@ -267,7 +267,7 @@ namespace {
               tx->tmabort(tx);
 			
 			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != htm::commit_counter.val) {
+			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
       	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
       		// Release the sequence lock, then abort tx
       		CFENCE;
@@ -293,7 +293,7 @@ namespace {
   HyTM_NOrec_Generic<CM>::commit_ro(STM_COMMIT_SIG(tx,))
   {
 			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != htm::commit_counter.val) {
+			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
       	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
       		tx->tmabort(tx);
       }
@@ -321,7 +321,7 @@ namespace {
               tx->tmabort(tx);
 			
 			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != htm::commit_counter.val) {
+			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
       	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
       		// Release the sequence lock, then abort tx
       		CFENCE;
@@ -372,7 +372,7 @@ namespace {
       
       // if the hw commit counter has changed since the
 			// last read, we must validate and restart this read
-			while (tx->hw_commit_counter != htm::commit_counter.val) {
+			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
           if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
               tx->tmabort(tx);
           tmp = *addr;

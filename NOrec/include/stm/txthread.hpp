@@ -28,7 +28,7 @@
 #include <stm/ValueList.hpp>
 #include <stm/WBMMPolicy.hpp>
 
-namespace htm {
+namespace HyTM {
 	
 	bool HTM_Begin_Tx();
 	void HTM_Commit_Tx();

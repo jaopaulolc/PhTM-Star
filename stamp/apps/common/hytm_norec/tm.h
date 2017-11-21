@@ -197,9 +197,9 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define STM_COMMIT   stm::commit(tx)
 
 #define IF_HTM_MODE							do { \
-																	if ( htm::HTM_Begin_Tx() ) {
+																	if ( HyTM::HTM_Begin_Tx() ) {
 #define START_HTM_MODE            	CFENCE;
-#define COMMIT_HTM_MODE							htm::HTM_Commit_Tx();
+#define COMMIT_HTM_MODE							HyTM::HTM_Commit_Tx();
 #define ELSE_STM_MODE							} else {
 #define START_STM_MODE(ro)					jmp_buf _jmpbuf; \
 																		uint32_t abort_flags = setjmp(_jmpbuf); \
@@ -246,9 +246,9 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define STM_COMMIT   stm::commit(tx)
 
 #define IF_HTM_MODE							do { \
-																	if ( htm::HTM_Begin_Tx() ) {
+																	if ( HyTM::HTM_Begin_Tx() ) {
 #define START_HTM_MODE            	CFENCE;
-#define COMMIT_HTM_MODE							htm::HTM_Commit_Tx();
+#define COMMIT_HTM_MODE							HyTM::HTM_Commit_Tx();
 #define ELSE_STM_MODE							} else {
 #define START_STM_MODE(ro)					jmp_buf _jmpbuf; \
 																		uint32_t abort_flags = setjmp(_jmpbuf); \
