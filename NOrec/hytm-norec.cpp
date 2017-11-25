@@ -24,6 +24,8 @@
 #include <stm/metadata.hpp>
 #include <htm.h>
 
+#include <iostream>
+
 // Don't just import everything from stm. This helps us find bugs.
 using stm::TxThread;
 using stm::timestamp;
@@ -131,7 +133,7 @@ namespace {
           // validation early
           bool valid = true;
           foreach (ValueList, i, tx->vlist)
-              valid &= i->isValid();
+              valid &= STM_LOG_VALUE_IS_VALID(i, tx);
 
           if (!valid)
               return VALIDATION_FAILED;
@@ -329,6 +331,7 @@ namespace {
       		tx->tmabort(tx);
 				}
       }
+			CFENCE;
 
       tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
 
@@ -363,16 +366,9 @@ namespace {
       
       // if the timestamp has changed since the last read,
 			// we must validate and restart this read
-			while (tx->start_time != timestamp.val) {
+			while (tx->start_time != timestamp.val || tx->hw_commit_counter != HyTM::commit_counter.val ) {
           if ((tx->start_time = validate(tx)) == VALIDATION_FAILED)
               tx->tmabort(tx);
-          tmp = *addr;
-          CFENCE;
-      }
-      
-      // if the hw commit counter has changed since the
-			// last read, we must validate and restart this read
-			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
           if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
               tx->tmabort(tx);
           tmp = *addr;
@@ -448,9 +444,9 @@ namespace {
 // Register NOrec initializer functions. Do this as declaratively as
 // possible. Remember that they need to be in the stm:: namespace.
 #define FOREACH_NOREC(MACRO)                    \
-    MACRO(HyTM_NOrec, HyperAggressiveCM)             \
-    MACRO(HyTM_NOrecHour, HourglassCM)               \
-    MACRO(HyTM_NOrecBackoff, BackoffCM)              \
+    MACRO(HyTM_NOrec, HyperAggressiveCM)        \
+    MACRO(HyTM_NOrecHour, HourglassCM)          \
+    MACRO(HyTM_NOrecBackoff, BackoffCM)         \
     MACRO(HyTM_NOrecHB, HourglassBackoffCM)
 
 #define INIT_NOREC(ID, CM)                      \
