@@ -400,6 +400,11 @@ RETRY:
       void* tmp = *addr;
       CFENCE;
 
+      if ((tx->start_time = validate(tx)) == VALIDATION_FAILED) {
+        atomicDec(&started);
+        tx->tmabort(tx);
+      }
+
       // log the address and value
       STM_LOG_VALUE(tx, addr, tmp, mask);
       return tmp;

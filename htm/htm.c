@@ -11,6 +11,9 @@
 #include <aborts_profiling.h>
 #include <locks.h>
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
 static __thread long __tx_id __ALIGN__;  // tx thread id
 #define HTM_MAX_RETRIES 9
 static __thread long __tx_retries __ALIGN__; // current number of retries for non-lock aborts
@@ -23,11 +26,12 @@ static long __nThreads __ALIGN__;
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <sys/time.h>
-#define MAX_TRANS 400000000
+#define INIT_MAX_TRANS 1000000
 static uint64_t started __ALIGN__ = 0;
 static uint64_t start_time __ALIGN__ = 0;
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
+static uint64_t trans_timestamp_size __ALIGN__ = INIT_MAX_TRANS;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 static uint64_t hw_lock_transitions __ALIGN__ = 0;
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
@@ -39,6 +43,18 @@ static uint64_t getTime(){
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
 }
 
+void increaseTransTimestampSize(uint64_t **ptr, uint64_t *oldLength, uint64_t newLength) {
+	uint64_t *newPtr = malloc(newLength*sizeof(uint64_t));
+	if ( newPtr == NULL ) {
+		perror("malloc");
+		fprintf(stderr, "error: failed to increase trans_timestamp array!\n");
+		exit(EXIT_FAILURE);
+	}
+	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(uint64_t));
+	free(*ptr);
+	*ptr = newPtr;
+	*oldLength = newLength;
+}
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 
 
@@ -79,6 +95,10 @@ void TX_START(){
 				lock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 				trans_timestamp[trans_index++] = getTime();
+				if ( unlikely(trans_index >= trans_timestamp_size) ) {
+					increaseTransTimestampSize(&trans_timestamp,
+						&trans_timestamp_size, 2*trans_timestamp_size);
+				}
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 				hw_lock_transitions++;
 				return;
@@ -107,8 +127,8 @@ void HTM_STARTUP(long numThreads){
 	__nThreads = numThreads;
 	__init_prof_counters(__nThreads);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-	trans_timestamp = (uint64_t*)malloc(sizeof(uint64_t)*MAX_TRANS);
-	memset(trans_timestamp, 0,sizeof(uint64_t)*MAX_TRANS);
+	trans_timestamp = (uint64_t*)malloc(sizeof(uint64_t)*INIT_MAX_TRANS);
+	//memset(trans_timestamp, 0,sizeof(uint64_t)*INIT_MAX_TRANS);
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
