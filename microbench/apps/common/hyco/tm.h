@@ -74,11 +74,9 @@
 /* TM_FREE(ptr) is already defined in the file interface. */
 #define TM_FREE2(ptr,size)            TM_FREE(ptr)
 
-#define TM_INIT(nThreads)	        stm::sys_init(NULL); \
-																			msrInitialize()
+#define TM_INIT(nThreads)	        stm::sys_init(NULL)
 
-#define TM_EXIT(nThreads)         stm::sys_shutdown(); \
-																			msrTerminate()
+#define TM_EXIT(nThreads)         stm::sys_shutdown()
 
 #define TM_INIT_THREAD(tid)           set_affinity(tid);   \
 																			stm::thread_init() 
