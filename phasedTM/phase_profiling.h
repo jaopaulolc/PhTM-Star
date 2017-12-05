@@ -35,7 +35,7 @@ uint64_t getTime(){
 }
 
 inline
-void increaseTransLabelsSize(uint64_t **ptr, uint64_t *oldLength, uint64_t newLength) {
+void increaseTransLabelsSize(trans_label_t **ptr, uint64_t *oldLength, uint64_t newLength) {
 	trans_label_t *newPtr = (trans_label_t*)malloc(newLength*sizeof(trans_label_t));
 	if ( newPtr == NULL ) {
 		perror("malloc");
@@ -66,7 +66,7 @@ void updateTransitionProfilingData(uint64_t mode){
 #endif /* DESIGN == OPTIMIZED */
 	}
 	if ( unlikely(trans_index >= trans_labels_size) ) {
-		increaseTransLabelsSize(&trans_labels, trans_labels_size, 2*trans_labels_size);
+		increaseTransLabelsSize(&trans_labels, &trans_labels_size, 2*trans_labels_size);
 	}
 	trans_labels[trans_index++].timestamp = now;
 	trans_labels[trans_index-1].mode = mode;
