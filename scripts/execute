@@ -108,10 +108,13 @@ function execute_microbench_apps {
 	test -z "$_INITSIZES"             && local _INITSIZES=$INITSIZES
 	test -z "$_UPDATERATES"           && local _UPDATERATES=$UPDATERATES
 	test -z "$_PHASECONFIGS"          && local _PHASECONFIGS=$PHASECONFIGS
+	test -z "$_NBTREES"               && local _NBTREES=$NBTREES
 
 	local i="$(sed 's|\([0-9]\+\)|i\1|g' <<<${_INITSIZES})"
 	local u="$(sed 's|\([0-9]\+\)|u\1|g' <<<${_UPDATERATES})"
 	local n="$(sed 's|\([0-9]\+\)|n\1|g' <<<${NUMTHREADS})"
+
+	local t="$(sed 's|\([0-9]\+\)|t\1|g' <<<${_NBTREES})"
 
 	local p="$(sed 's|\([A-Z]\+:[0-9]\+:[0-9]\+\)|p\1|g' <<<${_PHASECONFIGS})"
 
@@ -122,6 +125,8 @@ function execute_microbench_apps {
 				local EXEC_FLAGS="$(cross_product "$i" "$u" "$n")" ;;
 			pintset)
 				local EXEC_FLAGS="$(cross_product "$p" "$n")" ;;
+			hintset)
+				local EXEC_FLAGS="$(cross_product "$i" "$u" "$t" "$n")" ;;
 			conflict | capacity)
 				local EXEC_FLAGS="$(cross_product "$u" "$n")" ;;
 			phased)
@@ -228,7 +233,7 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:v:S:d:m:l:s:w:i:z:u:t:f:n:a:M:H:h" opt;
+while getopts "b:v:S:d:m:l:s:w:i:z:u:t:f:T:n:a:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -244,6 +249,7 @@ do
 		u) _UPDATERATES=$OPTARG ;;
 		t) _NTHREADS=$OPTARG ;;
 		f) _PHASECONFIGS=$OPTARG ;;
+		T) _NBTREES=$OPTARG ;;
 		n) _NEXEC=$OPTARG ;;
 		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
 		M) _MEMALLOCS=$OPTARG ;;
