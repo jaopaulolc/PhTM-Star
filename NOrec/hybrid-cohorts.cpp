@@ -96,9 +96,8 @@ namespace HyCo {
 	void
 	TxCommitHTx()
 	{
-		if ( stx_comm || (started == 0) ) {
+		if ( stx_comm || !started ) {
 			htm_end();
-			CFENCE;
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = NON_TX;
 			return;
@@ -188,7 +187,6 @@ namespace {
 				expected = FALSE;
 				success = boolCAS(&serial, &expected, TRUE);
 			} while ( !success );
-			CFENCE;
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = SERIAL;
 			// wait for commiting STx
@@ -202,7 +200,6 @@ namespace {
 			// }
 			// Interrupt remaining HTx
 			atomicWrite(&ser_kill, TRUE);
-			CFENCE;
      	// notify the allocator
 			TxThread* tx = (TxThread*)stm::Self;
      	tx->allocator.onTxBegin();
@@ -215,7 +212,6 @@ namespace {
 	{
 		atomicWrite(&ser_kill, FALSE);
 		atomicWrite(&serial, FALSE);
-		CFENCE;
 		//tx->tx_state = NON_TX;
 		tx->allocator.onTxCommit();
     // This switches the thread back to RO mode.
@@ -241,6 +237,13 @@ namespace {
   bool
   HyCo_Generic<CM>::begin(TxThread* tx)
   {
+			// Lazy cleanup of STx-SC flag
+			{
+				uint64_t expected;
+				expected = TRUE;
+				boolCAS(&stx_comm, &expected, FALSE);
+			}
+
 			if ( unlikely(tx->failed_validations >= MAX_FAILED_VALIDATIONS) ) {
 				tx->tmread = HyCo_Generic<CM>::SerialTxRead;
 				tx->tmwrite = HyCo_Generic<CM>::SerialTxWrite;
@@ -260,12 +263,6 @@ RETRY:
 				}
 			}
 			//tx->tx_state = SW;
-			// Lazy cleanup of STx-SC flag
-			{
-				uint64_t expected;
-				expected = TRUE;
-				boolCAS(&stx_comm, &expected, FALSE);
-			}
 
      	// notify the allocator
      	tx->allocator.onTxBegin();
@@ -336,7 +333,6 @@ RETRY:
 				} else {
 					atomicDec(&started);
 					atomicDec(&cpending);
-					CFENCE;
 					//tx->tx_state = NON_TX;
 					tx->tmabort(tx);
 				}
@@ -374,7 +370,6 @@ RETRY:
 				atomicWrite(&hyco_time, 0);
 			}
 			atomicDec(&cpending);
-			CFENCE;
 			//tx->tx_state = NON_TX;
 			if ( failed ) {
 				tx->tmabort(tx);
@@ -400,10 +395,10 @@ RETRY:
       void* tmp = *addr;
       CFENCE;
 
-      if ((tx->start_time = validate(tx)) == VALIDATION_FAILED) {
+      /*if ((tx->start_time = validate(tx)) == VALIDATION_FAILED) {
         atomicDec(&started);
         tx->tmabort(tx);
-      }
+      }*/
 
       // log the address and value
       STM_LOG_VALUE(tx, addr, tmp, mask);
