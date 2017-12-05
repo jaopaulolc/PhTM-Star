@@ -5,26 +5,27 @@
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <time.h>
 #define INIT_MAX_TRANS 1000000
-uint64_t started __ALIGN__ = 0;
-uint64_t start_time __ALIGN__ = 0;
-uint64_t end_time __ALIGN__ = 0;
-uint64_t trans_index __ALIGN__ = 1;
-uint64_t trans_labels_size __ALIGN__ = INIT_MAX_TRANS;
+static uint64_t started __ALIGN__ = 0;
+static uint64_t start_time __ALIGN__ = 0;
+static uint64_t end_time __ALIGN__ = 0;
+static uint64_t trans_index __ALIGN__ = 1;
+static uint64_t trans_labels_size __ALIGN__ = INIT_MAX_TRANS;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
-uint64_t hw_sw_transitions __ALIGN__ = 0;
+static uint64_t hw_sw_transitions __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
-uint64_t hw_lock_transitions __ALIGN__ = 0;
+static uint64_t hw_lock_transitions __ALIGN__ = 0;
 #endif /* DESIGN == OPTIMIZED */
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 typedef struct _trans_label_t {
 	uint64_t timestamp;
 	unsigned char mode;
-} trans_label_t;
-trans_label_t *trans_labels __ALIGN__;
-uint64_t hw_sw_wait_time  __ALIGN__ = 0;
-uint64_t sw_hw_wait_time  __ALIGN__ = 0;
+	char padding[__CACHE_LINE_SIZE__ - sizeof(unsigned char) - sizeof(uint64_t)];
+} trans_label_t __ALIGN__;
+static trans_label_t *trans_labels __ALIGN__;
+static uint64_t hw_sw_wait_time  __ALIGN__ = 0;
+static uint64_t sw_hw_wait_time  __ALIGN__ = 0;
 
-__thread uint64_t __before__ __ALIGN__ = 0;
+static __thread uint64_t __before__ __ALIGN__ = 0;
 
 inline
 uint64_t getTime(){
@@ -42,7 +43,6 @@ void increaseTransLabelsSize(uint64_t **ptr, uint64_t *oldLength, uint64_t newLe
 		exit(EXIT_FAILURE);
 	}
 	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(trans_label_t));
-	memset((void*)&newPtr[*oldLength-1], 0, sizeof(trans_label_t)*(newLength-*oldLength));
 	free(*ptr);
 	*ptr = newPtr;
 	*oldLength = newLength;
@@ -81,7 +81,6 @@ void setProfilingReferenceTime(){
 inline
 void phase_profiling_init(){
 	trans_labels = (trans_label_t*)malloc(sizeof(trans_label_t)*INIT_MAX_TRANS);
-	memset(trans_labels, 0, sizeof(trans_label_t)*INIT_MAX_TRANS);
 }
 
 inline
