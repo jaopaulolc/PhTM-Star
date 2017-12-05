@@ -35,7 +35,7 @@ uint64_t getTime(){
 }
 
 inline
-void increaseTransLabelsSize(uint64_t **ptr, uint64_t *oldLength, uint64_t newLength) {
+void increaseTransLabelsSize(trans_label_t **ptr, uint64_t *oldLength, uint64_t newLength) {
 	trans_label_t *newPtr = (trans_label_t*)malloc(newLength*sizeof(trans_label_t));
 	if ( newPtr == NULL ) {
 		perror("malloc");
