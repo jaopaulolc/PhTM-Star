@@ -1,32 +1,51 @@
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 #include <time.h>
-#define MAX_TRANS 400000000
-static uint64_t started __ALIGN__ = 0;
-static uint64_t start_time __ALIGN__ = 0;
-static uint64_t end_time __ALIGN__ = 0;
-static uint64_t trans_index __ALIGN__ = 1;
+#define INIT_MAX_TRANS 1000000
+uint64_t started __ALIGN__ = 0;
+uint64_t start_time __ALIGN__ = 0;
+uint64_t end_time __ALIGN__ = 0;
+uint64_t trans_index __ALIGN__ = 1;
+uint64_t trans_labels_size __ALIGN__ = INIT_MAX_TRANS;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
-static uint64_t hw_sw_transitions __ALIGN__ = 0;
+uint64_t hw_sw_transitions __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
-static uint64_t hw_lock_transitions __ALIGN__ = 0;
+uint64_t hw_lock_transitions __ALIGN__ = 0;
 #endif /* DESIGN == OPTIMIZED */
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 typedef struct _trans_label_t {
 	uint64_t timestamp;
 	unsigned char mode;
 } trans_label_t;
-static trans_label_t *trans_labels __ALIGN__;
-static uint64_t hw_sw_wait_time  __ALIGN__ = 0;
-static uint64_t sw_hw_wait_time  __ALIGN__ = 0;
+trans_label_t *trans_labels __ALIGN__;
+uint64_t hw_sw_wait_time  __ALIGN__ = 0;
+uint64_t sw_hw_wait_time  __ALIGN__ = 0;
 
-static __thread uint64_t __before__ = 0;
+__thread uint64_t __before__ __ALIGN__ = 0;
 
-inline static
+inline
 uint64_t getTime(){
 	struct timespec t;
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
+}
+
+inline
+void increaseTransLabelsSize(uint64_t **ptr, uint64_t *oldLength, uint64_t newLength) {
+	trans_label_t *newPtr = (trans_label_t*)malloc(newLength*sizeof(trans_label_t));
+	if ( newPtr == NULL ) {
+		perror("malloc");
+		fprintf(stderr, "error: failed to increase trans_labels array!\n");
+		exit(EXIT_FAILURE);
+	}
+	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(trans_label_t));
+	memset((void*)&newPtr[*oldLength-1], 0, sizeof(trans_label_t)*(newLength-*oldLength));
+	free(*ptr);
+	*ptr = newPtr;
+	*oldLength = newLength;
 }
 
 inline
@@ -46,20 +65,23 @@ void updateTransitionProfilingData(uint64_t mode){
 		hw_lock_transitions++;
 #endif /* DESIGN == OPTIMIZED */
 	}
+	if ( unlikely(trans_index >= trans_labels_size) ) {
+		increaseTransLabelsSize(&trans_labels, trans_labels_size, 2*trans_labels_size);
+	}
 	trans_labels[trans_index++].timestamp = now;
 	trans_labels[trans_index-1].mode = mode;
 	__before__ = 0;
 }
 
-inline static
+inline
 void setProfilingReferenceTime(){
 	__before__ = getTime();
 }
 
-inline static
+inline
 void phase_profiling_init(){
-	trans_labels = (trans_label_t*)malloc(sizeof(trans_label_t)*MAX_TRANS);
-	memset(trans_labels, 0, sizeof(trans_label_t)*MAX_TRANS);
+	trans_labels = (trans_label_t*)malloc(sizeof(trans_label_t)*INIT_MAX_TRANS);
+	memset(trans_labels, 0, sizeof(trans_label_t)*INIT_MAX_TRANS);
 }
 
 inline
@@ -70,12 +92,12 @@ void phase_profiling_start(){
 	}
 }
 
-inline static
+inline
 void phase_profiling_stop(){
 	end_time = getTime();
 }
 
-inline static
+inline
 void phase_profiling_report(){
 	printf("hw_sw_transitions: %lu \n", hw_sw_transitions);
 #if DESIGN == OPTIMIZED	
