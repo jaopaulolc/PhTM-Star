@@ -39,7 +39,7 @@ extern __thread uint64_t* __thread_aborts;
 
 namespace HyTM {
 	
-	const int HTM_MAX_RETRIES = 10;
+	const int HTM_MAX_RETRIES = 9;
 
 	stm::pad_word_t commit_counter __ALIGN__ = { .val = 0 };
 	__thread int htm_retries __ALIGN__ = 0;

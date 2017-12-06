@@ -60,7 +60,7 @@ static volatile uint64_t hyco_time __ALIGN__ = 0; // Second counter dor STx that
 // Token for granting a transaction permission to run in Serial mode
 static volatile uint64_t serial __ALIGN__ = 0;
 
-static const uint32_t HTM_MAX_RETRIES __ALIGN__ = 20;
+static const uint32_t HTM_MAX_RETRIES __ALIGN__ = 9;
 static const uint32_t HC_MAX_RETRIES __ALIGN__ = 2;
 static const uint32_t MAX_FAILED_VALIDATIONS = 5;
 static __thread uint32_t htm_retries __ALIGN__ = 0;
