@@ -63,7 +63,7 @@
 #define XSTR(s)                         STR(s)
 #define STR(s)                          #s
 
-#define TARGET_NUM_SAMPLES 1000
+#define TARGET_NUM_SAMPLES 10000
 #define INIT_MAX_SAMPLES (2*TARGET_NUM_SAMPLES)
 
 #include <unistd.h>
@@ -183,12 +183,13 @@ uint64_t getTime(){
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
 }
 
+inline static
 void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uint64_t newLength) {
 	double *newPtr;
-	int r = posix_memalign((void**)&newPtr, __CACHE_ALIGNMENT__, newLength*sizeof(double));
-	if ( r ) {
-		perror("posix_memalign");
-		fprintf(stderr, "error: increaseThroughputSamplesSize failed to increase throughputSamples array!\n");
+	newPtr = (double*)malloc(newLength*sizeof(double));
+	if ( newPtr == NULL ) {
+		perror("malloc");
+		fprintf(stderr, "error: failed to increase throughputSamples array!\n");
 		exit(EXIT_FAILURE);
 	}
 	memcpy((void*)newPtr, (const void*)*ptr, (*oldLength)*sizeof(double));
