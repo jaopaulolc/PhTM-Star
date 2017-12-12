@@ -244,6 +244,13 @@ namespace {
   {
 
 			if ( unlikely(tx->failed_validations >= MAX_FAILED_VALIDATIONS) ) {
+				// Lazy cleanup of STx-SC flag
+				if (stx_comm) {
+					uint64_t expected;
+					expected = TRUE;
+					boolCAS(&stx_comm, &expected, FALSE);
+				}
+				CFENCE;
 				tx->tmread = HyCo_Generic<CM>::SerialTxRead;
 				tx->tmwrite = HyCo_Generic<CM>::SerialTxWrite;
 				tx->tmcommit = HyCo_Generic<CM>::TxCommitSerial;
