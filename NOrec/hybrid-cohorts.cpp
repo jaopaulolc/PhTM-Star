@@ -76,11 +76,12 @@ namespace HyCo {
 			//tx->tx_state = HW;
 			uint32_t status = htm_begin();
 			if(htm_has_started(status)) {
-				if (ser_kill || stx_kill) {
-					htm_abort();
+				if (!ser_kill && !stx_kill) {
+					return true;
 				}
-				return true;
+				htm_abort();
 			}
+			CFENCE;
 			//tx->tx_state = NON_TX;
 			while (atomicRead(&ser_kill) || atomicRead(&stx_kill));
 
@@ -96,13 +97,16 @@ namespace HyCo {
 	void
 	TxCommitHTx()
 	{
-		if ( stx_comm || !started ) {
+		bool commit;
+	 	commit	= stx_comm || !started;
+		CFENCE;
+		if ( commit ) {
 			htm_end();
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = NON_TX;
-			return;
+		} else {
+			htm_abort();
 		}
-		htm_abort();
 	}
 
 }
@@ -187,6 +191,7 @@ namespace {
 				expected = FALSE;
 				success = boolCAS(&serial, &expected, TRUE);
 			} while ( !success );
+			WBR;
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = SERIAL;
 			// wait for commiting STx
@@ -237,12 +242,6 @@ namespace {
   bool
   HyCo_Generic<CM>::begin(TxThread* tx)
   {
-			// Lazy cleanup of STx-SC flag
-			{
-				uint64_t expected;
-				expected = TRUE;
-				boolCAS(&stx_comm, &expected, FALSE);
-			}
 
 			if ( unlikely(tx->failed_validations >= MAX_FAILED_VALIDATIONS) ) {
 				tx->tmread = HyCo_Generic<CM>::SerialTxRead;
@@ -250,6 +249,7 @@ namespace {
 				tx->tmcommit = HyCo_Generic<CM>::TxCommitSerial;
 				return HyCo_Generic<CM>::TxBeginSerial();
 			}
+			CFENCE;
 
 RETRY:
 			if ( atomicRead(&serial) ) {
@@ -261,6 +261,13 @@ RETRY:
 					atomicDec(&started);
 					goto RETRY;
 				}
+				// Lazy cleanup of STx-SC flag
+				if (stx_comm) {
+					uint64_t expected;
+					expected = TRUE;
+					boolCAS(&stx_comm, &expected, FALSE);
+				}
+				CFENCE;
 			}
 			//tx->tx_state = SW;
 
@@ -306,13 +313,12 @@ RETRY:
 			if ( hc_retries < HC_MAX_RETRIES ) {
 				hc_retries++;
 				// STx will try to commit via HTM
-				bool success;
-				do {
+				{
 					uint64_t expected;
 					expected = FALSE;
-					success = boolCAS(&stx_comm, &expected, TRUE);
-				} while ( !success && (atomicRead(&stx_comm) == FALSE));
-				CFENCE;
+					boolCAS(&stx_comm, &expected, TRUE);
+				}
+				WBR;
 				uint32_t status = htm_begin();
 				if (htm_has_started(status)) {
 					if ( validate(tx) == VALIDATION_PASSED ) {
