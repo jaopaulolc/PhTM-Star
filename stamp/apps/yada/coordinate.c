@@ -73,6 +73,40 @@
 #include <stdio.h>
 #include "coordinate.h"
 
+#if defined(TRANSMEM_MODIFICATION)
+
+#define ABS(a) (((a) > 0) ? (a) : -(a))
+static double sqrt_safe ( double x )
+{
+  if (x == 0)
+    return 0;
+  double a = 10;
+  double t = x / 100000;
+  while (ABS(a * a - x) >= t) {
+    a = a - (a * a - x) / (2 * a);
+  }
+  return a;
+}
+
+static double my_exp(double x, int y)
+{
+    double ret = 1;
+    int i;
+    for (i = 0; i < y; i++)
+        ret *= x;
+    return ret;
+}
+
+static double acos_safe( double x)
+{
+    return M_PI / 2 - x - my_exp(x, 3) / 6
+        - 3 * my_exp(x, 5) / 40
+        - 5 * my_exp(x, 7) / 112
+        - 35 * my_exp (x, 9) / 1152;
+}
+
+#endif /* TRANSMEM_MODIFICATION */
+
 
 /* =============================================================================
  * coordinate_compare
@@ -105,7 +139,11 @@ coordinate_distance (coordinate_t* coordinatePtr, coordinate_t* aPtr)
     double delta_x = coordinatePtr->x - aPtr->x;
     double delta_y = coordinatePtr->y - aPtr->y;
 
+#if defined(TRANSMEM_MODIFICATION)
+    return sqrt_safe((delta_x * delta_x) + (delta_y * delta_y));
+#else /* ! TRANSMEM_MODIFICATION */
     return sqrt((delta_x * delta_x) + (delta_y * delta_y));
+#endif /* ! TRANSMEM_MODIFICATION */
 }
 
 
@@ -143,7 +181,11 @@ coordinate_angle (coordinate_t* aPtr, coordinate_t* bPtr, coordinate_t* cPtr)
     denominator = distance_b * distance_c;
 
     cosine = numerator / denominator;
+#if defined(TRANSMEM_MODIFICATION)
+    radian = acos_safe(cosine);
+#else /* ! TRANSMEM_MODIFICATION */
     radian = acos(cosine);
+#endif /* ! TRANSMEM_MODIFICATION */
 
     return (180.0 * radian / M_PI);
 }

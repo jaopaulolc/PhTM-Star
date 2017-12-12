@@ -105,7 +105,6 @@ point_t MOVE_NEGX = {-1,  0,  0,  0, MOMENTUM_NEGX};
 point_t MOVE_NEGY = { 0, -1,  0,  0, MOMENTUM_NEGY};
 point_t MOVE_NEGZ = { 0,  0, -1,  0, MOMENTUM_NEGZ};
 
-
 /* =============================================================================
  * router_alloc
  * =============================================================================
@@ -370,7 +369,11 @@ router_solve (void* argPtr)
         PGRID_ALLOC(gridPtr->width, gridPtr->height, gridPtr->depth);
     assert(myGridPtr);
     long bendCost = routerPtr->bendCost;
+//#if defined(TRANSMEM_MODIFICATION)
+//    queue_t* myExpansionQueuePtr = TMQUEUE_ALLOC(-1);
+//#else /* ! TRANSMEM_MODIFICATION */
     queue_t* myExpansionQueuePtr = PQUEUE_ALLOC(-1);
+//#endif /* ! TRANSMEM_MODIFICATION */
 
     /*
      * Iterate over work list to route each path. This involves an
@@ -415,6 +418,61 @@ router_solve (void* argPtr)
         bool_t success = FALSE;
         vector_t* pointVectorPtr = NULL;
 
+#if defined(TRANSMEM_MODIFICATION)
+
+        while (TRUE) {
+          success = FALSE;
+          // get a snapshot of the grid... may be inconsistent, but that's OK
+          grid_copy(myGridPtr, gridPtr);
+          /* ok if not most up-to-date */
+          // see if there is a valid path we can use
+          if (PdoExpansion(routerPtr, myGridPtr, myExpansionQueuePtr,
+                         srcPtr, dstPtr)) {
+            pointVectorPtr = PdoTraceback(gridPtr, myGridPtr, dstPtr, bendCost);
+
+            if (pointVectorPtr) {
+              // we've got a valid path.  Use a transaction to validate and finalize it
+              bool_t validity = FALSE;
+
+	#ifdef HW_SW_PATHS
+		          IF_HTM_MODE
+			          START_HTM_MODE
+                  validity = grid_addPath(gridPtr, pointVectorPtr);
+			          COMMIT_HTM_MODE
+		          ELSE_STM_MODE
+			          START_STM_MODE(RW)
+	#else /* !HW_SW_PATHS */
+                TM_BEGIN();
+	#endif /* !HW_SW_PATHS */
+                  validity = TMGRID_ADDPATH(gridPtr, pointVectorPtr);
+	#ifdef HW_SW_PATHS
+			          COMMIT_STM_MODE
+	#else /* !HW_SW_PATHS */
+                TM_END();
+	#endif /* !HW_SW_PATHS */
+
+              // if the operation was valid, we just finalized the path
+              if (validity) {
+                success = TRUE;
+                break;
+              } else {
+                // otherwise we need to resample the grid
+                PVECTOR_FREE(pointVectorPtr);
+                continue;
+              }
+            } else {
+              // if the traceback failed, we need to resample the grid
+              continue;
+            }
+          } else {
+            // if the traceback failed, then the current path is not possible,
+            // so we should skip it
+            break;
+          }
+        }
+
+#else /* ! TRANSMEM_MODIFICATION */
+
 	#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
@@ -458,6 +516,8 @@ router_solve (void* argPtr)
       TM_END();
 	#endif /* !HW_SW_PATHS */
 
+#endif /* ! TRANSMEM_MODIFICATION */
+
         if (success) {
             bool_t status = PVECTOR_PUSHBACK(myPathVectorPtr,
                                              (void*)pointVectorPtr);
@@ -487,8 +547,13 @@ router_solve (void* argPtr)
     TM_END();
 #endif /* !HW_SW_PATHS */
 
+#if defined(TRANSMEM_MODIFICATION)
+    grid_free(myGridPtr);
+    TMQUEUE_FREE(myExpansionQueuePtr);
+#else /* ! TRANSMEM_MODIFICATION */
     PGRID_FREE(myGridPtr);
     PQUEUE_FREE(myExpansionQueuePtr);
+#endif /* ! TRANSMEM_MODIFICATION */
 
 #ifdef DEBUG
     puts("\nFinal Grid:");

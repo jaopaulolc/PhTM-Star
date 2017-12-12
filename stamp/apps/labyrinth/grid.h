@@ -199,7 +199,11 @@ grid_addPath (grid_t* gridPtr, vector_t* pointVectorPtr);
  * =============================================================================
  */
 TM_SAFE
+#if defined(TRANSMEM_MODIFICATION)
+bool_t
+#else /* ! TRANSMEM_MODIFICATION */
 void
+#endif /* ! TRANSMEM_MODIFICATION */
 TMgrid_addPath (TM_ARGDECL  grid_t* gridPtr, vector_t* pointVectorPtr);
 
 

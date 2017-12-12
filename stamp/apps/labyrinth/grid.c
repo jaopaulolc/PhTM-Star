@@ -311,12 +311,31 @@ grid_addPath (grid_t* gridPtr, vector_t* pointVectorPtr)
  * =============================================================================
  */
 TM_SAFE
+#if defined(TRANSMEM_MODIFICATION)
+bool_t
+#else /* ! TRANSMEM_MODIFICATION */
 void
+#endif /* ! TRANSMEM_MODIFICATION */
 TMgrid_addPath (TM_ARGDECL  grid_t* gridPtr, vector_t* pointVectorPtr)
 {
     long i;
     long n = vector_getSize(pointVectorPtr);
 
+#if defined(TRANSMEM_MODIFICATION)
+    for (i = 1; i < (n-1); i++) {
+        long* gridPointPtr = (long*)vector_at(pointVectorPtr, i);
+        long value = (long)TM_SHARED_READ(*gridPointPtr);
+        if (value != GRID_POINT_EMPTY) {
+            return FALSE;
+        }
+        //TM_SHARED_WRITE(*gridPointPtr, GRID_POINT_FULL);
+    }
+    for (i = 1; i < (n-1); i++) {
+        long* gridPointPtr = (long*)vector_at(pointVectorPtr, i);
+        TM_SHARED_WRITE(*gridPointPtr, GRID_POINT_FULL);
+    }
+    return TRUE;
+#else /* ! TRANSMEM_MODIFICATION */
     for (i = 1; i < (n-1); i++) {
         long* gridPointPtr = (long*)vector_at(pointVectorPtr, i);
         long value = (long)TM_SHARED_READ(*gridPointPtr);
@@ -325,6 +344,7 @@ TMgrid_addPath (TM_ARGDECL  grid_t* gridPtr, vector_t* pointVectorPtr)
         }
         TM_SHARED_WRITE(*gridPointPtr, GRID_POINT_FULL);
     }
+#endif /* ! TRANSMEM_MODIFICATION */
 }
 
 
