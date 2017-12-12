@@ -97,7 +97,6 @@ typedef struct _memoryPoolList {
 } memoryPoolList_t;
 
 static void* (*real_malloc)(size_t size) = NULL;
-static void* (*real_calloc)(size_t nmemb, size_t size) = NULL;
 static void  (*real_free)(void *ptr) = NULL;
 
 static pthread_mutex_t globalPoolListLock = PTHREAD_MUTEX_INITIALIZER;
@@ -398,19 +397,6 @@ malloc (size_t size) {
 	return ret;
 }
 
-void*
-calloc (size_t nmemb, size_t size) {
-
-	if ( unlikely( real_calloc == NULL ) ) {
-		init_lib();
-	}
-
-	void* ret = memory_get(nmemb*size);
-	memset(ret, 0, nmemb*size);
-
-	return ret;
-}
-
 void
 free (void* addr) {
 
@@ -477,11 +463,6 @@ init_lib(void) {
 	real_free = dlsym(RTLD_NEXT, "free");
 	if (real_free == NULL) {
 		fprintf(stderr, "error: free function not loaded!\n");
-		exit(EXIT_FAILURE);
-	}
-	real_calloc = dlsym(RTLD_NEXT, "calloc");
-	if (real_calloc == NULL) {
-		fprintf(stderr, "error: malloc function not loaded!\n");
 		exit(EXIT_FAILURE);
 	}
 
