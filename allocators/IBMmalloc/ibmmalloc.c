@@ -82,6 +82,7 @@ typedef struct pool {
     long blockGrowthFactor;
 } pool_t;
 
+void init_lib(void);
 
 /*
  * A list is used to store all the thread's memory pool pointers.
@@ -96,6 +97,7 @@ typedef struct _memoryPoolList {
 } memoryPoolList_t;
 
 static void* (*real_malloc)(size_t size) = NULL;
+static void* (*real_calloc)(size_t nmemb, size_t size) = NULL;
 static void  (*real_free)(void *ptr) = NULL;
 
 static pthread_mutex_t globalPoolListLock = PTHREAD_MUTEX_INITIALIZER;
@@ -380,13 +382,42 @@ memory_get (size_t numByte)
  * =======================================================================
  */
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+static __thread int no_hook;
+
 void*
-malloc (size_t size){
-	return memory_get(size);
+malloc (size_t size) {
+
+	if ( unlikely( real_malloc == NULL ) ) {
+		init_lib();
+	}
+
+	void* ret = memory_get(size);
+
+	return ret;
+}
+
+void*
+calloc (size_t nmemb, size_t size) {
+
+	if ( unlikely( real_calloc == NULL ) ) {
+		init_lib();
+	}
+
+	void* ret = memory_get(nmemb*size);
+	memset(ret, 0, nmemb*size);
+
+	return ret;
 }
 
 void
 free (void* addr) {
+
+	if ( unlikely( real_free == NULL ) ) {
+		init_lib();
+	}
+
 	// thread-local free is non-trivial, so do nothing.
 	// memory will be freed after main function return
 #if DEBUG_IBM_MALLOC
@@ -399,7 +430,7 @@ typedef struct _pair {
 	void* y;
 } pair_t;
 
-static void* start_routine_wrapper(void* a){
+static void* start_routine_wrapper(void* a) {
 	
 	pair_t *p = (pair_t*)a;
 
@@ -446,6 +477,11 @@ init_lib(void) {
 	real_free = dlsym(RTLD_NEXT, "free");
 	if (real_free == NULL) {
 		fprintf(stderr, "error: free function not loaded!\n");
+		exit(EXIT_FAILURE);
+	}
+	real_calloc = dlsym(RTLD_NEXT, "calloc");
+	if (real_calloc == NULL) {
+		fprintf(stderr, "error: malloc function not loaded!\n");
 		exit(EXIT_FAILURE);
 	}
 
