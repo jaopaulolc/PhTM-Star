@@ -33,11 +33,12 @@ using stm::ValueListEntry;
 
 enum { NON_TX=0, SERIAL, HW, SW, } ;
 
-#define atomicRead(addr) __atomic_load_n(addr, __ATOMIC_SEQ_CST)
-#define atomicInc(addr) __atomic_fetch_add(addr, 1, __ATOMIC_SEQ_CST)
-#define atomicDec(addr) __atomic_fetch_add(addr, -1, __ATOMIC_SEQ_CST)
-#define atomicWrite(addr, value) __atomic_store_n(addr, value, __ATOMIC_SEQ_CST)
-#define boolCAS(addr, expected, new)  __atomic_compare_exchange_n(addr, expected, new, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#include <atomic>
+#define atomicRead(atomic_var) atomic_var.load()
+#define atomicInc(atomic_var) atomic_var.fetch_add(1)
+#define atomicDec(atomic_var) atomic_var.fetch_sub(1)
+#define atomicWrite(atomic_var, value) atomic_var.store(value)
+#define boolCAS(atomic_var, expected, new) atomic_var.compare_exchange_strong(expected, new)
 
 #define UNUSED __attribute__((unused))
 #define likely(x)       __builtin_expect((x),1)
@@ -46,19 +47,22 @@ enum { NON_TX=0, SERIAL, HW, SW, } ;
 static const uint64_t TRUE = 1UL; // used with boolCAS
 static const uint64_t FALSE = 0UL; // used with boolCAS
 
-static volatile uint64_t started __ALIGN__ = 0; // Count of current active STx transactions
+// Count of current active STx transactions
+static volatile std::atomic<uint64_t> __ALIGN__ started(0);
 // Flag to allow Serial Transaction to force immediate HTx aborts
-static volatile uint64_t ser_kill __ALIGN__ = 0;
+static volatile std::atomic<uint64_t> __ALIGN__ ser_kill(0);
 // Flag to allow STx in SC mode to force immediate HTx aborts
-static volatile uint64_t stx_kill __ALIGN__ = 0;
+static volatile std::atomic<uint64_t> __ALIGN__ stx_kill(0);
 // Indicate that all STx are ready to commit
-static volatile uint64_t stx_comm __ALIGN__ = 0;
-static volatile uint64_t cpending __ALIGN__ = 0; // Count of STx that are in the CP state
+static volatile std::atomic<uint64_t> __ALIGN__ stx_comm(0);
+// Count of STx that are in the CP state
+static volatile std::atomic<uint64_t> __ALIGN__ cpending(0);
 // Counter for ordering any STx that require SC mode to commit
-static volatile uint64_t order __ALIGN__ = 0;
-static volatile uint64_t hyco_time __ALIGN__ = 0; // Second counter dor STx that require SC mode to commit
+static volatile std::atomic<uint64_t> __ALIGN__ order(0);
+// Second counter dor STx that require SC mode to commit
+static volatile std::atomic<uint64_t> __ALIGN__ hyco_time(0);
 // Token for granting a transaction permission to run in Serial mode
-static volatile uint64_t serial __ALIGN__ = 0;
+static volatile std::atomic<uint64_t> __ALIGN__ serial(0);
 
 static const uint32_t HTM_MAX_RETRIES __ALIGN__ = 9;
 static const uint32_t HC_MAX_RETRIES __ALIGN__ = 2;
@@ -83,7 +87,7 @@ namespace HyCo {
 			}
 			CFENCE;
 			//tx->tx_state = NON_TX;
-			while (atomicRead(&ser_kill) || atomicRead(&stx_kill));
+			while (atomicRead(ser_kill) || atomicRead(stx_kill));
 
 			htm_retries++;
 			if(htm_retries >= HTM_MAX_RETRIES) {
@@ -189,13 +193,13 @@ namespace {
 			do {
 				uint64_t expected;
 				expected = FALSE;
-				success = boolCAS(&serial, &expected, TRUE);
+				success = boolCAS(serial, expected, TRUE);
 			} while ( !success );
 			WBR;
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = SERIAL;
 			// wait for commiting STx
-			while ( atomicRead(&started) > 0 );
+			while ( atomicRead(started) > 0 );
 			// Optional: allow HTx to complete
 			// uint64_t i, nthreads = stm::threadcount;
 			// for (i = 0; i < nthreads; i++) {
@@ -204,7 +208,7 @@ namespace {
 			//   }
 			// }
 			// Interrupt remaining HTx
-			atomicWrite(&ser_kill, TRUE);
+			atomicWrite(ser_kill, TRUE);
      	// notify the allocator
 			TxThread* tx = (TxThread*)stm::Self;
      	tx->allocator.onTxBegin();
@@ -215,8 +219,8 @@ namespace {
 	void
 	HyCo_Generic<CM>::TxCommitSerial(STM_COMMIT_SIG(tx,upper_stack_bound))
 	{
-		atomicWrite(&ser_kill, FALSE);
-		atomicWrite(&serial, FALSE);
+		atomicWrite(ser_kill, FALSE);
+		atomicWrite(serial, FALSE);
 		//tx->tx_state = NON_TX;
 		tx->allocator.onTxCommit();
     // This switches the thread back to RO mode.
@@ -248,7 +252,7 @@ namespace {
 				if (stx_comm) {
 					uint64_t expected;
 					expected = TRUE;
-					boolCAS(&stx_comm, &expected, FALSE);
+					boolCAS(stx_comm, expected, FALSE);
 				}
 				CFENCE;
 				tx->tmread = HyCo_Generic<CM>::SerialTxRead;
@@ -259,20 +263,20 @@ namespace {
 			CFENCE;
 
 RETRY:
-			if ( atomicRead(&serial) ) {
+			if ( atomicRead(serial) ) {
 				goto RETRY;
 			} else {
-				while ( atomicRead(&cpending) );
-				atomicInc(&started);
-				if ( atomicRead(&serial) || (atomicRead(&cpending) > 0) ) {
-					atomicDec(&started);
+				while ( atomicRead(cpending) );
+				atomicInc(started);
+				if ( atomicRead(serial) || (atomicRead(cpending) > 0) ) {
+					atomicDec(started);
 					goto RETRY;
 				}
 				// Lazy cleanup of STx-SC flag
 				if (stx_comm) {
 					uint64_t expected;
 					expected = TRUE;
-					boolCAS(&stx_comm, &expected, FALSE);
+					boolCAS(stx_comm, expected, FALSE);
 				}
 				CFENCE;
 			}
@@ -300,7 +304,7 @@ RETRY:
   void
   HyCo_Generic<CM>::commit_ro(STM_COMMIT_SIG(tx,))
   {
-			atomicDec(&started);
+			atomicDec(started);
 			// Since all reads were consistent, and no writes were done, the
 			// read-only transaction just resets itself and is done.
       CM::onCommit(tx);
@@ -315,15 +319,15 @@ RETRY:
   {
 
 			// Wait until all STx ready to commit
-			atomicInc(&cpending);
-			while ( atomicRead(&cpending) < atomicRead(&started) );
+			atomicInc(cpending);
+			while ( atomicRead(cpending) < atomicRead(started) );
 			if ( hc_retries < HC_MAX_RETRIES ) {
 				hc_retries++;
 				// STx will try to commit via HTM
 				{
 					uint64_t expected;
 					expected = FALSE;
-					boolCAS(&stx_comm, &expected, TRUE);
+					boolCAS(stx_comm, expected, TRUE);
 				}
 				WBR;
 				uint32_t status = htm_begin();
@@ -331,8 +335,8 @@ RETRY:
 					if ( validate(tx) == VALIDATION_PASSED ) {
 						tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
 						htm_end();
-						atomicDec(&started);
-						atomicDec(&cpending);
+						atomicDec(started);
+						atomicDec(cpending);
    		   		// notify CM
    		   		CM::onCommit(tx);
    	 	  		tx->vlist.reset();
@@ -344,17 +348,17 @@ RETRY:
 						return;
 					} else htm_abort();
 				} else {
-					atomicDec(&started);
-					atomicDec(&cpending);
+					atomicDec(started);
+					atomicDec(cpending);
 					//tx->tx_state = NON_TX;
 					tx->tmabort(tx);
 				}
 			}
 			// STx couldn't commit via HTM. Use serialized commit
-			//tx->my_order = atomicInc(&order);
-			uint64_t my_order = atomicInc(&order);
+			//tx->my_order = atomicInc(order);
+			uint64_t my_order = atomicInc(order);
 			if (my_order == 0) {
-				while (atomicRead(&order) < atomicRead(&started));
+				while (atomicRead(order) < atomicRead(started));
 				// Optional: allow HTx to complete
 				// uint64_t i, nthreads = stm::threadcount;
 				// for (i = 0; i < nthreads; i++) {
@@ -363,9 +367,9 @@ RETRY:
 				//   }
 				// }
 				// Interrupt remaining HTx
-				atomicWrite(&stx_kill, TRUE);
+				atomicWrite(stx_kill, TRUE);
 			} else {
-				while (atomicRead(&hyco_time) != my_order);
+				while (atomicRead(hyco_time) != my_order);
 			}
 
 			bool failed = false;
@@ -375,14 +379,14 @@ RETRY:
 				failed = true;
 				tx->failed_validations++;
 			}	
-			atomicInc(&hyco_time);
-			uint64_t old = atomicDec(&started);
-			if (old == 1 || atomicRead(&cpending) == 1) {
-				atomicWrite(&stx_kill, FALSE);
-			  atomicWrite(&order, 0);
-				atomicWrite(&hyco_time, 0);
+			atomicInc(hyco_time);
+			uint64_t old = atomicDec(started);
+			if (old == 1 || atomicRead(cpending) == 1) {
+				atomicWrite(stx_kill, FALSE);
+			  atomicWrite(order, 0);
+				atomicWrite(hyco_time, 0);
 			}
-			atomicDec(&cpending);
+			atomicDec(cpending);
 			//tx->tx_state = NON_TX;
 			if ( failed ) {
 				tx->tmabort(tx);
@@ -409,7 +413,7 @@ RETRY:
       CFENCE;
 
       /*if ((tx->start_time = validate(tx)) == VALIDATION_FAILED) {
-        atomicDec(&started);
+        atomicDec(started);
         tx->tmabort(tx);
       }*/
 

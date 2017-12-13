@@ -2,12 +2,13 @@
 #define _UTILS_H
 
 #include <types.h>
+#include <stdatomic.h>
 
-#define atomicRead(addr) __atomic_load_n(addr, __ATOMIC_SEQ_CST)
-#define atomicInc(addr) __atomic_fetch_add(addr, 1, __ATOMIC_SEQ_CST)
-#define atomicDec(addr) __atomic_fetch_add(addr, -1, __ATOMIC_SEQ_CST)
-#define atomicWrite(addr, value) __atomic_store_n(addr, value, __ATOMIC_SEQ_CST)
-#define boolCAS(addr, expected, new)  __atomic_compare_exchange_n(addr, expected, new, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#define atomicRead(addr) atomic_load(addr)
+#define atomicInc(addr) atomic_fetch_add(addr, 1)
+#define atomicDec(addr) atomic_fetch_add(addr, -1)
+#define atomicWrite(addr, value) atomic_store(addr, value)
+#define boolCAS(addr, expected, new)  atomic_compare_exchange_strong(addr, expected, new)
 
 uint64_t
 getMode(){
