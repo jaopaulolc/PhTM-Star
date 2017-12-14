@@ -94,11 +94,12 @@ void TX_START(){
 				__tx_retries = HTM_MAX_RETRIES;
 				lock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-				trans_timestamp[trans_index++] = getTime();
+				uint64_t t = getTime();
 				if ( unlikely(trans_index >= trans_timestamp_size) ) {
 					increaseTransTimestampSize(&trans_timestamp,
 						&trans_timestamp_size, 2*trans_timestamp_size);
 				}
+				trans_timestamp[trans_index++] = t;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 				hw_lock_transitions++;
 				return;
@@ -112,7 +113,12 @@ void TX_END(){
 	if(__tx_retries >= HTM_MAX_RETRIES){
 		unlock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
-		trans_timestamp[trans_index++] = getTime();
+		uint64_t t = getTime();
+		if ( unlikely(trans_index >= trans_timestamp_size) ) {
+			increaseTransTimestampSize(&trans_timestamp,
+				&trans_timestamp_size, 2*trans_timestamp_size);
+		}
+		trans_timestamp[trans_index++] = t;
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 	}
 	else{
