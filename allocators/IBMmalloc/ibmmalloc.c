@@ -383,7 +383,6 @@ memory_get (size_t numByte)
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
-static __thread int no_hook;
 
 void*
 malloc (size_t size) {
@@ -399,10 +398,6 @@ malloc (size_t size) {
 
 void
 free (void* addr) {
-
-	if ( unlikely( real_free == NULL ) ) {
-		init_lib();
-	}
 
 	// thread-local free is non-trivial, so do nothing.
 	// memory will be freed after main function return
