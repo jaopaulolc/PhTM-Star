@@ -17,32 +17,10 @@
 #include <cm.hpp>
 #include <algs/algs.hpp>
 #include <RedoRAWUtils.hpp>
+#include <htm.h>
 
 #include <setjmp.h>
 #include <immintrin.h>
-
-#define _XABORT_LOCKED    0xFF
-#define MAX_HTM_RETRIES  	  10
-#define MAX_SLOW_RETRIES     5
-
-#define lock_t volatile unsigned long
-
-#define SET_LOCK_BIT_MASK	   (1L << (sizeof(lock_t)*8 - 1))
-#define RESET_LOCK_BIT_MASK	 ~(SET_LOCK_BIT_MASK)
-#define isClockLocked(l) (l & SET_LOCK_BIT_MASK)
-
-#define isLocked(l) (__atomic_load_n(l,__ATOMIC_ACQUIRE) == 1)
-
-#define lock(l) \
-  while (__atomic_exchange_n(l,1,__ATOMIC_RELEASE)) \
-		pthread_yield()
-
-#define unlock(l) __atomic_store_n(l, 0, __ATOMIC_RELEASE)
-
-static lock_t global_clock = 0;
-static lock_t serial_lock = 0;
-static lock_t global_htm_lock = 0;
-static lock_t num_of_fallbacks = 0;
 
 // Don't just import everything from stm. This helps us find bugs.
 using stm::TxThread;
@@ -51,36 +29,109 @@ using stm::WriteSetEntry;
 using stm::ValueList;
 using stm::ValueListEntry;
 
+#include <atomic>
+#define atomicRead(atomic_var) atomic_var.load()
+#define atomicInc(atomic_var) atomic_var.fetch_add(1)
+#define atomicDec(atomic_var) atomic_var.fetch_sub(1)
+#define atomicWrite(atomic_var, value) atomic_var.store(value)
+#define boolCAS(atomic_var, expected, new) atomic_var.compare_exchange_strong(expected, new)
+
+#define HTM_MAX_RETRIES         10
+#define HTM_PREFIX_MAX_RETRIES  10
+#define HTM_POSFIX_MAX_RETRIES  10
+#define MAX_SLOW_PATH_RETRIES    5
+
+#define SET_LOCK_BIT_MASK	   (1UL << (sizeof(uint64_t)*8UL - 1UL))
+#define RESET_LOCK_BIT_MASK	 (~SET_LOCK_BIT_MASK)
+#define isClockLocked(l) (l & SET_LOCK_BIT_MASK)
+
+#define isLocked(l) (atomicRead(l) == 1)
+
+#define lock(l) \
+	{ \
+		uint64_t expected = 0; \
+		while ( !boolCAS(l, expected, 1) ) { \
+			expected = 0; \
+			pthread_yield(); \
+		} \
+	}
+
+#define unlock(l) atomicWrite(l, 0)
+
+static volatile std::atomic<uint64_t> __ALIGN__ global_clock(0);
+static volatile std::atomic<uint64_t> __ALIGN__ serial_lock(0);
+static volatile std::atomic<uint64_t> __ALIGN__ global_htm_lock(0);
+static volatile std::atomic<uint64_t> __ALIGN__ num_of_fallbacks(0);
+
+static __thread uint64_t htm_retries __ALIGN__ = 0;
+static __thread uint64_t htm_prefix_retries __ALIGN__ = 0;
+static __thread uint64_t htm_posfix_retries __ALIGN__ = 0;
+static __thread uint64_t slow_path_retries __ALIGN__ = 0;
+
+namespace RH_NOrec {
+	
+	/* FAST_PATH_START */
+	bool TxBeginHTx() {
+
+		uint32_t status;
+retry_htm:
+		status = htm_begin();
+		if(htm_has_started(status)) {
+			if ( global_htm_lock || serial_lock ) {
+				htm_abort();
+			}
+			return true;
+		}
+
+		CFENCE;
+		while(isLocked(serial_lock) || isLocked(global_htm_lock));
+
+		htm_retries++;
+		if ( htm_retries < HTM_MAX_RETRIES ) {
+			goto retry_htm;
+		}
+
+		CFENCE;
+		htm_retries = 0;
+		return false;
+	}
+	
+	/* FAST_PATH_COMMIT */	
+	void TxCommitHTx() {
+		// if there is no slow-path transaction
+		// or the global_clock is not busy, then commit
+		if ( num_of_fallbacks > 0 ) {
+			if ( isClockLocked(global_clock) ) {
+				htm_abort();
+			}
+			// update global_clock to notify slow-path transactions
+			global_clock++;
+		}
+		htm_end();
+		CFENCE;
+		htm_retries = 0;
+	}
+}
+
 
 namespace {
+  
+	const uintptr_t VALIDATION_FAILED = 1;
+  bool irrevoc(STM_IRREVOC_SIG(,));
+  void onSwitchTo();
 	
-	bool  FAST_PATH_START(TxThread* tx);
-	void* FAST_PATH_READ(STM_READ_SIG(tx,addr,mask));
-	void  FAST_PATH_WRITE_RO(STM_WRITE_SIG(tx,addr,value,mask));
-	void  FAST_PATH_WRITE_RW(STM_WRITE_SIG(tx,addr,value,mask));
-	void  FAST_PATH_COMMIT_RO(STM_COMMIT_SIG(tx,));
-	void  FAST_PATH_COMMIT_RW(STM_COMMIT_SIG(tx,));
-	
-	bool  MIXED_SLOW_PATH_START(TxThread* tx);
-	void* MIXED_SLOW_PATH_READ(STM_READ_SIG(tx,addr,mask));
-	void  MIXED_SLOW_PATH_WRITE_RO(STM_WRITE_SIG(tx,addr,value,mask));
-	void  MIXED_SLOW_PATH_WRITE_RW(STM_WRITE_SIG(tx,addr,value,mask));
-	void  MIXED_SLOW_PATH_COMMIT_RO(STM_COMMIT_SIG(tx,));
-	void  MIXED_SLOW_PATH_COMMIT_RW(STM_COMMIT_SIG(tx,));
-	
-	static bool START_RH_HTM_PREFIX(TxThread* tx);
-	static bool START_RH_HTM_POSFIX(TxThread* tx);
-	static void COMMIT_RH_HTM_PREFIX(TxThread* tx);
-	
-	static void ACQUIRE_CLOCK_LOCK(TxThread* tx);
-	
-	void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask));
-	void IRREVOCABLE_WRITE(STM_WRITE_SIG(tx,addr,value,mask));
-	void IRREVOCABLE_COMMIT(STM_COMMIT_SIG(tx,));
+	static TM_FASTCALL void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask));
+	static TM_FASTCALL void IRREVOCABLE_WRITE(STM_WRITE_SIG(tx,addr,value,mask));
+	static TM_FASTCALL void IRREVOCABLE_COMMIT(STM_COMMIT_SIG(tx,));
 
-	bool begin(TxThread* tx);
-
-	stm::scope_t* rollback(STM_ROLLBACK_SIG(tx, upper_stack_bound, except, len));
+  static TM_FASTCALL bool  MIXED_SLOW_PATH_START(TxThread*);
+  static TM_FASTCALL void  MIXED_SLOW_PATH_COMMIT_RO(STM_COMMIT_SIG(,));
+  static TM_FASTCALL void  MIXED_SLOW_PATH_COMMIT_RW(STM_COMMIT_SIG(,));
+  static TM_FASTCALL void* MIXED_SLOW_PATH_READ(STM_READ_SIG(,,));
+  static TM_FASTCALL void  MIXED_SLOW_PATH_WRITE_RO(STM_WRITE_SIG(,,,));
+  static TM_FASTCALL void  MIXED_SLOW_PATH_WRITE_RW(STM_WRITE_SIG(,,,));
+  static stm::scope_t* rollback(STM_ROLLBACK_SIG(,,,));
+  static void initialize(int id, const char* name);
   
 	bool
   irrevoc(STM_IRREVOC_SIG(tx,upper_stack_bound)){
@@ -93,187 +144,139 @@ namespace {
   onSwitchTo() {
 		fprintf(stderr, "warning: function 'onSwitchTo' not implemented yet!\n");
   }
-
-	void initialize(int id, const char* name)
+  
+  void initialize(int id, const char* name)
   {
       // set the name
       stm::stms[id].name = name;
 
       // set the pointers
-      stm::stms[id].begin     = begin;
-      stm::stms[id].commit    = FAST_PATH_COMMIT_RO;
-      stm::stms[id].read      = FAST_PATH_READ;
-      stm::stms[id].write     = FAST_PATH_WRITE_RO;
-			stm::stms[id].rollback  = rollback;
-
-			// not used for RH-NOrec
+      stm::stms[id].begin     = MIXED_SLOW_PATH_START;
+      stm::stms[id].commit    = MIXED_SLOW_PATH_COMMIT_RO;
+      stm::stms[id].read      = MIXED_SLOW_PATH_READ;
+      stm::stms[id].write     = MIXED_SLOW_PATH_WRITE_RO;
       stm::stms[id].irrevoc   = irrevoc;
       stm::stms[id].switcher  = onSwitchTo;
       stm::stms[id].privatization_safe = true;
+      stm::stms[id].rollback  = rollback;
   }
 
+	static bool START_RH_HTM_PREFIX(TxThread* tx) {
 
-	bool begin(TxThread* tx){
-
-		while(isLocked(&serial_lock));
-		while(isLocked(&global_htm_lock));
-
-		if(tx->tmbegin_local == NULL){
-			// this the first transaction of this thread
-			// set tmbegin_local to start in fast-path mode
-			tx->tmbegin_local = FAST_PATH_START;
-		}
-		return tx->tmbegin_local(tx);
-	}
-
-	//+++ FAST PATH FUNCTIONS +++//
-	bool FAST_PATH_START(TxThread* tx){
-
-		while(tx->htm_retries < MAX_HTM_RETRIES){
-			uint32_t tx_status;
-			if ( (tx_status = _xbegin()) == _XBEGIN_STARTED ){
-				if ( isLocked(&global_htm_lock) ) _xabort(_XABORT_LOCKED);
-				return false;
-			}
-			tx->xbegin_status = tx_status;
-			tx->htm_retries++;
-
-			while(isLocked(&global_htm_lock));
-			while(isLocked(&serial_lock));
-
-			if (((tx->xbegin_status & _XABORT_EXPLICIT) == 0)
-					&& ((tx->xbegin_status & _XABORT_RETRY) == 0)){
-				// go to slow-path mode
-				break;
-			}
-		}
-
-		// change pointers and restart
-		tx->tmbegin_local = MIXED_SLOW_PATH_START;
-		tx->tmread        = MIXED_SLOW_PATH_READ;
-		tx->tmwrite       = MIXED_SLOW_PATH_WRITE_RO;
-		tx->tmcommit      = MIXED_SLOW_PATH_COMMIT_RO;
-
-		stm::restart();
-		return false;
-	}
-	
-	void* FAST_PATH_READ(STM_READ_SIG(tx,addr,mask)){
-		return *addr;
-	}
-
-	void FAST_PATH_WRITE_RO(STM_WRITE_SIG(tx,addr,value,mask)){
-		(*addr) = value;
-		// switch to read-write "mode"
-		tx->tmwrite  = FAST_PATH_WRITE_RW;
-		tx->tmcommit = FAST_PATH_COMMIT_RW;
-	}
-	
-	void FAST_PATH_WRITE_RW(STM_WRITE_SIG(tx,addr,value,mask)){
-		(*addr) = value;
-	}
-
-	void FAST_PATH_COMMIT_RO(STM_COMMIT_SIG(tx,)){
-		_xend();
-		tx->htm_retries = 0;
-	}
-	
-	void FAST_PATH_COMMIT_RW(STM_COMMIT_SIG(tx,)){
-		// if there is no slow-path transaction
-		// or the global_clock is not busy, then commit
-		if ( num_of_fallbacks > 0 ){
-			if (isClockLocked(global_clock)) _xabort(_XABORT_LOCKED);
-			if (isLocked(&serial_lock)) _xabort(_XABORT_LOCKED);
-			// update global_clock to notify slow-path transactions
-			global_clock++;
-		}
-		_xend();
-		tx->htm_retries = 0;
-	}
-
-	//+++ MIXED SLOW PATH FUNCTIONS +++//
-	static bool START_RH_HTM_PREFIX(TxThread* tx){
-
-		uint32_t tx_status;
-		if ( (tx_status = _xbegin()) == _XBEGIN_STARTED ){
+		uint32_t status;
+retry_htm_prefix:
+		status = htm_begin(); 
+		if (htm_has_started(status)) {
 			tx->is_rh_prefix_active = true;
-			if( isLocked(&global_htm_lock) ) _xabort(_XABORT_LOCKED);
-			if( isLocked(&serial_lock) ) _xabort(_XABORT_LOCKED);
-			// TODO: implement dynamic prefix length adjustment
-			// tx->max_reads = tx->expected_length
-			// tx->prefix_reads = 0
+			if ( global_htm_lock || serial_lock ) {
+				htm_abort();
+			}
 			return true;
 		}
-		if (isLocked(&serial_lock)) stm::restart();
+		
+		CFENCE;
+		while(isLocked(serial_lock) || isLocked(global_htm_lock));
+
 		// TODO: implement dynamic prefix length adjustment
 		// reduce tx->max_reads (how? see RH-NOrec article)
-		// retry policy == no retry
+		htm_prefix_retries++;
+		if ( htm_prefix_retries < HTM_PREFIX_MAX_RETRIES) {
+			goto retry_htm_prefix;
+		}
+
+		CFENCE;
+		htm_prefix_retries = 0;
 		return false;
 	}
+	
+	static void COMMIT_RH_HTM_PREFIX(TxThread* tx){
+		num_of_fallbacks++;
+		tx->tx_version = global_clock;
+		if (isClockLocked(tx->tx_version)){
+			htm_abort();
+		}
+		htm_end();
+		CFENCE;
+		htm_prefix_retries = 0;
+		tx->is_rh_prefix_active = false;
+	}
 
-	bool MIXED_SLOW_PATH_START(TxThread* tx){
+  bool MIXED_SLOW_PATH_START(TxThread* tx) {
 		
-		while( tx->slow_retries++ <= MAX_SLOW_RETRIES ){
-			if(START_RH_HTM_PREFIX(tx)) return false;
-			__sync_fetch_and_add(&num_of_fallbacks, 1);
-			tx->tx_version = __atomic_load_n(&global_clock,__ATOMIC_ACQUIRE);
-			if (isClockLocked(tx->tx_version)){
+		while ( slow_path_retries++ <= MAX_SLOW_PATH_RETRIES ) {
+			if ( START_RH_HTM_PREFIX(tx) ) return false;
+			atomicInc(num_of_fallbacks);
+			tx->on_fallback = true;
+			tx->tx_version = atomicRead(global_clock);
+			if (isClockLocked(tx->tx_version)) {
 				// lock is busy, restart
-				__sync_fetch_and_sub(&num_of_fallbacks, 1);
 				stm::restart();
 			}
+      
+			// notify the allocator
+      tx->allocator.onTxBegin();
 			return false;
 		}
+		while(isLocked(serial_lock) || isLocked(global_htm_lock));
 		// slow-path failed
-		lock_t free_clock;
-		lock_t busy_clock;
-		do{
-			free_clock = __atomic_load_n(&global_clock,__ATOMIC_ACQUIRE) & RESET_LOCK_BIT_MASK;
+		// acquire global_clock lock
+		uint64_t free_clock;
+		uint64_t busy_clock;
+		do {
+			free_clock = atomicRead(global_clock) & RESET_LOCK_BIT_MASK;
 			busy_clock = free_clock | SET_LOCK_BIT_MASK;
-		}while(__sync_bool_compare_and_swap(&global_clock,free_clock,busy_clock) == false);
-		lock(&global_htm_lock);
+		} while( boolCAS(global_clock, free_clock, busy_clock) );
+
+		lock(global_htm_lock);
+		lock(serial_lock);
 		
-		lock(&serial_lock);
+		// notify the allocator
+    tx->allocator.onTxBegin();
+
 		tx->tmread   = IRREVOCABLE_READ;
 		tx->tmwrite  = IRREVOCABLE_WRITE;
 		tx->tmcommit = IRREVOCABLE_COMMIT;
-		return true;
+		return false;
 	}
 	
-	void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask)){
+	void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask)) {
 		return (*addr);
 	}
 
-	void IRREVOCABLE_WRITE(STM_WRITE_SIG(tx,addr,value,mask)){
+	void IRREVOCABLE_WRITE(STM_WRITE_SIG(tx,addr,value,mask)) {
 		(*addr) = value;
 	}
 	
-	void IRREVOCABLE_COMMIT(STM_COMMIT_SIG(tx,)){
+	void IRREVOCABLE_COMMIT(STM_COMMIT_SIG(tx,)) {
 		
-		unlock(&global_htm_lock);
-		lock_t new_clock = (global_clock & RESET_LOCK_BIT_MASK) + 1;
-		__atomic_store_n(&global_clock,new_clock, __ATOMIC_RELEASE);
+		uint64_t new_clock = (atomicRead(global_clock) & RESET_LOCK_BIT_MASK) + 1;
+		atomicWrite(global_clock, new_clock);
 		
-		unlock(&serial_lock);
+		unlock(global_htm_lock);
+		unlock(serial_lock);
 		
 		// profiling
 		tx->num_commits++;
+		
+		// notify the allocator
+    tx->allocator.onTxCommit();
+		
 		// This switches the thread back to RO mode.
-		tx->tmbegin_local = FAST_PATH_START;
-		tx->tmread        = FAST_PATH_READ;
-		tx->tmwrite       = FAST_PATH_WRITE_RO;
-		tx->tmcommit      = FAST_PATH_COMMIT_RO;
+		tx->tmread        = MIXED_SLOW_PATH_READ;
+		tx->tmwrite       = MIXED_SLOW_PATH_WRITE_RO;
+		tx->tmcommit      = MIXED_SLOW_PATH_COMMIT_RO;
+		
 		// reset number of slow-path retries
-		tx->slow_retries = 0;
-		tx->htm_retries = 0;
+		slow_path_retries = 0;
+		htm_prefix_retries = 0;
 		
 		tx->is_rh_prefix_active = false;
 		tx->is_rh_active = false;
 	}
 
-	void* MIXED_SLOW_PATH_READ(STM_READ_SIG(tx,addr,mask)){
-		if (isLocked(&serial_lock)) stm::restart();
-		if (tx->is_rh_prefix_active){
+  void* MIXED_SLOW_PATH_READ(STM_READ_SIG(tx,addr,mask)) {
+		
+		if (tx->is_rh_prefix_active) {
 			return *addr;
 			// TODO: implement dynamic prefix length adjustment
 			// tx->prefix_reads++;
@@ -283,8 +286,8 @@ namespace {
 			// }
 		}
 		void *curr_value = *addr;
-		if(tx->tx_version != 
-			__atomic_load_n(&global_clock,__ATOMIC_ACQUIRE)){
+		CFENCE;
+		if(tx->tx_version != atomicRead(global_clock) ) {
 			// some write transaction commited
 			// do software abort/restart
 			stm::restart();
@@ -292,38 +295,39 @@ namespace {
 		return curr_value;
 	}
 	
-	static bool START_RH_HTM_POSFIX(TxThread* tx){
+	static bool START_RH_HTM_POSFIX(TxThread* tx) {
 
-		while(1){
-			if ( (tx->xbegin_status = _xbegin()) == _XBEGIN_STARTED ){
-				if (isLocked(&serial_lock)) _xabort(_XABORT_LOCKED);
-				tx->is_rh_active = true;
-				return true;
+		uint32_t status;
+retry_htm_posfix:
+		status = htm_begin();
+		if (htm_has_started(status)) {
+			if ( global_htm_lock || serial_lock ) {
+				htm_abort();
 			}
-			if (isLocked(&serial_lock)) stm::restart();
-			// retry policy == no retry
-			return false;
+			tx->is_rh_active = true;
+			return true;
 		}
-	}
-	
-	static void COMMIT_RH_HTM_PREFIX(TxThread* tx){
-		num_of_fallbacks++;
-		tx->tx_version = global_clock;
-		if (isClockLocked(tx->tx_version)){
-			_xabort(_XABORT_LOCKED);
+
+		CFENCE;
+		if ( isLocked(global_htm_lock) || isLocked(serial_lock) ) stm::restart();
+		
+		htm_posfix_retries++;	
+		if ( htm_posfix_retries < HTM_POSFIX_MAX_RETRIES ) {
+			goto retry_htm_posfix;
 		}
-		_xend();
-		tx->is_rh_prefix_active = false;
+
+		CFENCE;
+		htm_posfix_retries = 0;
+		return false;
 	}
 	
 	static void ACQUIRE_CLOCK_LOCK(TxThread* tx){
 		// set lock bit (LSB)
-		lock_t new_clock = tx->tx_version | SET_LOCK_BIT_MASK;
-		lock_t expected_clock = tx->tx_version;
-		if (__sync_bool_compare_and_swap(&global_clock,expected_clock,new_clock)){
+		uint64_t new_clock = tx->tx_version | SET_LOCK_BIT_MASK;
+		uint64_t expected_clock = tx->tx_version;
+		if ( boolCAS(global_clock, expected_clock, new_clock)) {
 			tx->tx_version = new_clock;
 			tx->clock_lock_is_mine = true;
-			if (isLocked(&serial_lock)) stm::restart();
 			return;
 		}
 		// lock acquisition failed
@@ -335,12 +339,13 @@ namespace {
 		if (tx->is_rh_prefix_active) COMMIT_RH_HTM_PREFIX(tx);
 		ACQUIRE_CLOCK_LOCK(tx);
 		if (!START_RH_HTM_POSFIX(tx)){
-			lock(&global_htm_lock);
+			lock(global_htm_lock);
 			tx->is_htm_lock_mine = true;
-			if(isLocked(&serial_lock)) stm::restart();
+			if(isLocked(serial_lock)) stm::restart();
 		}
 		(*addr) = value;
 		// switch to read-write "mode"
+		tx->tmread   = MIXED_SLOW_PATH_READ;
 		tx->tmwrite  = MIXED_SLOW_PATH_WRITE_RW;
 		tx->tmcommit = MIXED_SLOW_PATH_COMMIT_RW;
 	}
@@ -352,69 +357,101 @@ namespace {
 	void MIXED_SLOW_PATH_COMMIT_RO(STM_COMMIT_SIG(tx,)){
 		
 		if (tx->is_rh_prefix_active){
-			_xend();
+			htm_end();
+			CFENCE;
 			tx->is_rh_prefix_active = false;
 		}
-		__sync_fetch_and_sub(&num_of_fallbacks, 1);
+		
+		if (tx->on_fallback) {
+			atomicDec(num_of_fallbacks);
+			tx->on_fallback = false;
+		}
 
 		// profiling
 		tx->num_ro++;
+		
+		// notify the allocator
+    tx->allocator.onTxCommit();
+		
 		// This switches the thread back to RO mode.
-		tx->tmbegin_local = FAST_PATH_START;
-		tx->tmread        = FAST_PATH_READ;
-		tx->tmwrite       = FAST_PATH_WRITE_RO;
-		tx->tmcommit      = FAST_PATH_COMMIT_RO;
+		tx->tmread        = MIXED_SLOW_PATH_READ;
+		tx->tmwrite       = MIXED_SLOW_PATH_WRITE_RO;
+		tx->tmcommit      = MIXED_SLOW_PATH_COMMIT_RO;
+		
 		// reset number of slow-path retries
-		tx->slow_retries = 0;
-		tx->htm_retries = 0;
+		slow_path_retries = 0;
+		htm_prefix_retries = 0;
+		htm_posfix_retries = 0;
 	}
 
 	void MIXED_SLOW_PATH_COMMIT_RW(STM_COMMIT_SIG(tx,)){
 		
 		if (tx->is_rh_active){
-			_xend();
+			htm_end();
+			CFENCE;
 			tx->is_rh_active = false;
 		}
-		if (tx->is_htm_lock_mine){
-			unlock(&global_htm_lock);
-			tx->is_htm_lock_mine = false;
-		}
 		
-		lock_t new_clock = (global_clock & RESET_LOCK_BIT_MASK) + 1;
-		__atomic_store_n(&global_clock,new_clock, __ATOMIC_RELEASE);
+		uint64_t new_clock = (tx->tx_version & RESET_LOCK_BIT_MASK) + 1;
+		atomicWrite(global_clock, new_clock);
 		tx->clock_lock_is_mine = false;
 
-		__sync_fetch_and_sub(&num_of_fallbacks, 1);
+		if (tx->is_htm_lock_mine){
+			unlock(global_htm_lock);
+			tx->is_htm_lock_mine = false;
+		}
+		CFENCE;
+
+		if (tx->on_fallback) {
+			atomicDec(num_of_fallbacks);
+			tx->on_fallback = false;
+		}
 		
 		// profiling
 		tx->num_commits++;
+		
+		// notify the allocator
+    tx->allocator.onTxCommit();
+		
 		// This switches the thread back to RO mode.
-		tx->tmbegin_local = FAST_PATH_START;
-		tx->tmread        = FAST_PATH_READ;
-		tx->tmwrite       = FAST_PATH_WRITE_RO;
-		tx->tmcommit      = FAST_PATH_COMMIT_RO;
+		tx->tmread        = MIXED_SLOW_PATH_READ;
+		tx->tmwrite       = MIXED_SLOW_PATH_WRITE_RO;
+		tx->tmcommit      = MIXED_SLOW_PATH_COMMIT_RO;
+		
 		// reset number of slow-path retries
-		tx->slow_retries = 0;
-		tx->htm_retries = 0;
+		slow_path_retries = 0;
+		htm_prefix_retries = 0;
+		htm_posfix_retries = 0;
 	}
 
 	stm::scope_t* rollback(STM_ROLLBACK_SIG(tx, upper_stack_bound, except, len)){
 		
-		if(tx->is_htm_lock_mine){
-			unlock(&global_htm_lock);
-			tx->is_htm_lock_mine = false;
-		}
-
-		if(tx->clock_lock_is_mine){
-			lock_t new_clock = (tx->tx_version & RESET_LOCK_BIT_MASK);
-			__atomic_store_n(&global_clock,new_clock,__ATOMIC_RELEASE);
+		if (tx->clock_lock_is_mine) {
+			uint64_t new_clock = (tx->tx_version & RESET_LOCK_BIT_MASK) + 1;
+			atomicWrite(global_clock, new_clock);
 			tx->clock_lock_is_mine = false;
 		}
 		
+		if (tx->is_htm_lock_mine) {
+			unlock(global_htm_lock);
+			tx->is_htm_lock_mine = false;
+		}
+		
+		if (tx->on_fallback) {
+			atomicDec(num_of_fallbacks);
+			tx->on_fallback = false;
+		}
+
+		CFENCE;
+		
 		// profiling
 		stm::PreRollback(tx);
+		
+		// notify the allocator
+    tx->allocator.onTxAbort();
 
 		// all transactions start as read-only
+		tx->tmread   = MIXED_SLOW_PATH_READ;
 		tx->tmwrite  = MIXED_SLOW_PATH_WRITE_RO;
 		tx->tmcommit = MIXED_SLOW_PATH_COMMIT_RO;
 		
@@ -429,7 +466,7 @@ namespace {
 
 namespace stm {
   template <>
-  void initTM<RH_NOrec>() {
+  void initTM<RH_NOrec> () {
 		initialize(RH_NOrec, "RH_NOrec");
 	}
 }

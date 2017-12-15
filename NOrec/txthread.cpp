@@ -74,9 +74,9 @@ namespace stm
    */
   TxThread::TxThread()
 				// RH-NOrec fields
-			:	tmbegin_local(NULL), clock_lock_is_mine(false), is_htm_lock_mine(false),
-				xbegin_status(0), tx_version(0), is_rh_active(false),
-				is_rh_prefix_active(false), slow_retries(0),
+			:	clock_lock_is_mine(false), is_htm_lock_mine(false),
+				tx_version(0), is_rh_active(false),
+				is_rh_prefix_active(false), on_fallback(false),
 				// Hybrid Cohorts
 				tx_state(0), my_order(0), failed_validations(0),
 				// HyTM-NOrec fields
@@ -372,9 +372,7 @@ namespace stm
 					/* inicializando apenas o NOrec (por enquanto) */
 					initTM<CGL>(); /* precisa para não bloquear a inicialização  */
 					initTM<NOrec>();
-#if defined(__x86_64__)					
 					initTM<RH_NOrec>();
-#endif /* __x86_64__ */
 					initTM<HyTM_NOrec>();
 					initTM<HyCo>();
 

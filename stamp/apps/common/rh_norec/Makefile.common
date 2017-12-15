@@ -1,0 +1,31 @@
+# TMBUILD = rh_norec
+# ======== Defines ========
+CC       := $(CXX)
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../lib -I../common/$(TMBUILD) -DHW_SW_PATHS
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3
+
+LD       := $(CXX)
+LDFLAGS  += -lpthread
+
+LIBDIR   ?= ../../../NOrec
+CPPFLAGS += -I../../../htm -I$(LIBDIR)/include 
+LDFLAGS  += -L$(LIBDIR) -lnorec -lrt
+TMLIB    += $(LIBDIR)/libnorec.a
+
+ARCH = $(shell uname -m)
+
+ifeq ($(ARCH), x86_64)
+  # Intel RTM
+  CFLAGS += -mrtm 
+else
+  ifeq ($(ARCH), ppc64le)
+    # IBM PowerTM
+    CFLAGS += -mhtm
+  else
+	  $(error unsupported architecture)
+  endif
+endif
+
+include ../common/Makefile.common

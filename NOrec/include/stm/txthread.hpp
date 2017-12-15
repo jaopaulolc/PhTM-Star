@@ -41,6 +41,12 @@ namespace HyCo {
 	void TxCommitHTx();
 } // namespace HyCo
 
+namespace RH_NOrec {
+
+	bool TxBeginHTx();
+	void TxCommitHTx();
+} // namespace RH_NOrec
+
 		
 void norecInitThreadCommits(uint64_t *addr);
 void norecInitThreadAborts(uint64_t *addr);
@@ -64,15 +70,12 @@ namespace stm
   struct TxThread
   {
 			/*** RH-NOrec fields ***/
-      TM_FASTCALL bool(*tmbegin_local)(TxThread*);
 			bool clock_lock_is_mine;
 			bool is_htm_lock_mine;
-			uint32_t xbegin_status;
 			uint64_t tx_version;
 			bool is_rh_active;
 			bool is_rh_prefix_active;
-			uint64_t htm_retries;
-			uint64_t slow_retries;
+			bool on_fallback;
 
 			/*** Hybrid Cohorts fields ***/
 			uint32_t tx_state; // state of thread's transaction
