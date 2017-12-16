@@ -43,7 +43,7 @@ using stm::ValueListEntry;
 
 #define SET_LOCK_BIT_MASK	   (1UL << (sizeof(uint64_t)*8UL - 1UL))
 #define RESET_LOCK_BIT_MASK	 (~SET_LOCK_BIT_MASK)
-#define isClockLocked(l) (l & SET_LOCK_BIT_MASK)
+#define isClockLocked(l) ((l & SET_LOCK_BIT_MASK) != 0UL)
 
 #define isLocked(l) (atomicRead(l) == 1)
 
@@ -59,7 +59,7 @@ using stm::ValueListEntry;
 #define unlock(l) atomicWrite(l, 0)
 
 static volatile std::atomic<uint64_t> __ALIGN__ global_clock(0);
-static volatile std::atomic<uint64_t> __ALIGN__ serial_lock(0);
+//static volatile std::atomic<uint64_t> __ALIGN__ serial_lock(0);
 static volatile std::atomic<uint64_t> __ALIGN__ global_htm_lock(0);
 static volatile std::atomic<uint64_t> __ALIGN__ num_of_fallbacks(0);
 
@@ -77,14 +77,12 @@ namespace RH_NOrec {
 retry_htm:
 		status = htm_begin();
 		if(htm_has_started(status)) {
-			if ( global_htm_lock || serial_lock ) {
+			if ( global_htm_lock ) {
 				htm_abort();
 			}
 			return true;
 		}
-
 		CFENCE;
-		while(isLocked(serial_lock) || isLocked(global_htm_lock));
 
 		htm_retries++;
 		if ( htm_retries < HTM_MAX_RETRIES ) {
@@ -120,9 +118,11 @@ namespace {
   bool irrevoc(STM_IRREVOC_SIG(,));
   void onSwitchTo();
 	
+/*
 	static TM_FASTCALL void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask));
 	static TM_FASTCALL void IRREVOCABLE_WRITE(STM_WRITE_SIG(tx,addr,value,mask));
 	static TM_FASTCALL void IRREVOCABLE_COMMIT(STM_COMMIT_SIG(tx,));
+*/
 
   static TM_FASTCALL bool  MIXED_SLOW_PATH_START(TxThread*);
   static TM_FASTCALL void  MIXED_SLOW_PATH_COMMIT_RO(STM_COMMIT_SIG(,));
@@ -168,14 +168,12 @@ retry_htm_prefix:
 		status = htm_begin(); 
 		if (htm_has_started(status)) {
 			tx->is_rh_prefix_active = true;
-			if ( global_htm_lock || serial_lock ) {
+			if ( global_htm_lock ) {
 				htm_abort();
 			}
 			return true;
 		}
-		
 		CFENCE;
-		while(isLocked(serial_lock) || isLocked(global_htm_lock));
 
 		// TODO: implement dynamic prefix length adjustment
 		// reduce tx->max_reads (how? see RH-NOrec article)
@@ -203,7 +201,7 @@ retry_htm_prefix:
 
   bool MIXED_SLOW_PATH_START(TxThread* tx) {
 		
-		while ( slow_path_retries++ <= MAX_SLOW_PATH_RETRIES ) {
+		//while ( slow_path_retries++ <= MAX_SLOW_PATH_RETRIES ) {
 			if ( START_RH_HTM_PREFIX(tx) ) return false;
 			atomicInc(num_of_fallbacks);
 			tx->on_fallback = true;
@@ -216,7 +214,9 @@ retry_htm_prefix:
 			// notify the allocator
       tx->allocator.onTxBegin();
 			return false;
-		}
+		//}
+
+/*
 		while(isLocked(serial_lock) || isLocked(global_htm_lock));
 		// slow-path failed
 		// acquire global_clock lock
@@ -236,9 +236,10 @@ retry_htm_prefix:
 		tx->tmread   = IRREVOCABLE_READ;
 		tx->tmwrite  = IRREVOCABLE_WRITE;
 		tx->tmcommit = IRREVOCABLE_COMMIT;
-		return false;
+		return false;*/
 	}
 	
+/*
 	void* IRREVOCABLE_READ(STM_READ_SIG(tx,addr,mask)) {
 		return (*addr);
 	}
@@ -273,6 +274,7 @@ retry_htm_prefix:
 		tx->is_rh_prefix_active = false;
 		tx->is_rh_active = false;
 	}
+*/
 
   void* MIXED_SLOW_PATH_READ(STM_READ_SIG(tx,addr,mask)) {
 		
@@ -301,7 +303,7 @@ retry_htm_prefix:
 retry_htm_posfix:
 		status = htm_begin();
 		if (htm_has_started(status)) {
-			if ( global_htm_lock || serial_lock ) {
+			if ( global_htm_lock ) {
 				htm_abort();
 			}
 			tx->is_rh_active = true;
@@ -309,7 +311,8 @@ retry_htm_posfix:
 		}
 
 		CFENCE;
-		if ( isLocked(global_htm_lock) || isLocked(serial_lock) ) stm::restart();
+		//if ( isLocked(global_htm_lock) || isLocked(serial_lock) ) stm::restart();
+		if ( isLocked(global_htm_lock) ) stm::restart();
 		
 		htm_posfix_retries++;	
 		if ( htm_posfix_retries < HTM_POSFIX_MAX_RETRIES ) {
@@ -341,7 +344,7 @@ retry_htm_posfix:
 		if (!START_RH_HTM_POSFIX(tx)){
 			lock(global_htm_lock);
 			tx->is_htm_lock_mine = true;
-			if(isLocked(serial_lock)) stm::restart();
+			//if(isLocked(serial_lock)) stm::restart();
 		}
 		(*addr) = value;
 		// switch to read-write "mode"
@@ -366,6 +369,12 @@ retry_htm_posfix:
 			atomicDec(num_of_fallbacks);
 			tx->on_fallback = false;
 		}
+
+		/*
+		if (tx->is_serial_lock_mine) {
+			tx->is_serial_lock_mine = false;
+			unlock(serial_lock);
+		}*/
 
 		// profiling
 		tx->num_ro++;
@@ -407,6 +416,13 @@ retry_htm_posfix:
 			tx->on_fallback = false;
 		}
 		
+		/*
+		if (tx->is_serial_lock_mine) {
+			tx->is_serial_lock_mine = false;
+			unlock(serial_lock);
+		}
+		*/
+		
 		// profiling
 		tx->num_commits++;
 		
@@ -441,6 +457,12 @@ retry_htm_posfix:
 			atomicDec(num_of_fallbacks);
 			tx->on_fallback = false;
 		}
+		
+		/*
+		if (tx->is_serial_lock_mine) {
+			tx->is_serial_lock_mine = false;
+			unlock(serial_lock);
+		}*/
 
 		CFENCE;
 		

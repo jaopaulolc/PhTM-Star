@@ -76,6 +76,7 @@ namespace stm
 			bool is_rh_active;
 			bool is_rh_prefix_active;
 			bool on_fallback;
+			bool is_serial_lock_mine;
 
 			/*** Hybrid Cohorts fields ***/
 			uint32_t tx_state; // state of thread's transaction

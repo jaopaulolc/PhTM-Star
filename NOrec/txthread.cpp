@@ -77,6 +77,7 @@ namespace stm
 			:	clock_lock_is_mine(false), is_htm_lock_mine(false),
 				tx_version(0), is_rh_active(false),
 				is_rh_prefix_active(false), on_fallback(false),
+				is_serial_lock_mine(false),
 				// Hybrid Cohorts
 				tx_state(0), my_order(0), failed_validations(0),
 				// HyTM-NOrec fields
