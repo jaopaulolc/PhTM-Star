@@ -40,6 +40,17 @@ enum { NON_TX=0, SERIAL, HW, SW, } ;
 #define atomicWrite(atomic_var, value) atomic_var.store(value)
 #define boolCAS(atomic_var, expected, new) atomic_var.compare_exchange_strong(expected, new)
 
+#define lock(l) \
+	{ \
+		uint64_t expected = 0; \
+		while ( !boolCAS(l, expected, 1) ) { \
+			expected = 0; \
+			pthread_yield(); \
+		} \
+	}
+
+#define unlock(l) atomicWrite(l, 0)
+
 #define UNUSED __attribute__((unused))
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
@@ -87,7 +98,7 @@ namespace HyCo {
 			}
 			CFENCE;
 			//tx->tx_state = NON_TX;
-			while (atomicRead(ser_kill) || atomicRead(stx_kill));
+			while (atomicRead(ser_kill) || atomicRead(stx_kill)) pthread_yield();
 
 			htm_retries++;
 			if(htm_retries >= HTM_MAX_RETRIES) {
@@ -189,12 +200,13 @@ namespace {
 	bool
 	HyCo_Generic<CM>::TxBeginSerial()
 	{
-			bool success;
+			/*bool success;
 			do {
 				uint64_t expected;
 				expected = FALSE;
 				success = boolCAS(serial, expected, TRUE);
-			} while ( !success );
+			} while ( !success );*/
+			lock(serial);
 			WBR;
 			//TxThread* tx = (TxThread*)stm::Self;
 			//tx->tx_state = SERIAL;
@@ -264,12 +276,14 @@ namespace {
 
 RETRY:
 			if ( atomicRead(serial) ) {
+				pthread_yield();
 				goto RETRY;
 			} else {
 				while ( atomicRead(cpending) );
 				atomicInc(started);
 				if ( atomicRead(serial) || (atomicRead(cpending) > 0) ) {
 					atomicDec(started);
+					pthread_yield();
 					goto RETRY;
 				}
 				// Lazy cleanup of STx-SC flag
@@ -320,7 +334,7 @@ RETRY:
 
 			// Wait until all STx ready to commit
 			atomicInc(cpending);
-			while ( atomicRead(cpending) < atomicRead(started) );
+			while ( atomicRead(cpending) < atomicRead(started) ) pthread_yield();
 			if ( hc_retries < HC_MAX_RETRIES ) {
 				hc_retries++;
 				// STx will try to commit via HTM
@@ -358,7 +372,7 @@ RETRY:
 			//tx->my_order = atomicInc(order);
 			uint64_t my_order = atomicInc(order);
 			if (my_order == 0) {
-				while (atomicRead(order) < atomicRead(started));
+				while (atomicRead(order) < atomicRead(started)) pthread_yield();
 				// Optional: allow HTx to complete
 				// uint64_t i, nthreads = stm::threadcount;
 				// for (i = 0; i < nthreads; i++) {
@@ -369,7 +383,7 @@ RETRY:
 				// Interrupt remaining HTx
 				atomicWrite(stx_kill, TRUE);
 			} else {
-				while (atomicRead(hyco_time) != my_order);
+				while (atomicRead(hyco_time) != my_order) pthread_yield();
 			}
 
 			bool failed = false;
