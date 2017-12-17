@@ -150,29 +150,11 @@ typedef struct thread_data {
   unsigned long nb_remove;
   unsigned long nb_contains;
   unsigned long nb_found;
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-  unsigned long nb_aborts;
-  unsigned long nb_aborts_1;
-  unsigned long nb_aborts_2;
-  unsigned long nb_aborts_locked_read;
-  unsigned long nb_aborts_locked_write;
-  unsigned long nb_aborts_validate_read;
-  unsigned long nb_aborts_validate_write;
-  unsigned long nb_aborts_validate_commit;
-  unsigned long nb_aborts_invalid_memory;
-  unsigned long nb_aborts_killed;
-  unsigned long locked_reads_ok;
-  unsigned long locked_reads_failed;
-  unsigned long max_retries;
-#endif /* ! TM_COMPILER */
   unsigned short seed[3];
   int diff;
   int range;
   int update;
   int alternate;
-#ifdef USE_LINKEDLIST
-  int unit_tx;
-#endif /* LINKEDLIST */
   char padding[CACHE_LINE_SIZE];
 } __ALIGN__ thread_data_t;
 
@@ -321,42 +303,6 @@ static int set_contains(intset_t *set, val_t val, thread_data_t *td)
     TM_COMMIT;
 #endif /* !HW_SW_PATHS */
   } 
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  else {
-    /* Unit transactions */
-    stm_word_t ts, start_ts, val_ts;
-  restart:
-    start_ts = stm_get_clock();
-    /* Head node is never removed */
-    prev = (node_t *)TM_UNIT_LOAD(&set->head, &ts);
-    next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-    if (ts > start_ts)
-      start_ts = ts;
-    while (1) {
-      v = TM_UNIT_LOAD(&next->val, &val_ts);
-      if (val_ts > start_ts) {
-        /* Restart traversal (could also backtrack) */
-        goto restart;
-      }
-      if (v >= val)
-        break;
-      prev = next;
-      next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-      if (ts > start_ts) {
-        /* Verify that node has not been modified (value and pointer are updated together) */
-        TM_UNIT_LOAD(&prev->val, &val_ts);
-        if (val_ts > start_ts) {
-          /* Restart traversal (could also backtrack) */
-          goto restart;
-        }
-        start_ts = ts;
-      }
-    }
-    result = (v == val);
-  }
-#endif /* TM_COMPILER */
-#endif
 
   return result;
 }
@@ -432,50 +378,6 @@ static int set_add(intset_t *set, val_t val, thread_data_t *td)
     TM_COMMIT;
 #endif /* !HW_SW_PATHS */
   } 
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  else {
-    /* Unit transactions */
-    stm_word_t ts, start_ts, val_ts;
-  restart:
-    start_ts = stm_get_clock();
-    /* Head node is never removed */
-    prev = (node_t *)TM_UNIT_LOAD(&set->head, &ts);
-    next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-    if (ts > start_ts)
-      start_ts = ts;
-    while (1) {
-      v = TM_UNIT_LOAD(&next->val, &val_ts);
-      if (val_ts > start_ts) {
-        /* Restart traversal (could also backtrack) */
-        goto restart;
-      }
-      if (v >= val)
-        break;
-      prev = next;
-      next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-      if (ts > start_ts) {
-        /* Verify that node has not been modified (value and pointer are updated together) */
-        TM_UNIT_LOAD(&prev->val, &val_ts);
-        if (val_ts > start_ts) {
-          /* Restart traversal (could also backtrack) */
-          goto restart;
-        }
-        start_ts = ts;
-      }
-    }
-    result = (v != val);
-    if (result) {
-      node_t *n = new_node(val, next, 0);
-      /* Make sure that there are no concurrent updates to that memory location */
-      if (!TM_UNIT_STORE(&prev->next, n, &ts)) {
-        free(n);
-        goto restart;
-      }
-    }
-  }
-#endif /* ! TM_COMPILER */
-#endif
 
   return result;
 }
@@ -560,51 +462,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
     TM_COMMIT;
 #endif /* !HW_SW_PATHS */
   }
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  else {
-    /* Unit transactions */
-    stm_word_t ts, start_ts, val_ts;
-  restart:
-    start_ts = stm_get_clock();
-    /* Head node is never removed */
-    prev = (node_t *)TM_UNIT_LOAD(&set->head, &ts);
-    next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-    if (ts > start_ts)
-      start_ts = ts;
-    while (1) {
-      v = TM_UNIT_LOAD(&next->val, &val_ts);
-      if (val_ts > start_ts) {
-        /* Restart traversal (could also backtrack) */
-        goto restart;
-      }
-      if (v >= val)
-        break;
-      prev = next;
-      next = (node_t *)TM_UNIT_LOAD(&prev->next, &ts);
-      if (ts > start_ts) {
-        /* Verify that node has not been modified (value and pointer are updated together) */
-        TM_UNIT_LOAD(&prev->val, &val_ts);
-        if (val_ts > start_ts) {
-          /* Restart traversal (could also backtrack) */
-          goto restart;
-        }
-        start_ts = ts;
-      }
-    }
-    result = (v == val);
-    if (result) {
-      /* Make sure that the transaction does not access versions more recent than start_ts */
-      TM_START_TS(start_ts, restart);
-      n = (node_t *)TM_LOAD(&next->next);
-      TM_STORE(&prev->next, n);
-      /* Free memory (delayed until commit) */
-      TM_FREE2(next, sizeof(node_t));
-      TM_COMMIT;
-    }
-  }
-#endif /* ! TM_COMPILER */
-#endif
+
   return result;
 }
 
@@ -1695,21 +1553,7 @@ static void *test(void *data)
       d->nb_contains++;
     }
   }
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-  stm_get_stats("nb_aborts", &d->nb_aborts);
-  stm_get_stats("nb_aborts_1", &d->nb_aborts_1);
-  stm_get_stats("nb_aborts_2", &d->nb_aborts_2);
-  stm_get_stats("nb_aborts_locked_read", &d->nb_aborts_locked_read);
-  stm_get_stats("nb_aborts_locked_write", &d->nb_aborts_locked_write);
-  stm_get_stats("nb_aborts_validate_read", &d->nb_aborts_validate_read);
-  stm_get_stats("nb_aborts_validate_write", &d->nb_aborts_validate_write);
-  stm_get_stats("nb_aborts_validate_commit", &d->nb_aborts_validate_commit);
-  stm_get_stats("nb_aborts_invalid_memory", &d->nb_aborts_invalid_memory);
-  stm_get_stats("nb_aborts_killed", &d->nb_aborts_killed);
-  stm_get_stats("locked_reads_ok", &d->locked_reads_ok);
-  stm_get_stats("locked_reads_failed", &d->locked_reads_failed);
-  stm_get_stats("max_retries", &d->max_retries);
-#endif /* ! TM_COMPILER */
+
   /* Free transaction */
   TM_EXIT_THREAD(d->threadId);
 
@@ -1722,35 +1566,18 @@ int main(int argc, char **argv)
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},
     {"do-not-alternate",          no_argument,       NULL, 'a'},
-#ifndef TM_COMPILER
-    {"contention-manager",        required_argument, NULL, 'c'},
-#endif /* ! TM_COMPILER */
     {"duration",                  required_argument, NULL, 'd'},
     {"initial-size",              required_argument, NULL, 'i'},
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
     {"seed",                      required_argument, NULL, 's'},
     {"update-rate",               required_argument, NULL, 'u'},
-#ifdef USE_LINKEDLIST
-    {"unit-tx",                   no_argument,       NULL, 'x'},
-#endif /* LINKEDLIST */
     {NULL, 0, NULL, 0}
   };
 
   intset_t *set;
   int i, c, val, size, ret;
   unsigned long reads, updates;
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  char *s;
-  unsigned long aborts, aborts_1, aborts_2,
-    aborts_locked_read, aborts_locked_write,
-    aborts_validate_read, aborts_validate_write, aborts_validate_commit,
-    aborts_invalid_memory, aborts_killed,
-    locked_reads_ok, locked_reads_failed, max_retries;
-  stm_ab_stats_t ab_stats;
-#endif /* ! TM_COMPILER */
-#endif
   thread_data_t *data;
   pthread_t *threads;
   pthread_attr_t attr;
@@ -1764,29 +1591,13 @@ int main(int argc, char **argv)
   int seed = DEFAULT_SEED;
   int update = DEFAULT_UPDATE;
   int alternate = 1;
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  char *cm = NULL;
-#endif /* ! TM_COMPILER */
-#endif
-#ifdef USE_LINKEDLIST
-  int unit_tx = 0;
-#endif /* LINKEDLIST */
   sigset_t block_set;
 
 	int noRange=1;
   while(1) {
     i = 0;
     c = getopt_long(argc, argv, "ha"
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-                    "c:"
-#endif /* ! TM_COMPILER */
-#endif
                     "d:i:n:r:s:u:"
-#ifdef USE_LINKEDLIST
-                    "x"
-#endif /* LINKEDLIST */
                     , long_options, &i);
 
     if(c == -1)
@@ -1819,10 +1630,6 @@ int main(int argc, char **argv)
               "        Print this message\n"
               "  -a, --do-not-alternate\n"
               "        Do not alternate insertions and removals\n"
-#if !defined(TM_COMPILER) && defined(TinySTM)
-	      "  -c, --contention-manager <string>\n"
-              "        Contention manager for resolving conflicts (default=suicide)\n"
-#endif /* ! TM_COMPILER */
 	      "  -d, --duration <int>\n"
               "        Test duration in milliseconds (0=infinite, default=" XSTR(DEFAULT_DURATION) ")\n"
               "  -i, --initial-size <int>\n"
@@ -1835,22 +1642,11 @@ int main(int argc, char **argv)
               "        RNG seed (0=time-based, default=" XSTR(DEFAULT_SEED) ")\n"
               "  -u, --update-rate <int>\n"
               "        Percentage of update transactions (default=" XSTR(DEFAULT_UPDATE) ")\n"
-#ifdef USE_LINKEDLIST
-              "  -x, --unit-tx\n"
-              "        Use unit transactions\n"
-#endif /* LINKEDLIST */
          );
        exit(0);
      case 'a':
        alternate = 0;
        break;
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-     case 'c':
-       cm = optarg;
-       break;
-#endif /* ! TM_COMPILER */
-#endif
      case 'd':
        duration = atoi(optarg);
        break;
@@ -1870,11 +1666,6 @@ int main(int argc, char **argv)
      case 'u':
        update = atoi(optarg);
        break;
-#ifdef USE_LINKEDLIST
-     case 'x':
-       unit_tx++;
-       break;
-#endif /* LINKEDLIST */
      case '?':
        printf("Use -h or --help for help\n");
        exit(0);
@@ -1900,11 +1691,6 @@ int main(int argc, char **argv)
 #elif defined(USE_HASHSET)
   printf("Set type     : hash set\n");
 #endif /* defined(USE_HASHSET) */
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  printf("CM           : %s\n", (cm == NULL ? "DEFAULT" : cm));
-#endif /* ! TM_COMPILER */
-#endif
   printf("Duration     : %d\n", duration);
   printf("Initial size : %d\n", initial);
   printf("Nb threads   : %d\n", nb_threads);
@@ -1912,9 +1698,6 @@ int main(int argc, char **argv)
   printf("Seed         : %d\n", seed);
   printf("Update rate  : %d\n", update);
   printf("Alternate    : %d\n", alternate);
-#ifdef USE_LINKEDLIST
-  printf("Unit tx      : %d\n", unit_tx);
-#endif /* LINKEDLIST */
   printf("Type sizes   : int=%d/long=%d/ptr=%d/word=%d\n",
          (int)sizeof(int),
          (int)sizeof(long),
@@ -1948,17 +1731,6 @@ int main(int argc, char **argv)
   /* Init STM */
   printf("Initializing STM\n");
   TM_INIT(nb_threads);
-#if 0
-#if !defined(TM_COMPILER) && defined(TinySTM)
-  if (stm_get_parameter("compile_flags", &s))
-    printf("STM flags    : %s\n", s);
-
-  if (cm != NULL) {
-    if (stm_set_parameter("cm_policy", cm) == 0)
-      printf("WARNING: cannot set contention manager \"%s\"\n", cm);
-  }
-#endif /* ! TM_COMPILER */
-#endif
   if (alternate == 0 && range != initial * 2)
     printf("WARNING: range is not twice the initial set size\n");
 
@@ -1983,28 +1755,10 @@ int main(int argc, char **argv)
     data[i].range = range;
     data[i].update = update;
     data[i].alternate = alternate;
-#ifdef USE_LINKEDLIST
-    data[i].unit_tx = unit_tx;
-#endif /* LINKEDLIST */
     data[i].nb_add = 0;
     data[i].nb_remove = 0;
     data[i].nb_contains = 0;
     data[i].nb_found = 0;
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-    data[i].nb_aborts = 0;
-    data[i].nb_aborts_1 = 0;
-    data[i].nb_aborts_2 = 0;
-    data[i].nb_aborts_locked_read = 0;
-    data[i].nb_aborts_locked_write = 0;
-    data[i].nb_aborts_validate_read = 0;
-    data[i].nb_aborts_validate_write = 0;
-    data[i].nb_aborts_validate_commit = 0;
-    data[i].nb_aborts_invalid_memory = 0;
-    data[i].nb_aborts_killed = 0;
-    data[i].locked_reads_ok = 0;
-    data[i].locked_reads_failed = 0;
-    data[i].max_retries = 0;
-#endif /* ! TM_COMPILER */
     data[i].diff = 0;
     rand_init(data[i].seed);
     data[i].set = set;
@@ -2040,21 +1794,6 @@ int main(int argc, char **argv)
   }
 
   duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-  aborts = 0;
-  aborts_1 = 0;
-  aborts_2 = 0;
-  aborts_locked_read = 0;
-  aborts_locked_write = 0;
-  aborts_validate_read = 0;
-  aborts_validate_write = 0;
-  aborts_validate_commit = 0;
-  aborts_invalid_memory = 0;
-  aborts_killed = 0;
-  locked_reads_ok = 0;
-  locked_reads_failed = 0;
-  max_retries = 0;
-#endif /* ! TM_COMPILER */
   reads = 0;
   updates = 0;
   for (i = 0; i < nb_threads; i++) {
@@ -2063,35 +1802,6 @@ int main(int argc, char **argv)
     printf("  #remove     : %lu\n", data[i].nb_remove);
     printf("  #contains   : %lu\n", data[i].nb_contains);
     printf("  #found      : %lu\n", data[i].nb_found);
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-    printf("  #aborts     : %lu\n", data[i].nb_aborts);
-    printf("    #lock-r   : %lu\n", data[i].nb_aborts_locked_read);
-    printf("    #lock-w   : %lu\n", data[i].nb_aborts_locked_write);
-    printf("    #val-r    : %lu\n", data[i].nb_aborts_validate_read);
-    printf("    #val-w    : %lu\n", data[i].nb_aborts_validate_write);
-    printf("    #val-c    : %lu\n", data[i].nb_aborts_validate_commit);
-    printf("    #inv-mem  : %lu\n", data[i].nb_aborts_invalid_memory);
-    printf("    #killed   : %lu\n", data[i].nb_aborts_killed);
-    printf("  #aborts>=1  : %lu\n", data[i].nb_aborts_1);
-    printf("  #aborts>=2  : %lu\n", data[i].nb_aborts_2);
-    printf("  #lr-ok      : %lu\n", data[i].locked_reads_ok);
-    printf("  #lr-failed  : %lu\n", data[i].locked_reads_failed);
-    printf("  Max retries : %lu\n", data[i].max_retries);
-    aborts += data[i].nb_aborts;
-    aborts_1 += data[i].nb_aborts_1;
-    aborts_2 += data[i].nb_aborts_2;
-    aborts_locked_read += data[i].nb_aborts_locked_read;
-    aborts_locked_write += data[i].nb_aborts_locked_write;
-    aborts_validate_read += data[i].nb_aborts_validate_read;
-    aborts_validate_write += data[i].nb_aborts_validate_write;
-    aborts_validate_commit += data[i].nb_aborts_validate_commit;
-    aborts_invalid_memory += data[i].nb_aborts_invalid_memory;
-    aborts_killed += data[i].nb_aborts_killed;
-    locked_reads_ok += data[i].locked_reads_ok;
-    locked_reads_failed += data[i].locked_reads_failed;
-    if (max_retries < data[i].max_retries)
-      max_retries = data[i].max_retries;
-#endif /* ! TM_COMPILER */
     reads += data[i].nb_contains;
     updates += (data[i].nb_add + data[i].nb_remove);
     size += data[i].diff;
@@ -2102,33 +1812,6 @@ int main(int argc, char **argv)
   printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration);
   printf("#read txs     : %lu (%f / s)\n", reads, reads * 1000.0 / duration);
   printf("#update txs   : %lu (%f / s)\n", updates, updates * 1000.0 / duration);
-#if 0 && !defined(TM_COMPILER) && defined(TinySTM)
-  printf("#aborts       : %lu (%f / s)\n", aborts, aborts * 1000.0 / duration);
-  printf("  #lock-r     : %lu (%f / s)\n", aborts_locked_read, aborts_locked_read * 1000.0 / duration);
-  printf("  #lock-w     : %lu (%f / s)\n", aborts_locked_write, aborts_locked_write * 1000.0 / duration);
-  printf("  #val-r      : %lu (%f / s)\n", aborts_validate_read, aborts_validate_read * 1000.0 / duration);
-  printf("  #val-w      : %lu (%f / s)\n", aborts_validate_write, aborts_validate_write * 1000.0 / duration);
-  printf("  #val-c      : %lu (%f / s)\n", aborts_validate_commit, aborts_validate_commit * 1000.0 / duration);
-  printf("  #inv-mem    : %lu (%f / s)\n", aborts_invalid_memory, aborts_invalid_memory * 1000.0 / duration);
-  printf("  #killed     : %lu (%f / s)\n", aborts_killed, aborts_killed * 1000.0 / duration);
-  printf("#aborts>=1    : %lu (%f / s)\n", aborts_1, aborts_1 * 1000.0 / duration);
-  printf("#aborts>=2    : %lu (%f / s)\n", aborts_2, aborts_2 * 1000.0 / duration);
-  printf("#lr-ok        : %lu (%f / s)\n", locked_reads_ok, locked_reads_ok * 1000.0 / duration);
-  printf("#lr-failed    : %lu (%f / s)\n", locked_reads_failed, locked_reads_failed * 1000.0 / duration);
-  printf("Max retries   : %lu\n", max_retries);
-
-  for (i = 0; stm_get_ab_stats(i, &ab_stats) != 0; i++) {
-    printf("Atomic block  : %d\n", i);
-    printf("  #samples    : %lu\n", ab_stats.samples);
-    printf("  Mean        : %f\n", ab_stats.mean);
-    printf("  Variance    : %f\n", ab_stats.variance);
-    printf("  Min         : %f\n", ab_stats.min); 
-    printf("  Max         : %f\n", ab_stats.max);
-    printf("  50th perc.  : %f\n", ab_stats.percentile_50);
-    printf("  90th perc.  : %f\n", ab_stats.percentile_90);
-    printf("  95th perc.  : %f\n", ab_stats.percentile_95);
-  }
-#endif /* ! TM_COMPILER */
 
   /* Delete set */
   set_delete(set);
