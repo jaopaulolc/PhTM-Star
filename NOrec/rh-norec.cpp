@@ -20,7 +20,6 @@
 #include <htm.h>
 
 #include <setjmp.h>
-#include <immintrin.h>
 
 // Don't just import everything from stm. This helps us find bugs.
 using stm::TxThread;
