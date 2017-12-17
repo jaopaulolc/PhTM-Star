@@ -69,6 +69,17 @@
 #define CACHE_LINE_SIZE  64
 #endif /* Haswell*/
 
+#if !defined(__ALIGN__)
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#define __CACHE_ALIGNMENT__ 0x10000
+#endif
+
+#if defined(__x86_64__) || defined(__i386)
+#define __CACHE_ALIGNMENT__ 0x1000
+#endif
+#define __ALIGN__ __attribute__((aligned(__CACHE_ALIGNMENT__)))
+#endif
+
 #include <unistd.h>
 #include <sched.h>
 void set_affinity(long id){
@@ -163,7 +174,7 @@ typedef struct thread_data {
   int unit_tx;
 #endif /* LINKEDLIST */
   char padding[CACHE_LINE_SIZE];
-} thread_data_t;
+} __ALIGN__ thread_data_t;
 
 #if defined(USE_LINKEDLIST)
 
