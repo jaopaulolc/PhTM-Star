@@ -24,6 +24,10 @@ CFLAGS += -DLABYRINTH -DNUMBER_OF_TRANSACTIONS=3
 
 CFLAGS += -DUSE_EARLY_RELEASE
 
+ifeq ($(SPEAR_MOD),yes)
+  CFLAGS += -DTRANSMEM_MODIFICATION
+endif
+
 LDFLAGS += -lm
 
 include ../common/$(TMBUILD)/Makefile.common

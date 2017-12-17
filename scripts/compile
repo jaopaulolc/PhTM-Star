@@ -320,7 +320,7 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:v:S:d:m:D:l:s:i:a:P:H:T:h" opt;
+while getopts "b:v:S:d:m:D:l:s:i:a:P:H:T:hX" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -360,6 +360,7 @@ do
 		H) _ORT_HASHES=$OPTARG ;;
 		T) MAKE_OPTIONS="$MAKE_OPTIONS THRESHOLD=$OPTARG" ;;
 		h) usage && exit -1 ;;
+    X) MAKE_OPTIONS="$MAKE_OPTIONS SPEAR_MOD=yes" ;;
 		\?) echo $0" : error - invalid option -- $OPTARG"
 			exit 1
 	esac

@@ -29,6 +29,10 @@ CFLAGS += -DLIST_NO_DUPLICATES
 CFLAGS += -DMAP_USE_AVLTREE
 CFLAGS += -DSET_USE_RBTREE
 
+ifeq ($(SPEAR_MOD),yes)
+  CFLAGS += -DTRANSMEM_MODIFICATION
+endif
+
 LDFLAGS += -lm
 
 include ../common/$(TMBUILD)/Makefile.common
