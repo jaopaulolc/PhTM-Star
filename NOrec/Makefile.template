@@ -18,12 +18,8 @@ SRCS = algs.cpp \
 			 WBMMPolicy.cpp \
 			 serial.cpp \
 			 cgl.cpp \
+			 rh-norec.cpp \
 			 norec.cpp
-ifeq ($(ARCH), x86_64)
-	# RH-NOrec not implemented with generic HTM library yet!
-	# Only works with TSX
-  SRCS += rh-norec.cpp
-endif
 
 OBJS = $(SRCS:.cpp=.o)
 
