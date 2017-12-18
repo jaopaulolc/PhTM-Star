@@ -308,7 +308,7 @@ grid_addPath (grid_t* gridPtr, vector_t* pointVectorPtr)
         grid_setPoint(gridPtr, x, y, z, GRID_POINT_FULL);
     }
 #if defined(TRANSMEM_MODIFICATION)
-		return true;
+		return TRUE;
 #endif
 
 }
