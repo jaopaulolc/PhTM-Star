@@ -190,7 +190,11 @@ grid_setPoint (grid_t* gridPtr, long x, long y, long z, long value);
  * grid_addPath
  * =============================================================================
  */
+#if defined(TRANSMEM_MODIFICATION)
+bool_t
+#else /* ! TRANSMEM_MODIFICATION */
 void
+#endif /* ! TRANSMEM_MODIFICATION */
 grid_addPath (grid_t* gridPtr, vector_t* pointVectorPtr);
 
 
