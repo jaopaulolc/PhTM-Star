@@ -256,7 +256,7 @@ static void *test(void *data)
       if (last < 0) {
         /* Add random value to first k trees */
         val = rand_range(d->range, d->seed) + 1;
-				k = rand_range(nb_trees, d->seed);
+				k = rand_range_non_zero(nb_trees, d->seed);
         if (forest_add(d->forest, val, k, d)) {
           d->diff++;
           last = val;
@@ -273,7 +273,7 @@ static void *test(void *data)
 			size_t k;
       /* Look for random value */
       val = rand_range(d->range, d->seed) + 1;
-			k = rand_range(nb_trees, d->seed);
+			k = rand_range_non_zero(nb_trees, d->seed);
       if (forest_contains(d->forest, val, k, d))
         d->nb_found++;
       d->nb_contains++;

@@ -70,6 +70,7 @@ typedef struct thread_data {
 
 void rand_init(unsigned short *seed);
 int rand_range(int n, unsigned short *seed);
+int rand_range_non_zero(int n, unsigned short *seed);
 
 #ifdef __cplusplus
 }

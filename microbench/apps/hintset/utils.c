@@ -19,3 +19,11 @@ rand_range(int n, unsigned short *seed)
   assert (v >= 0 && v < n);
   return v;
 }
+
+int
+rand_range_non_zero(int n, unsigned short *seed)
+{
+  /* Return a random number in range [1;n) */
+	int v = rand_range(n,seed);
+	return (v == 0 ? 1 : v);
+}
