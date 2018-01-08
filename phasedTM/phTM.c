@@ -359,6 +359,12 @@ phTM_thread_init(long tid){
 void
 phTM_thread_exit(void){
 	phase_profiling_stop();
+#if DESIGN == OPTIMIZED
+	if (deferredTx) {
+		deferredTx = false;
+		atomicDecDeferredCount();
+	}
+#endif /* DESIGN == OPTIMIZED */
 }
 
 void

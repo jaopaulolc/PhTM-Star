@@ -97,6 +97,17 @@ atomicDecUndeferredCount(){
 }
 
 inline
+void
+atomicDecDeferredCount(){
+	bool success;
+	do {
+		modeIndicator_t expected = atomicReadModeIndicator();
+		modeIndicator_t new = decDeferredCount(expected);
+		success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
+	} while (!success);
+}
+
+inline
 bool
 isModeSW(){
 	modeIndicator_t indicator = atomicReadModeIndicator();
