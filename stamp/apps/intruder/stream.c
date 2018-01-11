@@ -110,7 +110,7 @@ stream_alloc (long percentAttack)
         assert(streamPtr->randomPtr);
         streamPtr->allocVectorPtr = vector_alloc(262144);
         assert(streamPtr->allocVectorPtr);
-        streamPtr->packetQueuePtr = queue_alloc(-1);
+        streamPtr->packetQueuePtr = queue_alloc(262144);
         assert(streamPtr->packetQueuePtr);
         streamPtr->attackMapPtr = MAP_ALLOC(NULL, NULL);
         assert(streamPtr->attackMapPtr);
