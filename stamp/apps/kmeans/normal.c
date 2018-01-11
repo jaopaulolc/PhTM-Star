@@ -296,7 +296,9 @@ normal_exec (int       nthreads,
         /* ??? Cacheline size set to 64 bytes long to be safe with x86_64). */
         const int cacheLineSize = CACHE_LINE_SIZE;
         cluster_size += (cacheLineSize-1) - ((cluster_size-1) % cacheLineSize);
-        alloc_memory = calloc(nclusters, cluster_size);
+        //alloc_memory = calloc(nclusters, cluster_size);
+        alloc_memory = SEQ_MALLOC(nclusters*cluster_size);
+				memset(alloc_memory, 0, nclusters*cluster_size);
         new_centers_len = (long**) SEQ_MALLOC(nclusters * sizeof(long*));
         new_centers = (float**) SEQ_MALLOC(nclusters * sizeof(float*));
         assert(alloc_memory && new_centers && new_centers_len);
