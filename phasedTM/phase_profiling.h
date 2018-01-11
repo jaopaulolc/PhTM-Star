@@ -19,7 +19,6 @@ static uint64_t hw_lock_transitions __ALIGN__ = 0;
 typedef struct _trans_label_t {
 	uint64_t timestamp;
 	unsigned char mode;
-	char padding[__CACHE_LINE_SIZE__ - sizeof(unsigned char) - sizeof(uint64_t)];
 } trans_label_t __ALIGN__;
 static trans_label_t *trans_labels __ALIGN__;
 static uint64_t hw_sw_wait_time  __ALIGN__ = 0;
