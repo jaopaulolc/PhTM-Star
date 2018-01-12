@@ -81,7 +81,6 @@ int __msrOpen(int core) {
       fprintf(stderr, "rdmsr: CPU %d doesn't support MSRs\n", core);
       //exit(3);
     } else {
-      perror("rdmsr:open");
       fprintf(stderr,"Trying to open %s\n",msr_filename);
       //exit(127);
     }
@@ -108,7 +107,7 @@ uint64_t __msrRead(int fd, int which){
   uint64_t data;
 
   if ( pread(fd, &data, sizeof data, which) != sizeof data ) {
-    perror("rdmsr:pread");
+		fprintf(stderr, "error: pread failed at __msrRead function!");
     exit(127);
   }
 
@@ -118,7 +117,7 @@ uint64_t __msrRead(int fd, int which){
 void __msrWrite(int fd, int which, uint64_t data){
 
   if ( pwrite(fd, &data, sizeof data, which) != sizeof data ) {
-    perror("wrmsr:pwrite");
+		fprintf(stderr, "error: pwrite failed at __msrWrite function!");
     exit(127);
   }
 }
