@@ -26,14 +26,14 @@ static uint64_t sw_hw_wait_time  __ALIGN__ = 0;
 
 static __thread uint64_t __before__ __ALIGN__ = 0;
 
-inline
+static inline
 uint64_t getTime(){
 	struct timespec t;
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	return (uint64_t)(t.tv_sec*1.0e9) + (uint64_t)(t.tv_nsec);
 }
 
-inline
+static inline
 void increaseTransLabelsSize(trans_label_t **ptr, uint64_t *oldLength, uint64_t newLength) {
 	trans_label_t *newPtr = (trans_label_t*)malloc(newLength*sizeof(trans_label_t));
 	if ( newPtr == NULL ) {
@@ -47,7 +47,7 @@ void increaseTransLabelsSize(trans_label_t **ptr, uint64_t *oldLength, uint64_t 
 	*oldLength = newLength;
 }
 
-inline
+static inline
 void updateTransitionProfilingData(uint64_t mode){
 	uint64_t now = getTime();
 	if(mode == SW){
@@ -72,17 +72,17 @@ void updateTransitionProfilingData(uint64_t mode){
 	__before__ = 0;
 }
 
-inline
+static inline
 void setProfilingReferenceTime(){
 	__before__ = getTime();
 }
 
-inline
+static inline
 void phase_profiling_init(){
 	trans_labels = (trans_label_t*)malloc(sizeof(trans_label_t)*INIT_MAX_TRANS);
 }
 
-inline
+static inline
 void phase_profiling_start(){
 	if(started == 0){
 		started = 1;
@@ -90,12 +90,12 @@ void phase_profiling_start(){
 	}
 }
 
-inline
+static inline
 void phase_profiling_stop(){
 	end_time = getTime();
 }
 
-inline
+static inline
 void phase_profiling_report(){
 	printf("hw_sw_transitions: %lu \n", hw_sw_transitions);
 #if DESIGN == OPTIMIZED	
