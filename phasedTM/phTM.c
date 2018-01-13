@@ -36,7 +36,6 @@ __thread long num_stm_runs __ALIGN__;
 __thread uint64_t t0 __ALIGN__ = 0;
 __thread uint64_t sum_cycles __ALIGN__ = 0;
 #define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
-static long goToGLOCK __ALIGN__ = 1;
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 static inline uint64_t getCycles()
@@ -155,12 +154,6 @@ HTM_Start_Tx() {
 	abort_reason = 0;
 #if DESIGN == OPTIMIZED
 	isCapacityAbortPersistent = 0;
-
-  // abort_rate = 0;  -> colocando essa linha resolve o problema com o rb-tree
-  // (note que nao estah correto, no entanto - algum problema com variavel
-  // __thread?)
-  
-//	isConflictAbortPersistent = 0;
 #endif /* DESIGN == OPTIMIZED */
 
 	while (true) {
@@ -209,8 +202,8 @@ HTM_Start_Tx() {
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
 
-   if ( !(abort_reason & ABORT_CAPACITY) )
-       abort_rate = (abort_rate * 75 + 25*100) / 100;
+    if ( (abort_reason & ABORT_TX_CONFLICT) )
+    	abort_rate = (abort_rate * 75 + 25*100) / 100;
 
 
 		if ( (isCapacityAbortPersistent && (abort_rate > 60)) ) {
@@ -315,11 +308,8 @@ STM_PostCommit_Tx() {
 		sum_cycles = 0;
 	
 		if (mean_cycles > TX_CYCLES_THRESHOLD){
-			goToGLOCK = 1;
 			if (max_stm_runs < MAX_STM_RUNS) max_stm_runs = 2*max_stm_runs;
 			return;
-		}else {
-			//if (goToGLOCK < MAX_GLOCK_RUNS) goToGLOCK = goToGLOCK*2;
 		}
 	}
 #endif /* DESIGN == OPTIMIZED */
