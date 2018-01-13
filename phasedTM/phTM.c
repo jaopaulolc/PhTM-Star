@@ -203,7 +203,7 @@ HTM_Start_Tx() {
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
 
-    if ( (abort_reason & ABORT_TX_CONFLICT) )
+    if ( !(abort_reason & ABORT_CAPACITY) )
     	abort_rate = (abort_rate * 75 + 25*100) / 100;
 
 		uint64_t t1 = getCycles();
