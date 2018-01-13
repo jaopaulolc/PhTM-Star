@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MAKE_OPTIONS="--quiet"
+MAKE_OPTIONS="--quiet -j$(nproc)"
 
 ./clean-allocators.sh
 
