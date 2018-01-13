@@ -179,7 +179,11 @@ grid_copy (grid_t* dstGridPtr, grid_t* srcGridPtr)
     assert(srcGridPtr->depth  == dstGridPtr->depth);
 
     long n = srcGridPtr->width * srcGridPtr->height * srcGridPtr->depth;
-    memcpy(dstGridPtr->points, srcGridPtr->points, (n * sizeof(long)));
+    //memcpy(dstGridPtr->points, srcGridPtr->points, (n * sizeof(long)));
+		int j;
+		for (j = 0; j < n; j++) {
+			dstGridPtr->points[j] = srcGridPtr->points[j];
+		}
 
 #ifdef USE_EARLY_RELEASE
     long* srcPoints = srcGridPtr->points;
