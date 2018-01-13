@@ -21,8 +21,8 @@ volatile modeIndicator_t modeIndicator	__ALIGN__ = {
 																};
 volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
-__thread long __tx_tid __ALIGN__;
-__thread long htm_retries __ALIGN__;
+__thread uint32_t __tx_tid __ALIGN__;
+__thread uint64_t htm_retries __ALIGN__;
 __thread uint32_t abort_reason __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
 __thread uint32_t previous_abort_reason __ALIGN__;
@@ -31,8 +31,8 @@ __thread bool isCapacityAbortPersistent __ALIGN__;
 __thread uint32_t abort_rate __ALIGN__ = 0;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
-__thread long max_stm_runs __ALIGN__ = 100;
-__thread long num_stm_runs __ALIGN__;
+__thread uint64_t max_stm_runs __ALIGN__ = 100;
+__thread uint64_t num_stm_runs __ALIGN__;
 __thread uint64_t t0 __ALIGN__ = 0;
 __thread uint64_t sum_cycles __ALIGN__ = 0;
 #define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
@@ -154,6 +154,7 @@ HTM_Start_Tx() {
 	abort_reason = 0;
 #if DESIGN == OPTIMIZED
 	isCapacityAbortPersistent = 0;
+	t0 = getCycles();
 #endif /* DESIGN == OPTIMIZED */
 
 	while (true) {
@@ -205,9 +206,19 @@ HTM_Start_Tx() {
     if ( (abort_reason & ABORT_TX_CONFLICT) )
     	abort_rate = (abort_rate * 75 + 25*100) / 100;
 
+		uint64_t t1 = getCycles();
+		uint64_t tx_cycles = t1 - t0;
+		t0 = t1;
+		sum_cycles += tx_cycles;
+		uint64_t mean_cycles = 0;
+		if (htm_retries >= 2) {
+			mean_cycles = tx_cycles / htm_retries;
+		}
 
-		if ( (isCapacityAbortPersistent && (abort_rate > 60)) ) {
-        num_stm_runs = 0;
+		if ( (isCapacityAbortPersistent
+					&& (mean_cycles > TX_CYCLES_THRESHOLD)
+					&& (abort_rate > 60)) ) {
+			num_stm_runs = 0;
 			changeMode(SW);
 			return true;
 		} else if (htm_retries >= HTM_MAX_RETRIES) {
