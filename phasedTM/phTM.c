@@ -36,7 +36,7 @@ __thread uint64_t max_stm_runs __ALIGN__ = 100;
 __thread uint64_t num_stm_runs __ALIGN__;
 __thread uint64_t t0 __ALIGN__ = 0;
 __thread uint64_t sum_cycles __ALIGN__ = 0;
-#define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
+#define TX_CYCLES_THRESHOLD (16000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 static inline uint64_t getCycles()
@@ -133,7 +133,7 @@ changeMode(uint64_t newMode) {
 }
 
 #if DESIGN == OPTIMIZED
-inline
+static inline
 void
 unlockMode(){
 	bool success;
@@ -204,8 +204,7 @@ HTM_Start_Tx() {
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
 
-    //if ( !(abort_reason & ABORT_CAPACITY) )
-    	abort_rate = (abort_rate * 75 + 25*100) / 100;
+   	abort_rate = (abort_rate * 75 + 25*100) / 100;
 
 		num_htm_runs++;
 		uint64_t t1 = getCycles();
@@ -235,6 +234,7 @@ HTM_Start_Tx() {
 					// I own the lock, so return and
 					// execute in mutual exclusion
 					htm_global_lock_is_mine = true;
+					t0 = getCycles();
 					return false;
 				} else {
 					// I don't own the lock, so wait
@@ -257,8 +257,11 @@ HTM_Commit_Tx() {
 #else  /* DESIGN == OPTIMIZED */
 	if (htm_global_lock_is_mine){
 		unlockMode();
-		//if(goToGLOCK > 1) goToGLOCK--;
 		htm_global_lock_is_mine = false;
+		uint64_t t1 = getCycles();
+		uint64_t tx_cycles = t1 - t0;
+		t0 = t1;
+		sum_cycles += tx_cycles;
 	} else {
 		htm_end();
 		__inc_commit_counter(__tx_tid);
