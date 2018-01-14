@@ -29,6 +29,7 @@ __thread uint32_t previous_abort_reason __ALIGN__;
 __thread bool htm_global_lock_is_mine __ALIGN__ = false;
 __thread bool isCapacityAbortPersistent __ALIGN__;
 __thread uint32_t abort_rate __ALIGN__ = 0;
+__thread uint64_t num_htm_runs __ALIGN__ = 0;
 #define MAX_STM_RUNS 1000
 #define MAX_GLOCK_RUNS 100
 __thread uint64_t max_stm_runs __ALIGN__ = 100;
@@ -203,16 +204,17 @@ HTM_Start_Tx() {
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
 
-    if ( !(abort_reason & ABORT_CAPACITY) )
+    //if ( !(abort_reason & ABORT_CAPACITY) )
     	abort_rate = (abort_rate * 75 + 25*100) / 100;
 
+		num_htm_runs++;
 		uint64_t t1 = getCycles();
 		uint64_t tx_cycles = t1 - t0;
 		t0 = t1;
 		sum_cycles += tx_cycles;
 		uint64_t mean_cycles = 0;
 		if (htm_retries >= 2) {
-			mean_cycles = tx_cycles / htm_retries;
+			mean_cycles = sum_cycles / num_htm_runs;
 		}
 
 		if ( (isCapacityAbortPersistent
