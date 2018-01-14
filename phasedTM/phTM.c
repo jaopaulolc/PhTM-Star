@@ -36,7 +36,7 @@ __thread uint64_t max_stm_runs __ALIGN__ = 100;
 __thread uint64_t num_stm_runs __ALIGN__;
 __thread uint64_t t0 __ALIGN__ = 0;
 __thread uint64_t sum_cycles __ALIGN__ = 0;
-#define TX_CYCLES_THRESHOLD (16000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
+#define TX_CYCLES_THRESHOLD (30000) // HTM-friendly apps in STAMP have tx with 20k cycles or less
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 static inline uint64_t getCycles()
@@ -204,7 +204,9 @@ HTM_Start_Tx() {
 		isCapacityAbortPersistent = (abort_reason & ABORT_CAPACITY)
 		                 && (previous_abort_reason == abort_reason);
 
-   	abort_rate = (abort_rate * 75 + 25*100) / 100;
+		if ( (abort_reason & ABORT_TX_CONFLICT) 
+				&& (previous_abort_reason == abort_reason) )
+			abort_rate = (abort_rate * 75 + 25*100) / 100;
 
 		num_htm_runs++;
 		uint64_t t1 = getCycles();
@@ -217,8 +219,10 @@ HTM_Start_Tx() {
 		}
 
 		if ( (isCapacityAbortPersistent
-					&& (mean_cycles > TX_CYCLES_THRESHOLD)
-					&& (abort_rate > 60)) ) {
+					&& (mean_cycles > TX_CYCLES_THRESHOLD))
+				||
+				 (isCapacityAbortPersistent
+					&& (abort_rate >= 80)) ) {
 			num_stm_runs = 0;
 			changeMode(SW);
 			return true;
