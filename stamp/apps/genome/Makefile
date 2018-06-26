@@ -26,11 +26,12 @@ CFLAGS += -DGENOME -DNUMBER_OF_TRANSACTIONS=5
 
 CFLAGS += -DLIST_NO_DUPLICATES
 
-ifeq ($(TMBUILD), powerTM)
-  CFLAGS += -DCHUNK_STEP1=2
+ARCH = $(shell uname -m)
+ifeq ($(ARCH), x86_64)
+  CFLAGS += -DCHUNK_STEP1=12
 else
-  ifeq ($(TMBUILD), rtm)
-    ifdef PROFILING
+  ifeq ($(ARCH), ppc64le)
+    ifeq ($(TMBUILD), norec)
       CFLAGS += -DCHUNK_STEP1=12
     else
       CFLAGS += -DCHUNK_STEP1=2
