@@ -767,6 +767,7 @@ int main(int argc, char **argv)
 			}
 		}
 		phases[i].throughputSamples = (double*)calloc(sizeof(double), maxSamples);
+		phases[i].sampleCount = UINT_MAX;
 		for (j = 0; j < nb_threads; j++) {
 			uint64_t sampleCount = data[j].phases[i].sampleCount;
 			uint64_t k;
@@ -774,7 +775,7 @@ int main(int argc, char **argv)
 				phases[i].throughputSamples[k] += data[j].phases[i].throughputSamples[k];
 			}
 			free(data[j].phases[i].throughputSamples);
-			if ( data[j].phases[i].sampleCount > phases[i].sampleCount ) {
+			if ( data[j].phases[i].sampleCount < phases[i].sampleCount ) {
 				phases[i].sampleCount = data[j].phases[i].sampleCount;
 			}
 		}
