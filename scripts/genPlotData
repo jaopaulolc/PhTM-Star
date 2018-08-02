@@ -8,7 +8,8 @@ meanScript='BEGIN{
 	i=0
 	ntype=normtype
 	nval=normval
-}{
+}
+{
 	sum+=$1
 	v[i]=$1
 	i++
@@ -32,6 +33,49 @@ END{
 	printf "%.3lf %.3lf ", mean, confint
 }'
 
+geomeanScript='BEGIN{
+	first=1;
+	n=0;
+	i=1
+}
+{
+	if(first == 1){
+		if($1 != ""){
+			for(j=2; j <= NF; j++){
+				m[i,j] = $j
+			}
+			m[i++,1] = $1
+			ncols = NF
+		} else {
+			nlines=i-1
+			i=1
+			first = 0
+			n++
+		}
+	} else {
+		if($1 != ""){
+			for(j=2; j <= NF; j++){
+				m[i,j] *= $j
+			}
+			m[i++,1] = $1
+			ncols = NF
+		} else {
+			nlines=i-1
+			i=1
+			n++
+		}
+	}
+}
+END{
+	for(i=1; i <= nlines; i++){
+		printf("%d ", m[i,1]);
+		for(j=2; j <= ncols; j++){
+			printf("%lf ", m[i,j] ^ (1.0/n));
+		}
+		printf("\n")
+	}
+}'
+
 function getNormVal {
 
 	local regex=$1
@@ -45,7 +89,7 @@ function getNormVal {
 	local app=${tokens[0]}
 	local build=${tokens[1]}
 
-	if [[ "$2" =~ "rtm" || "$2" =~ "x64_64" ]]; then
+	if [[ "$2" =~ "rtm" || "$2" =~ "x86_64" ]]; then
 		arch=x86_64
 	elif [[ "$2" =~ "powerTM" || "$2" =~ "ppc64le" ]]; then
 		arch=ppc64le
@@ -71,6 +115,34 @@ function getNormVal {
 		awk -v normtype=0 "$meanScript")
 }
 
+function fullBuildName {
+	local build=$1
+	local TMP=''
+	case $build in
+		tinystm_*)
+			TMP="$TMP $(cross_product $build "$_tinySTM_DESIGNS" "$_tinySTM_CMS" "$_ORT_HASHES")" ;;
+		phasedTM_*)
+			local b="$(cross_product ${build} "${_PHASEDTM_DESIGNS}")"
+			for stm in ${_PHASEDTM_STMS}; do
+				case $stm in
+					tinystm)
+						local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+						TMP="$TMP $(cross_product "$b" "$tmp")"
+						;;
+					norec)
+						local tmp="norec"
+						TMP="$TMP $(cross_product "$b" "$tmp")"
+						;;
+				esac
+			done
+		;;
+		rtm | powerTM)
+			TMP="$TMP $(cross_product $build "$_TSX_LOCKS")" ;;
+		hle | lock | norec_* | rh_norec_* | hytm_norec_* | hyco_*)
+			TMP="$TMP $build" ;;
+	esac
+	echo $TMP
+}
 
 function genDataFile {
 
@@ -181,49 +253,7 @@ function genDataFile {
 			done # FOR EACH PREFIX
 			local geomeanfile=$DATADIR/geomean${suffix}.$datafile
 			echo "$HEADER" > $geomeanfile
-			cat $tmpfile | awk '
-			BEGIN{
-				first=1;
-				n=0;
-				i=1
-			}
-			{
-				if(first == 1){
-					if($1 != ""){
-						for(j=2; j <= NF; j++){
-							m[i,j] = $j
-						}
-						m[i++,1] = $1
-						ncols = NF
-					} else {
-						nlines=i-1
-						i=1
-						first = 0
-						n++
-					}
-				} else {
-					if($1 != ""){
-						for(j=2; j <= NF; j++){
-							m[i,j] *= $j
-						}
-						m[i++,1] = $1
-						ncols = NF
-					} else {
-						nlines=i-1
-						i=1
-						n++
-					}
-				}
-			}
-			END{
-				for(i=1; i <= nlines; i++){
-					printf("%d ", m[i,1]);
-					for(j=2; j <= ncols; j++){
-						printf("%lf ", m[i,j] ^ (1.0/n));
-					}
-					printf("\n")
-				}
-			}' >> $geomeanfile
+			cat $tmpfile | awk "$geomeanScript" >> $geomeanfile
 			rm -f $tmpfile
 		done # FOR EACH SUFFIX
 	done # FOR EACH DATA FILE
@@ -252,29 +282,7 @@ function generate_data {
 	if [ $perBuildData == false ]; then
 		local TMP=''
 		for build in ${_BUILDS}; do
-			case $build in
-				tinystm_*)
-					TMP="$TMP $(cross_product $build "$_tinySTM_DESIGNS" "$_tinySTM_CMS" "$_ORT_HASHES")" ;;
-				phasedTM_*)
-					local b="$(cross_product ${build} "${_PHASEDTM_DESIGNS}")"
-					for stm in ${_PHASEDTM_STMS}; do
-						case $stm in
-							tinystm)
-								local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-								TMP="$TMP $(cross_product "$b" "$tmp")"
-								;;
-							norec)
-								local tmp="norec"
-								TMP="$TMP $(cross_product "$b" "$tmp")"
-								;;
-						esac
-					done
-				;;
-				rtm | powerTM)
-					TMP="$TMP $(cross_product $build "$_TSX_LOCKS")" ;;
-				hle | lock | norec_* | rh_norec_* | hytm_norec_*)
-					TMP="$TMP $build" ;;
-			esac
+			TMP="$TMP $(fullBuildName $build)"
 		done
 		_BUILDS="$(echo -n $TMP | sed 's|^ ||')"
 		AUX=('_BUILDS' '_MEMALLOCS')
@@ -323,7 +331,8 @@ function generate_data {
 		CONFLICT_SUFFIXES="$(cross_product "${SUFFIXES}" "$_UPDATERATES" "$_NTHREADS")"
 		PHASED_SUFFIXES="$(cross_product "${SUFFIXES}" "$_NTHREADS")"
 		PINTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_PHASECONFIGS" "$_NTHREADS")"
-		HINTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_INITSIZES" "$_NTHREADS")"
+		HINTSET_SUFFIXES="$(cross_product "${SUFFIXES}" "$_INITSIZES" \
+      "$_UPDATERATES" "$_NBTREES" "$_NTHREADS")"
 	else
 		SUFFIXES="$(cross_product "${SUFFIXES}" '@')"
 	fi
