@@ -9,8 +9,8 @@ The repository is organized as follows:
 - PhTM-Star/  -- *repository root.*
   - allocators/  -- *various memory allocators implementations we have tested.*
   - htm/  -- *small library to used HTM (HLE and RTM from Intel TSX. PorwerTM from IBM Power8).*
-  - microbench/  -- *microbench marks used in the evaluation.*
-  - msr/  -- *small library to programmer Intel PMU and collect events of code blocks.*
+  - microbench/  -- *micro-benchmarks used in the evaluation.*
+  - msr/  -- *small library to program Intel PMU and collect events of code blocks.*
   - NOrec/  -- *reduced version of [RSTM library](http://www.cs.rochester.edu/research/synchronization/rstm/)
   and Hybrid TM implementations (HyNOrec, RH_NOrec and HyCO).*
   - phasedTM/  -- *base implementation of Phased TM - PhTM (PROTOTYPE) and PhTM\* (OPTIMIZED).*
