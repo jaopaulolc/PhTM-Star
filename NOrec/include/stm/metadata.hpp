@@ -21,11 +21,11 @@
 #include <stm/MiniVector.hpp>
 #include <stm/BitFilter.hpp>
 
-#define SCALAR_PAD_WORD_INITIALIZER {0,'\0'}
-#define VECTOR_PAD_WORD_INITIALIZER {{0,'\0'}}
-#define VECTOR_OREC_T_INITIALIZER {{{0,0},0}}
-#define VECTOR_BYTELOCK_T_INITIALIZER {{0,'\0'}}
-#define VECTOR_BITLOCK_T_INITIALIZER {{0,'\0'}}
+#define SCALAR_PAD_WORD_INITIALIZER {0,{'\0'}}
+#define VECTOR_PAD_WORD_INITIALIZER {{0,{'\0'}}}
+#define VECTOR_OREC_T_INITIALIZER {{{{0,0}},0}}
+#define VECTOR_BYTELOCK_T_INITIALIZER {{0,{'\0'}}}
+#define VECTOR_BITLOCK_T_INITIALIZER {{0,{'\0'}}}
 
 namespace stm
 {
@@ -170,8 +170,8 @@ namespace stm
    *  In order to avoid a circular dependency, we need to declare some
    *  WriteSet support here.
    */
-  class WordLoggingWriteSetEntry;
-  class ByteLoggingWriteSetEntry;
+  struct WordLoggingWriteSetEntry;
+  struct ByteLoggingWriteSetEntry;
 #if defined(STM_WS_WORDLOG)
   typedef WordLoggingWriteSetEntry WriteSetEntry;
 #elif defined(STM_WS_BYTELOG)

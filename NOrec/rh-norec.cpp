@@ -113,7 +113,7 @@ retry_htm:
 
 namespace {
   
-	const uintptr_t VALIDATION_FAILED = 1;
+	//const uintptr_t VALIDATION_FAILED = 1;
   bool irrevoc(STM_IRREVOC_SIG(,));
   void onSwitchTo();
 	

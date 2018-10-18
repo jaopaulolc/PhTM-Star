@@ -29,7 +29,7 @@ namespace {
    *  abort_irrevocable when a transaction becomes irrevocable, and we save the
    *  old one here so we can restore it during commit.
    */
-  AbortHandler old_abort_handler = NULL;
+  AbortHandler old_abort_handler __attribute__((noreturn))  = NULL;
 
   /**
    *  Handler for abort attempts while irrevocable. Useful for trapping problems
