@@ -127,6 +127,7 @@ reservation_info_free_seq (reservation_info_t* reservationInfoPtr);
  * -- Returns -1 if A < B, 0 if A = B, 1 if A > B
  * =============================================================================
  */
+TM_SAFE
 long
 reservation_info_compare (reservation_info_t* aPtr, reservation_info_t* bPtr);
 

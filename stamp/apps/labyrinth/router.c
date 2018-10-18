@@ -141,6 +141,7 @@ router_free (router_t* routerPtr)
  * PexpandToNeighbor
  * =============================================================================
  */
+TM_PURE
 static void
 PexpandToNeighbor (grid_t* myGridPtr,
                    long x, long y, long z, long value, queue_t* queuePtr)
@@ -166,8 +167,8 @@ PexpandToNeighbor (grid_t* myGridPtr,
  * PdoExpansion
  * =============================================================================
  */
-static TM_PURE
-bool_t
+TM_PURE
+static bool_t
 PdoExpansion (router_t* routerPtr, grid_t* myGridPtr, queue_t* queuePtr,
               coordinate_t* srcPtr, coordinate_t* dstPtr)
 {
@@ -233,6 +234,7 @@ PdoExpansion (router_t* routerPtr, grid_t* myGridPtr, queue_t* queuePtr,
  * traceToNeighbor
  * =============================================================================
  */
+TM_PURE
 static void
 traceToNeighbor (grid_t* myGridPtr,
                  point_t* currPtr,
@@ -269,8 +271,8 @@ traceToNeighbor (grid_t* myGridPtr,
  * PdoTraceback
  * =============================================================================
  */
-static TM_PURE
-vector_t*
+TM_PURE
+static vector_t*
 PdoTraceback (grid_t* gridPtr, grid_t* myGridPtr,
               coordinate_t* dstPtr, long bendCost)
 {

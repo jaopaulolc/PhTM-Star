@@ -75,6 +75,7 @@
 
 
 #include "types.h"
+#include "tm.h"
 
 
 #ifdef __cplusplus
@@ -86,6 +87,7 @@ extern "C" {
  * hash_dbj2
  * =============================================================================
  */
+TM_SAFE
 ulong_t
 hash_dbj2 (char* str);
 
@@ -94,6 +96,7 @@ hash_dbj2 (char* str);
  * hash_sdbm
  * =============================================================================
  */
+TM_SAFE
 ulong_t
 hash_sdbm (char* str);
 

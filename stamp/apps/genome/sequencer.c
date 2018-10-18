@@ -93,6 +93,8 @@
 #include "vector.h"
 #include "types.h"
 
+#undef strcmp
+extern int strcmp(const char*, const char*) TM_PURE;
 
 struct endInfoEntry {
     bool_t isEnd;
@@ -116,6 +118,7 @@ struct constructEntry {
  * -- uses sdbm hash function
  * =============================================================================
  */
+TM_SAFE
 static ulong_t
 hashString (char* str)
 {
@@ -136,6 +139,7 @@ hashString (char* str)
  * -- For hashtable
  * =============================================================================
  */
+TM_SAFE
 static ulong_t
 hashSegment (const void* keyPtr)
 {
@@ -148,10 +152,11 @@ hashSegment (const void* keyPtr)
  * -- For hashtable
  * =============================================================================
  */
+TM_SAFE
 static long
 compareSegment (const pair_t* a, const pair_t* b)
 {
-    return strcmp((char*)(a->firstPtr), (char*)(b->firstPtr));
+    return strcmp((const char*)(a->firstPtr), (const char*)(b->firstPtr));
 }
 
 

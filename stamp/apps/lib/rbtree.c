@@ -104,7 +104,7 @@ typedef struct node {
 
 struct rbtree {
     node_t* root;
-    long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
+    TM_SAFE long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
 };
 
 #define LDA(a)              *(a)
@@ -231,8 +231,8 @@ lookup (rbtree_t* s, void* k)
  * TMlookup
  * =============================================================================
  */
-static TM_SAFE
-node_t*
+TM_SAFE
+static node_t*
 TMlookup (TM_ARGDECL  rbtree_t* s, void* k)
 {
     void* k2;
@@ -300,8 +300,8 @@ rotateLeft (rbtree_t* s, node_t* x)
  * TMrotateLeft
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMrotateLeft (TM_ARGDECL  rbtree_t* s, node_t* x)
 {
     node_t* r = TX_LDNODE(x, r); /* AKA r, y */
@@ -358,8 +358,8 @@ rotateRight (rbtree_t* s, node_t* x)
  * TMrotateRight
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMrotateRight (TM_ARGDECL  rbtree_t* s, node_t* x)
 {
     node_t* l = TX_LDNODE(x, l); /* AKA l,y */
@@ -399,8 +399,8 @@ parentOf (node_t* n)
  * TMparentOf
  * =============================================================================
  */
-static TM_SAFE
-inline node_t*
+TM_SAFE
+static inline node_t*
 TMparentOf (TM_ARGDECL  node_t* n)
 {
    return (n ? TX_LDNODE(n,p) : NULL);
@@ -424,8 +424,8 @@ leftOf (node_t* n)
  * TMleftOf
  * =============================================================================
  */
-static TM_SAFE
-inline node_t*
+TM_SAFE
+static inline node_t*
 TMleftOf (TM_ARGDECL  node_t* n)
 {
    return (n ? TX_LDNODE(n, l) : NULL);
@@ -449,8 +449,8 @@ rightOf (node_t* n)
  * TMrightOf
  * =============================================================================
  */
-static TM_SAFE
-inline node_t*
+TM_SAFE
+static inline node_t*
 TMrightOf (TM_ARGDECL  node_t* n)
 {
     return (n ? TX_LDNODE(n, r) : NULL);
@@ -474,8 +474,8 @@ colorOf (node_t* n)
  * TMcolorOf
  * =============================================================================
  */
-static TM_SAFE
-inline long
+TM_SAFE
+static inline long
 TMcolorOf (TM_ARGDECL  node_t* n)
 {
     return (n ? (long)TX_LDF(n, c) : BLACK);
@@ -501,8 +501,8 @@ setColor (node_t* n, long c)
  * TMsetColor
  * =============================================================================
  */
-static TM_SAFE
-inline void
+TM_SAFE
+static inline void
 TMsetColor (TM_ARGDECL  node_t* n, long c)
 {
     if (n != NULL) {
@@ -576,8 +576,8 @@ fixAfterInsertion (rbtree_t* s, node_t* x)
  * TMfixAfterInsertion
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMfixAfterInsertion (TM_ARGDECL  rbtree_t* s, node_t* x)
 {
     TX_STF(x, c, RED);
@@ -698,8 +698,8 @@ insert (rbtree_t* s, void* k, void* v, node_t* n)
  * TMinsert
  * =============================================================================
  */
-static TM_SAFE
-node_t*
+TM_SAFE
+static node_t*
 TMinsert (TM_ARGDECL  rbtree_t* s, void* k, void* v, node_t* n)
 {
     void* k2;
@@ -801,8 +801,8 @@ successor (node_t* t)
  * TMsuccessor
  * =============================================================================
  */
-static TM_SAFE
-node_t*
+TM_SAFE
+static node_t*
 TMsuccessor  (TM_ARGDECL  node_t* t)
 {
     if (t == NULL) {
@@ -900,8 +900,8 @@ fixAfterDeletion (rbtree_t* s, node_t* x)
  * TMfixAfterDeletion
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMfixAfterDeletion  (TM_ARGDECL  rbtree_t* s, node_t* x)
 {
     while (x != TX_LDNODE(s,root) && TX_COLOR_OF(x) == BLACK) {
@@ -1037,8 +1037,8 @@ delete_node (rbtree_t* s, node_t* p)
  * TMdelete
  * =============================================================================
  */
-static TM_SAFE
-node_t*
+TM_SAFE
+static node_t*
 TMdelete (TM_ARGDECL  rbtree_t* s, node_t* p)
 {
     /*
@@ -1282,6 +1282,7 @@ rbtree_verify (rbtree_t* s, long verbose)
  * compareKeysDefault
  * =============================================================================
  */
+TM_SAFE
 static long
 compareKeysDefault (const void* a, const void* b)
 {
@@ -1339,8 +1340,8 @@ releaseNode (node_t* n)
  * TMreleaseNode
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMreleaseNode  (TM_ARGDECL  node_t* n)
 {
     TM_FREE(n);
@@ -1366,8 +1367,8 @@ freeNode (node_t* n)
  * TMfreeNode
  * =============================================================================
  */
-static TM_SAFE
-void
+TM_SAFE
+static void
 TMfreeNode (TM_ARGDECL  node_t* n)
 {
     if (n) {
@@ -1419,8 +1420,8 @@ getNode ()
  * TMgetNode
  * =============================================================================
  */
-static TM_SAFE
-node_t*
+TM_SAFE
+static node_t*
 TMgetNode (TM_ARGDECL_ALONE)
 {
     node_t* n = (node_t*)TM_MALLOC(sizeof(*n));

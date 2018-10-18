@@ -107,6 +107,7 @@ TMfreeNode (TM_ARGDECL  list_node_t* nodePtr);
  * -- Default compare function
  * =============================================================================
  */
+TM_SAFE
 static long
 compareDataPtrAddresses (const void* a, const void* b)
 {
@@ -218,6 +219,7 @@ allocNode (void* dataPtr)
  * -- Returns NULL on failure
  * =============================================================================
  */
+TM_PURE
 static list_node_t*
 PallocNode (void* dataPtr)
 {
@@ -318,7 +320,7 @@ Plist_alloc (long (*compare)(const void*, const void*))
  */
 TM_SAFE
 list_t*
-TMlist_alloc (TM_ARGDECL  long (*compare)(const void*, const void*))
+TMlist_alloc (TM_ARGDECL TM_SAFE long (*compare)(const void*, const void*))
 {
     list_t* listPtr = (list_t*)TM_MALLOC(sizeof(list_t));
     if (listPtr == NULL) {
@@ -354,6 +356,7 @@ freeNode (list_node_t* nodePtr)
  * PfreeNode
  * =============================================================================
  */
+TM_PURE
 static void
 PfreeNode (list_node_t* nodePtr)
 {
@@ -391,6 +394,7 @@ freeList (list_node_t* nodePtr)
  * PfreeList
  * =============================================================================
  */
+TM_PURE
 static void
 PfreeList (list_node_t* nodePtr)
 {
@@ -511,14 +515,16 @@ TMlist_getSize (TM_ARGDECL  list_t* listPtr)
  * findPrevious
  * =============================================================================
  */
+TM_PURE
 static list_node_t*
 findPrevious (list_t* listPtr, void* dataPtr)
 {
     list_node_t* prevPtr = &(listPtr->head);
     list_node_t* nodePtr = prevPtr->nextPtr;
+    long (*compare)(const void*, const void*) TM_PURE = listPtr->compare;
 
     for (; nodePtr != NULL; nodePtr = nodePtr->nextPtr) {
-        if (listPtr->compare(nodePtr->dataPtr, dataPtr) >= 0) {
+        if (compare(nodePtr->dataPtr, dataPtr) >= 0) {
             return prevPtr;
         }
         prevPtr = nodePtr;
@@ -569,11 +575,12 @@ list_find (list_t* listPtr, void* dataPtr)
 {
     list_node_t* nodePtr;
     list_node_t* prevPtr = findPrevious(listPtr, dataPtr);
+    long (*compare)(const void*, const void*) TM_PURE = listPtr->compare;
 
     nodePtr = prevPtr->nextPtr;
 
     if ((nodePtr == NULL) ||
-        (listPtr->compare(nodePtr->dataPtr, dataPtr) != 0)) {
+        (compare(nodePtr->dataPtr, dataPtr) != 0)) {
         return NULL;
     }
 
@@ -661,8 +668,9 @@ Plist_insert (list_t* listPtr, void* dataPtr)
     currPtr = prevPtr->nextPtr;
 
 #ifdef LIST_NO_DUPLICATES
+    long (*compare)(const void*, const void*) TM_PURE = listPtr->compare;
     if ((currPtr != NULL) &&
-        listPtr->compare(currPtr->dataPtr, dataPtr) == 0) {
+        compare(currPtr->dataPtr, dataPtr) == 0) {
         return FALSE;
     }
 #endif

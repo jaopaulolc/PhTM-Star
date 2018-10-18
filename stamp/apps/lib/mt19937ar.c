@@ -119,6 +119,7 @@
 
 
 /* initializes mt[N] with a seed */
+TM_PURE
 void init_genrand(unsigned long mt[], unsigned long * mtiPtr, unsigned long s)
 {
     unsigned long mti;
@@ -169,6 +170,7 @@ void init_by_array(unsigned long mt[], unsigned long * mtiPtr, unsigned long ini
 }
 
 /* generates a random number on [0,0xffffffff]-interval */
+TM_PURE
 unsigned long genrand_int32(unsigned long mt[], unsigned long * mtiPtr)
 {
     unsigned long y;

@@ -84,6 +84,7 @@
  * compareReservationInfo
  * =============================================================================
  */
+TM_SAFE
 static long
 compareReservationInfo (const void* aPtr, const void* bPtr)
 {

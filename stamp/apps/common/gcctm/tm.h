@@ -26,12 +26,12 @@
 #define TM_SAFE                       __attribute__((transaction_safe))
 
 #define TM_STARTUP(numThread)         msrInitialize();        \
-																			_ITM_initializeProcess()
+																			/*_ITM_initializeProcess()*/
 #define TM_SHUTDOWN()                 msrTerminate();         \
-																			_ITM_finalizeProcess()
+																			/*_ITM_finalizeProcess()*/
 
-#define TM_THREAD_ENTER()             _ITM_initializeThread()
-#define TM_THREAD_EXIT()              _ITM_finalizeThread()
+#define TM_THREAD_ENTER()             /*_ITM_initializeThread()*/
+#define TM_THREAD_EXIT()              /*_ITM_finalizeThread()*/
 
 #define SEQ_MALLOC(size)              malloc(size)
 #define SEQ_FREE(ptr)                 free(ptr)
@@ -61,7 +61,7 @@
 
 /* Indirect function call management */
 /* In STAMP applications, it is safe to use transaction_pure */
-#define TM_IFUNC_DECL                 __attribute__((transaction_pure))
+#define TM_IFUNC_DECL                 __attribute__((transaction_safe))
 #define TM_IFUNC_CALL1(r, f, a1)      r = f(a1)
 #define TM_IFUNC_CALL2(r, f, a1, a2)  r = f((a1), (a2))
 /* Alternative */

@@ -117,19 +117,15 @@
 
 
 #include <stdio.h>
-
-
+#include "tm.h"
 
 #ifndef MT19937AR_H
 #define MT19937AR_H 1
 
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
 
 /* Period parameters */
 #define N 624
@@ -144,6 +140,7 @@ static long mti=N+1; /* mti==N+1 means mt[N] is not initialized */
 #endif
 
 /* initializes mt[N] with a seed */
+TM_PURE
 void init_genrand(unsigned long mt[], unsigned long * mtiPtr, unsigned long s);
 
 /* initialize by an array with array-length */
@@ -153,6 +150,7 @@ void init_genrand(unsigned long mt[], unsigned long * mtiPtr, unsigned long s);
 void init_by_array(unsigned long mt[], unsigned long * mtiPtr, unsigned long init_key[], long key_length);
 
 /* generates a random number on [0,0xffffffff]-interval */
+TM_PURE
 unsigned long genrand_int32(unsigned long mt[], unsigned long * mtiPtr);
 
 /* generates a random number on [0,0x7fffffff]-interval */

@@ -87,6 +87,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
+#include <string.h>
 #include "common.h"
 #include "normal.h"
 #include "random.h"

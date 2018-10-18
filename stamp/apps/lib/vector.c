@@ -76,6 +76,9 @@
 #include "utility.h"
 #include "vector.h"
 
+#undef qsort
+extern void qsort(void*, size_t, size_t, int(*)(const void*, const void*)) TM_PURE;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

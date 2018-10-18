@@ -133,6 +133,7 @@ grid_copy (grid_t* dstGridPtr, grid_t* srcGridPtr);
  * grid_isPointValid
  * =============================================================================
  */
+TM_PURE
 bool_t
 grid_isPointValid (grid_t* gridPtr, long x, long y, long z);
 
@@ -141,6 +142,7 @@ grid_isPointValid (grid_t* gridPtr, long x, long y, long z);
  * grid_getPointRef
  * =============================================================================
  */
+TM_PURE
 long*
 grid_getPointRef (grid_t* gridPtr, long x, long y, long z);
 
@@ -149,6 +151,7 @@ grid_getPointRef (grid_t* gridPtr, long x, long y, long z);
  * grid_getPointIndices
  * =============================================================================
  */
+TM_PURE
 void
 grid_getPointIndices (grid_t* gridPtr,
                       long* gridPointPtr, long* xPtr, long* yPtr, long* zPtr);
@@ -158,6 +161,7 @@ grid_getPointIndices (grid_t* gridPtr,
  * grid_getPoint
  * =============================================================================
  */
+TM_PURE
 long
 grid_getPoint (grid_t* gridPtr, long x, long y, long z);
 
@@ -166,6 +170,7 @@ grid_getPoint (grid_t* gridPtr, long x, long y, long z);
  * grid_isPointEmpty
  * =============================================================================
  */
+TM_PURE
 bool_t
 grid_isPointEmpty (grid_t* gridPtr, long x, long y, long z);
 
@@ -174,6 +179,7 @@ grid_isPointEmpty (grid_t* gridPtr, long x, long y, long z);
  * grid_isPointFull
  * =============================================================================
  */
+TM_PURE
 bool_t
 grid_isPointFull (grid_t* gridPtr, long x, long y, long z);
 
@@ -182,6 +188,7 @@ grid_isPointFull (grid_t* gridPtr, long x, long y, long z);
  * grid_setPoint
  * =============================================================================
  */
+TM_PURE
 void
 grid_setPoint (grid_t* gridPtr, long x, long y, long z, long value);
 
@@ -190,6 +197,7 @@ grid_setPoint (grid_t* gridPtr, long x, long y, long z, long value);
  * grid_addPath
  * =============================================================================
  */
+TM_PURE
 #if defined(TRANSMEM_MODIFICATION)
 bool_t
 #else /* ! TRANSMEM_MODIFICATION */

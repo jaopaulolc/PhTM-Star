@@ -261,14 +261,14 @@ getStartLists (void* argPtr)
              * Find the corresponding endVertex
              */
 
-            long t;
+            unsigned long t;
             for (t = 0; t < GPtr->numEdges; t++) {
                 if (GPtr->intWeight[t] == -i) {
                     break;
                 }
             }
 
-            long j;
+            unsigned long j;
             for (j = 0; j < GPtr->numDirectedEdges; j++) {
             if (GPtr->paralEdgeIndex[j] > t) {
                     break;
