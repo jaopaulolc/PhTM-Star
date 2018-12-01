@@ -178,6 +178,22 @@ MAIN(argc, argv)
 
     printf("\n\tcomputeGraph() completed execution.\n");
     printf("\nTime taken for kernel 1 is %9.6f sec.\n", time);
+#if defined(OUT_VALIDATION)
+{
+  FILE* outfp = fopen("out.computeGraph.txt","w");
+  for (unsigned long int i = 0; i < G->numVertices; i++) {
+    fprintf(outfp, "[%ld] ", G->outDegree[i]);
+  }
+  fprintf(outfp, "\nGraph:\n");
+  for (unsigned long int i = 0; i < G->numVertices; i++) {
+    for (long int j = 0; j < G->outDegree[i]; j++) {
+      fprintf(outfp, "[%lu %lu %ld] ", i,
+          G->outVertexList[j], G->intWeight[j]);
+    }
+  }
+  fclose(outfp);
+}
+#endif /* OUT_VALIDATION */
 
 #endif /* ENABLE_KERNEL1 */
 

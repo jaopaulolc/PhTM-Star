@@ -752,6 +752,18 @@ genScalData_seq (graphSDG* SDGdataPtr)
        SEQ_FREE(tempIndex);
 
     } /* SCALE >= 12 */
+#if defined(OUTPUT_VALIDATION)
+{
+  FILE* outfp = fopen("out.genScaleData.txt","w");
+  fprintf(outfp, "SDG data:\n");
+  for (unsigned long int i = 0; i < SDGdataPtr->numEdgesPlaced; i++) {
+    fprintf(outfp, "[%lu %lu %ld] ", SDGdataPtr->startVertex[i],
+        SDGdataPtr->endVertex[i], SDGdataPtr->intWeight[i]);
+  }
+  fprintf(outfp, "\n");
+  fclose(outfp);
+}
+#endif /* OUT_VALIDATION */
 
     random_free(stream);
     SEQ_FREE(permV);
