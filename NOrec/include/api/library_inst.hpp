@@ -563,6 +563,111 @@ namespace stm
           thread->tmwrite(thread, addr1, v.v.v1);
       }
   };
+
+#ifdef __AVX__
+	/*** specialization for __m256 */
+  template <>
+  struct DISPATCH<__m256, sizeof(__m256)>
+  {
+      TM_INLINE
+      static __m256 read(__m256* addr, TxThread* thread)
+      {
+          // compute the four addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr3 = (void**) ((uintptr_t)addr + 12);
+          union {
+              __m256 t;
+              void* vec[4];
+          } __attribute__((aligned(32))) v;
+          for (unsigned i = 0; i < 4; i++) {
+            v.vec[i] = 0;
+          }
+          // read the four words
+          v.vec[0] = thread->tmread(thread, addr0);
+          v.vec[1] = thread->tmread(thread, addr1);
+          v.vec[2] = thread->tmread(thread, addr2);
+          v.vec[3] = thread->tmread(thread, addr3);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(__m256* addr, __m256 val, TxThread* thread)
+      {
+          // compute the four addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr3 = (void**) ((uintptr_t)addr + 12);
+          // turn the value into four words
+          union {
+              __m256 t;
+              void* vec[4];
+          } __attribute__((aligned(32))) v;
+          for (unsigned i = 0; i < 4; i++) {
+            v.vec[i] = 0;
+          }
+          v.t = val;
+          // write the eight words
+          thread->tmwrite(thread, addr0, v.vec[0]);
+          thread->tmwrite(thread, addr1, v.vec[1]);
+          thread->tmwrite(thread, addr2, v.vec[2]);
+          thread->tmwrite(thread, addr3, v.vec[3]);
+      }
+  };
+
+  template <>
+  struct DISPATCH<const __m256, sizeof(__m256)>
+  {
+      TM_INLINE
+      static __m256 read(const __m256* addr, TxThread* thread)
+      {
+          // compute the four addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr3 = (void**) ((uintptr_t)addr + 12);
+          union {
+              __m256 t;
+              void* vec[4];
+          } __attribute__((aligned(32))) v;
+          for (unsigned i = 0; i < 4; i++) {
+            v.vec[i] = 0;
+          }
+          // read the four words
+          v.vec[0] = thread->tmread(thread, addr0);
+          v.vec[1] = thread->tmread(thread, addr1);
+          v.vec[2] = thread->tmread(thread, addr2);
+          v.vec[3] = thread->tmread(thread, addr3);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(const __m256* addr, __m256 val, TxThread* thread)
+      {
+          // compute the four addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr3 = (void**) ((uintptr_t)addr + 12);
+          // turn the value into four words
+          union {
+              __m256 t;
+              void* vec[4];
+          } __attribute__((aligned(32))) v ;
+          for (unsigned i = 0; i < 4; i++) {
+            v.vec[i] = 0;
+          }
+          v.t = val;
+          // write the four words
+          thread->tmwrite(thread, addr0, v.vec[0]);
+          thread->tmwrite(thread, addr1, v.vec[1]);
+          thread->tmwrite(thread, addr2, v.vec[2]);
+          thread->tmwrite(thread, addr3, v.vec[3]);
+      }
+  };
+#endif /* AVX */
   /**
    *  Since 4-byte types are sub-word, and since we do everything at the
    *  granularity of words, we need to do some careful work to make a 4-byte
