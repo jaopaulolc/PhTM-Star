@@ -665,6 +665,35 @@ namespace stm
       }
   };
 
+	template <typename T>
+  struct DISPATCH<T, 2>
+  {
+      TM_INLINE
+      static T read(T* addr, TxThread* thread)
+      {
+          union { char v[16];  void* v2;  } v;
+          void** a = (void**)(((long)addr) & ~15);
+          long offset = ((long)addr) & 15;
+          v.v2 = thread->tmread(thread, a
+                                STM_MASK(0xffffffff << (16 * offset)));
+          return (T)v.v[offset];
+      }
+
+      TM_INLINE
+      static void write(T* addr, T val, TxThread* thread)
+      {
+          union { T v[16]; void* v2; } v;
+          void** a = (void**)(((long)addr) & ~15);
+          long offset = ((long)addr) & 15;
+          // read the enclosing word
+          v.v2 = thread->tmread(thread, a
+                                STM_MASK(0xffffffff << (16 * offset)));
+          v.v[offset] = val;
+          thread->tmwrite(thread, a, v.v2
+                          STM_MASK(0xffffffff << (16 * offset)));
+      }
+  };
+
   template <typename T>
   struct DISPATCH<T, 1>
   {
