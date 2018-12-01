@@ -282,15 +282,13 @@ namespace stm
       TM_INLINE
       static T read(T* addr, TxThread* thread)
       {
-          return (T)(uintptr_t)thread->tmread(thread, (void**)addr
-                                              STM_MASK(~0x0));
+          return (T)(uintptr_t)thread->tmread(thread, (void**)addr);
       }
 
       TM_INLINE
       static void write(T* addr, T val, TxThread* thread)
       {
-          thread->tmwrite(thread, (void**)addr, (void*)(uintptr_t)val
-                          STM_MASK(~0x0));
+          thread->tmwrite(thread, (void**)addr, (void*)(uintptr_t)val);
       }
   };
 
@@ -302,7 +300,7 @@ namespace stm
       static double read(double* addr, TxThread* thread)
       {
           union { double d;  void*  v; } v;
-          v.v = thread->tmread(thread, (void**)addr STM_MASK(~0x0));
+          v.v = thread->tmread(thread, (void**)addr);
           return v.d;
       }
 
@@ -311,7 +309,7 @@ namespace stm
       {
           union { double d;  void*  v; } v;
           v.d = val;
-          thread->tmwrite(thread, (void**)addr, v.v STM_MASK(~0x0));
+          thread->tmwrite(thread, (void**)addr, v.v);
       }
   };
 
@@ -323,7 +321,7 @@ namespace stm
       static double read(const double* addr, TxThread* thread)
       {
           union { double d;  void*  v; } v;
-          v.v = thread->tmread(thread, (void**)addr STM_MASK(~0x0));
+          v.v = thread->tmread(thread, (void**)addr);
           return v.d;
       }
 
