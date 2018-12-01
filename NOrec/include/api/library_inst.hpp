@@ -53,7 +53,8 @@ namespace stm
       // range must be aligned on a sizeof(T) boundary, and T must be 1, 4,
       // or 8 bytes.
       TM_INLINE
-      static T read(T* addr, TxThread* thread)
+      static T read(T* addr __attribute__((unused)),
+          TxThread* thread __attribute__((unused)))
       {
           InvalidTypeAsSecondTemplateParameter itastp;
           T invalid = (T)itastp;
@@ -62,7 +63,9 @@ namespace stm
 
       // same as read, but for writes
       TM_INLINE
-      static void write(T* addr, T val, TxThread* thread)
+      static void write(T* addr __attribute__((unused)),
+          T val __attribute__((unused)),
+          TxThread* thread __attribute__((unused)))
       {
           InvalidTypeAsSecondTemplateParameter itaftp;
           T invalid = (T)itaftp;
