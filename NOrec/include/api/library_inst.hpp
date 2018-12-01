@@ -12,6 +12,8 @@
 #define API_LIBRARY_INST_HPP__
 
 #include <stm/config.h>
+#include <immintrin.h>
+#include <iostream>
 
 /**
  *  In the LIBRARY api, the transformation of reads and writes of addresses
@@ -337,35 +339,68 @@ namespace stm
   struct DISPATCH<long double, 16>
   {
       TM_INLINE
-      static double read(double* addr, TxThread* thread)
+      static long double read(long double* addr, TxThread* thread)
       {
           // get second word's address
-          void** addr2 = (void**)((long)addr + 4);
+          void** addr1 = (void**) ((uintptr_t)addr + 0);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
           union {
               double t;
               struct { void* v1; void* v2; } v;
           } v;
+					v.v.v1 = v.v.v2 = 0;
           // read the two words
-          v.v.v1 = thread->tmread(thread, (void**)addr STM_MASK(~0x0));
-          v.v.v2 = thread->tmread(thread, addr2 STM_MASK(~0x0));
+          v.v.v1 = thread->tmread(thread, (void**)addr1);
+          v.v.v2 = thread->tmread(thread, addr2);
           return v.t;
       }
 
       TM_INLINE
-      static void write(double* addr, double val, TxThread* thread)
+      static void write(long double* addr, long double val, TxThread* thread)
       {
           // compute the two addresses
-          void** addr1 = (void**) addr;
-          void** addr2 = (void**) ((long)addr + 4);
+          void** addr1 = (void**) ((uintptr_t)addr + 0);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
           // turn the value into two words
           union {
               double t;
               struct { void* v1; void* v2; } v;
           } v;
+					v.v.v1 = v.v.v2 = 0;
           v.t = val;
           // write the two words
-          thread->tmwrite(thread, addr1, v.v.v1 STM_MASK(~0x0));
-          thread->tmwrite(thread, addr2, v.v.v2 STM_MASK(~0x0));
+          thread->tmwrite(thread, addr1, v.v.v1);
+          thread->tmwrite(thread, addr2, v.v.v2);
+      }
+  };
+
+  /*** specialization for const long-double */
+  template <>
+  struct DISPATCH<const long double, 16>
+  {
+      TM_INLINE
+      static double read(const long double* addr, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr1 = (void**) ((uintptr_t)addr + 0);
+          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          union {
+              double t;
+              struct { void* v1; void* v2; } v;
+          } v;
+					v.v.v1 = v.v.v2 = 0;
+          // read the two words
+          v.v.v1 = thread->tmread(thread, addr1);
+          v.v.v2 = thread->tmread(thread, addr2);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(const long double* addr __attribute__((unused)),
+          long double val __attribute__((unused)),
+          TxThread* thread __attribute__((unused)))
+      {
+          UNRECOVERABLE("You should not be writing a const long double!");
       }
   };
 
