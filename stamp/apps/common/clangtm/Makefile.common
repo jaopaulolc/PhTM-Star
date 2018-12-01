@@ -1,0 +1,18 @@
+# Clang with transactional memory
+# TMBUILD ?= clangtm
+
+# ======== Defines ========
+CC = clang
+CPPFLAGS += -DNDEBUG -D_GNU_SOURCE
+CPPFLAGS += -I../lib -I../common/$(TMBUILD)
+CPPFLAGS += -I../../../libitm/clang
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -fgnu-tm
+CFLAGS   += -O3 -ggdb
+
+LD       := $(CC)
+LDFLAGS  += -lpthread
+LDFLAGS  += -L../../../libitm/clang -litm
+LIBDEPS  += 
+
+include ../common/Makefile.common
