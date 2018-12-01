@@ -91,7 +91,14 @@ function execute_stamp_apps {
 				rm -f $outputLog
 				for j in $(seq 1 ${_NEXEC}); do
 					echo "execution $j: $(basename $appRunPath) ${exec_flags}$t ($memalloc) ($work)"
-					LD_PRELOAD=${!memalloc} STM_CONFIG=${!build} ${appRunPath} ${exec_flags}$t 2>> $outputLog >> $outputLog
+          [[ "${build}" == "gcctm" || "${build}" == "clangtm" ]] \
+            && STM_CONFIG="NOrec" \
+            || STM_CONFIG=${!build}
+          eval LIBITM_PATH=\${${build^^}}
+          LD_LIBRARY_PATH=$LIBITM_PATH     \
+            LD_PRELOAD=${!memalloc}        \
+            STM_CONFIG=$STM_CONFIG         \
+            ${appRunPath} ${exec_flags}$t 2>> $outputLog >> $outputLog
 					local thputfile="transactions.throughput"
 					local separator="---"
 					[ -e $thputfile ] && cat $thputfile >> $thrputLog && \

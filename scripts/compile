@@ -73,6 +73,29 @@ function compile_microbench_apps {
 	done # FOR EACH APP
 }
 
+function compile_with_tm_compiler {
+
+  sed -e "s|# DUMMY COMMENT||"           \
+      -e "/# DEFINES += -D${build^^}/s|# ||"  \
+      $NOrec/Makefile.template > $NOrec/Makefile
+  make -C $NOrec clean ${MAKE_OPTIONS}
+  make -C $NOrec LIBITM=$build ${MAKE_OPTIONS}
+
+  case $build in
+    clangtm)
+      make -C $CLANGTM clean ${MAKE_OPTIONS}
+      make -C $CLANGTM ${MAKE_OPTIONS}
+      ;;
+    gcctm)
+      make -C $GCCTM clean ${MAKE_OPTIONS}
+      make -C $GCCTM ${MAKE_OPTIONS}
+      ;;
+  esac
+  echo "## $build compiled"
+  compile_stamp_apps
+  compile_microbench_apps
+}
+
 function compile_with_tinystm {
 
 	local phasedTMsuffix="$1"
@@ -276,6 +299,9 @@ function compile {
 			seq)
 				compile_seq
 				;;
+      clangtm | gcctm)
+        compile_with_tm_compiler
+        ;;
 			tinystm)
 				compile_with_tinystm
 				;;
