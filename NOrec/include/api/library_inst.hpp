@@ -404,6 +404,165 @@ namespace stm
       }
   };
 
+	/*** specialization for __m128 */
+  template <>
+  struct DISPATCH<__m128, sizeof(__m128)>
+  {
+      TM_INLINE
+      static __m128 read(__m128* addr, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          union {
+              __m128 t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          // read the two words
+          v.v.v0 = thread->tmread(thread, addr0);
+          v.v.v1 = thread->tmread(thread, addr1);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(__m128* addr, __m128 val, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          // turn the value into two words
+          union {
+              __m128 t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          v.t = val;
+          // write the two words
+          thread->tmwrite(thread, addr0, v.v.v0);
+          thread->tmwrite(thread, addr1, v.v.v1);
+      }
+  };
+
+	/*** specialization for const __m128 */
+  template <>
+  struct DISPATCH<const __m128, sizeof(__m128)>
+  {
+      TM_INLINE
+      static __m128 read(const __m128* addr, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          union {
+              __m128 t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          // read the two words
+          v.v.v0 = thread->tmread(thread, addr0);
+          v.v.v1 = thread->tmread(thread, addr1);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(const __m128* addr, __m128 val, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          // turn the value into two words
+          union {
+              __m128 t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          v.t = val;
+          // write the two wordhs
+          thread->tmwrite(thread, addr0, v.v.v0);
+          thread->tmwrite(thread, addr1, v.v.v1);
+      }
+  };
+
+  /*** specialization for __m128i */
+  template <>
+  struct DISPATCH<__m128i, sizeof(__m128i)>
+  {
+      TM_INLINE
+      static __m128i read(__m128i* addr, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          union {
+              __m128i t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          // read the two words
+          v.v.v0 = thread->tmread(thread, addr0);
+          v.v.v1 = thread->tmread(thread, addr1);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(__m128i* addr, __m128i val, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          // turn the value into two words
+          union {
+              __m128i t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          v.t = val;
+          // write the two words
+          thread->tmwrite(thread, addr0, v.v.v0);
+          thread->tmwrite(thread, addr1, v.v.v1);
+      }
+  };
+
+	/*** specialization for const __m128i */
+  template <>
+  struct DISPATCH<const __m128i, sizeof(__m128i)>
+  {
+      TM_INLINE
+      static __m128i read(const __m128i* addr, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          union {
+              __m128i t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          // read the two words
+          v.v.v0 = thread->tmread(thread, addr0);
+          v.v.v1 = thread->tmread(thread, addr1);
+          return v.t;
+      }
+
+      TM_INLINE
+      static void write(const __m128i* addr, __m128i val, TxThread* thread)
+      {
+          // compute the two addresses
+          void** addr0 = (void**) ((uintptr_t)addr + 0);
+          void** addr1 = (void**) ((uintptr_t)addr + 4);
+          // turn the value into two words
+          union {
+              __m128i t;
+              struct { void* v0; void* v1; } v;
+          } __attribute__((aligned(16))) v;
+					v.v.v0 = v.v.v1 = (void*)0;
+          v.t = val;
+          // write the two wordhs
+          thread->tmwrite(thread, addr0, v.v.v0);
+          thread->tmwrite(thread, addr1, v.v.v1);
+      }
+  };
   /**
    *  Since 4-byte types are sub-word, and since we do everything at the
    *  granularity of words, we need to do some careful work to make a 4-byte
