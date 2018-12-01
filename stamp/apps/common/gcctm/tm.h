@@ -2,7 +2,8 @@
 #define TM_H 1
 
 #include <msr.h>
-#include <libitm.h>
+
+extern void _ITM_abortTransaction(int) __attribute__((transaction_pure, noreturn));
 
 #include <stdlib.h>                   /* Defines size_t. */ 
 

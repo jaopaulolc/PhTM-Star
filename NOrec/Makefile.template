@@ -24,7 +24,7 @@ SRCS = algs.cpp \
 OBJS = $(SRCS:.cpp=.o)
 
 CPPFLAGS = -I./include -D_GNU_SOURCE -I../htm
-CXXFLAGS = -O3 -Wall -std=c++11
+CXXFLAGS = -O3 -Wall -std=c++11 -fPIC
 
 # DUMMY COMMENT
 # DEFINES += -DCOMMIT_RATE_PROFILING
@@ -33,8 +33,13 @@ CXXFLAGS = -O3 -Wall -std=c++11
 # DEFINES += -DHYTM_EAGER
 # DEFINES += -DHYTM_LAZY
 
-CPPFLAGS += $(DEFINES)
+# DEFINES += -DGCCTM
 
+ifeq ($(LIBITM),gcctm)
+  CPPFLAGS += -I../libitm/gcc -I../libitm/gcc/config -I../libitm/gcc/config/$(ARCH)
+endif
+
+CPPFLAGS += $(DEFINES)
 
 ifeq ($(ARCH), x86_64)
   # Intel RTM

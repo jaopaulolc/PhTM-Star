@@ -18,6 +18,11 @@
 #include <algs/algs.hpp>
 #include <inst.hpp>
 
+#if defined(GCCTM)
+#include <thread.h>
+#include <target.h>
+#endif
+
 using namespace stm;
 
 __thread uint64_t __txId__;
@@ -57,8 +62,15 @@ namespace
                                                 , NULL, 0
 #endif
                                                );
+#if defined(GCCTM)
+      threadDescriptor_t* itm_tx = getThreadDescriptor();
+      jmpbuf_t* jmpbuf = (jmpbuf_t*)scope;
+      jmpbuf->rip = jmpbuf->rip - 5; // call _ITM_beginTransaction on restart
+      GTM_longjmp(itm_tx->codeProperties, jmpbuf);
+#else
       // need to null out the scope
       longjmp(*scope, 1);
+#endif
   }
 } // (anonymous namespace)
 
