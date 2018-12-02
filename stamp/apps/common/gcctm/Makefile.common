@@ -8,7 +8,7 @@ CPPFLAGS += -I../lib -I../common/$(TMBUILD)
 CPPFLAGS += -I../../../libitm/gcc
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -fgnu-tm
-CFLAGS   += -O3 -ggdb
+CFLAGS   += -O2 -ggdb
 
 LD       := $(CC)
 LDFLAGS  += -lpthread
