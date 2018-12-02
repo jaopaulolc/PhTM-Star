@@ -3,7 +3,7 @@
 
 # ======== Defines ========
 CC = clang
-CPPFLAGS += -DNDEBUG -D_GNU_SOURCE
+CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../lib -I../common/$(TMBUILD)
 CPPFLAGS += -I../../../libitm/clang
 CFLAGS   += -Wall -Wextra

@@ -2,6 +2,8 @@
 
 ARCH = $(shell uname -m)
 
+CPPFLAGS += -D_GNU_SOURCE
+
 ifeq ($(ARCH), x86_64)
   MSR = ../../../msr
 
