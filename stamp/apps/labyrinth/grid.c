@@ -339,7 +339,7 @@ void
 TMgrid_addPath (TM_ARGDECL  grid_t* gridPtr, vector_t* pointVectorPtr)
 {
     long i;
-    long n = vector_getSize(pointVectorPtr);
+    long n = PVECTOR_GETSIZE(pointVectorPtr);
 
 #if defined(TRANSMEM_MODIFICATION)
     for (i = 1; i < (n-1); i++) {
@@ -357,7 +357,7 @@ TMgrid_addPath (TM_ARGDECL  grid_t* gridPtr, vector_t* pointVectorPtr)
     return TRUE;
 #else /* ! TRANSMEM_MODIFICATION */
     for (i = 1; i < (n-1); i++) {
-        long* gridPointPtr = (long*)vector_at(pointVectorPtr, i);
+        long* gridPointPtr = (long*)PVECTOR_AT(pointVectorPtr, i);
         long value = (long)TM_SHARED_READ(*gridPointPtr);
         if (value != GRID_POINT_EMPTY) {
             TM_RESTART();
