@@ -95,6 +95,8 @@
 
 #undef strcmp
 extern int strcmp(const char*, const char*) TM_PURE;
+#undef strncmp
+extern int strncmp(const char *s1, const char *s2, size_t n) TM_PURE;
 
 struct endInfoEntry {
     bool_t isEnd;
@@ -111,7 +113,6 @@ struct constructEntry {
     long overlap;
     long length;
 };
-
 
 /* =============================================================================
  * hashString
