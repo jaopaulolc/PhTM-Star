@@ -35,6 +35,10 @@ cd gperftools
 ./configure --prefix=$PWD/build --enable-minimal \
 						--enable-shared --enable-libunwind 2>&1 > /dev/null
 make install $MAKE_OPTIONS 2>&1 > /dev/null
+[[ -e $PWD/build/lib64 ]] \
+  && mv $PWD/build/lib64/libtcmalloc_minimal.so* $PWD/build
+[[ -e $PWD/build/lib ]] \
+  && mv $PWD/build/lib/libtcmalloc_minimal.so* $PWD/build
 if [ $? -eq 0 ]; then
 	echo "TCMalloc compilation succeded!"
 else
