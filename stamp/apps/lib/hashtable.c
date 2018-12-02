@@ -272,10 +272,10 @@ allocBuckets (long numBucket, long (*comparePairs)(const pair_t*, const pair_t*)
  * -- Returns NULL on error
  * =============================================================================
  */
-static TM_SAFE
+TM_SAFE
 list_t**
 TMallocBuckets (TM_ARGDECL
-                long numBucket, long (*comparePairs)(const pair_t*, const pair_t*))
+                long numBucket, TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*))
 {
     long i;
     list_t** buckets;
@@ -288,7 +288,7 @@ TMallocBuckets (TM_ARGDECL
 
     for (i = 0; i < (numBucket + 1); i++) {
         list_t* chainPtr =
-            TMLIST_ALLOC((long (*)(const void*, const void*))comparePairs);
+            TMLIST_ALLOC((TM_SAFE long (*)(const void*, const void*))comparePairs);
         if (chainPtr == NULL) {
             while (--i >= 0) {
                 TMLIST_FREE(buckets[i]);
@@ -353,8 +353,8 @@ TM_SAFE
 hashtable_t*
 TMhashtable_alloc (TM_ARGDECL
                    long initNumBucket,
-                   ulong_t (*hash)(const void*),
-                   long (*comparePairs)(const pair_t*, const pair_t*),
+                   TM_SAFE ulong_t (*hash)(const void*),
+                   TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*),
                    long resizeRatio,
                    long growthFactor)
 {
@@ -408,7 +408,7 @@ freeBuckets (list_t** buckets, long numBucket)
  * TMfreeBuckets
  * =============================================================================
  */
-static TM_SAFE
+TM_SAFE
 void
 TMfreeBuckets (TM_ARGDECL  list_t** buckets, long numBucket)
 {
@@ -746,7 +746,7 @@ TMhashtable_insert (TM_ARGDECL
     long numBucket = hashtablePtr->numBucket;
     unsigned long i;
 
-    TM_IFUNC_CALL1(i, hash, keyPtr);
+    i = hash(keyPtr);
     i = i % numBucket;
 
     pair_t findPair;

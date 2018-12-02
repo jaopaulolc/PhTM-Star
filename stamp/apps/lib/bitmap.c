@@ -87,7 +87,7 @@
  * -- Returns NULL on failure
  * =============================================================================
  */
-TM_PURE bitmap_t*
+bitmap_t*
 bitmap_alloc (long numBit)
 {
     bitmap_t* bitmapPtr;
@@ -116,7 +116,8 @@ bitmap_alloc (long numBit)
  * -- Returns NULL on failure
  * =============================================================================
  */
-TM_PURE bitmap_t*
+TM_SAFE
+bitmap_t*
 Pbitmap_alloc (long numBit)
 {
     bitmap_t* bitmapPtr;
@@ -145,7 +146,7 @@ Pbitmap_alloc (long numBit)
  * bitmap_free
  * =============================================================================
  */
-TM_PURE void
+void
 bitmap_free (bitmap_t* bitmapPtr)
 {
     SEQ_FREE(bitmapPtr->bits);
@@ -157,7 +158,8 @@ bitmap_free (bitmap_t* bitmapPtr)
  * Pbitmap_free
  * =============================================================================
  */
-TM_PURE void
+TM_SAFE
+void
 Pbitmap_free (bitmap_t* bitmapPtr)
 {
     P_FREE(bitmapPtr->bits);
@@ -172,7 +174,7 @@ Pbitmap_free (bitmap_t* bitmapPtr)
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-TM_PURE bool_t
+bool_t
 bitmap_set (bitmap_t* bitmapPtr, long i)
 {
     if ((i < 0) || (i >= bitmapPtr->numBit)) {
@@ -191,7 +193,7 @@ bitmap_set (bitmap_t* bitmapPtr, long i)
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-TM_PURE bool_t
+bool_t
 bitmap_clear (bitmap_t* bitmapPtr, long i)
 {
     if ((i < 0) || (i >= bitmapPtr->numBit)) {
@@ -209,7 +211,7 @@ bitmap_clear (bitmap_t* bitmapPtr, long i)
  * -- Clears all bit to 0
  * =============================================================================
  */
-TM_PURE void
+void
 bitmap_clearAll (bitmap_t* bitmapPtr)
 {
     memset(bitmapPtr->bits, 0, (bitmapPtr->numWord * sizeof(ulong_t)));
@@ -238,7 +240,7 @@ bitmap_isClear (bitmap_t* bitmapPtr, long i)
  * -- Returns TRUE if ith bit is set, else FALSE
  * =============================================================================
  */
-TM_PURE bool_t
+bool_t
 bitmap_isSet (bitmap_t* bitmapPtr, long i)
 {
     if ((i >= 0) && (i < bitmapPtr->numBit) &&
@@ -257,7 +259,7 @@ bitmap_isSet (bitmap_t* bitmapPtr, long i)
  * -- If all bits are set, returns -1
  * =============================================================================
  */
-TM_PURE long
+long
 bitmap_findClear (bitmap_t* bitmapPtr, long startIndex)
 {
     long i;
@@ -281,7 +283,7 @@ bitmap_findClear (bitmap_t* bitmapPtr, long startIndex)
  * -- If all bits are clear, returns -1
  * =============================================================================
  */
-TM_PURE long
+long
 bitmap_findSet (bitmap_t* bitmapPtr, long startIndex)
 {
     long i;
@@ -302,11 +304,10 @@ bitmap_findSet (bitmap_t* bitmapPtr, long startIndex)
  * bitmap_getNumClear
  * =============================================================================
  */
-TM_PURE long
+long
 bitmap_getNumClear (bitmap_t* bitmapPtr)
 {
     long numBit = bitmapPtr->numBit;
-
     return (numBit - bitmap_getNumSet(bitmapPtr));
 }
 
@@ -315,7 +316,7 @@ bitmap_getNumClear (bitmap_t* bitmapPtr)
  * bitmap_getNumSet
  * =============================================================================
  */
-TM_PURE long
+long
 bitmap_getNumSet (bitmap_t* bitmapPtr)
 {
     long i;
@@ -337,7 +338,7 @@ bitmap_getNumSet (bitmap_t* bitmapPtr)
  * bitmap_copy
  * =============================================================================
  */
-TM_PURE void
+void
 bitmap_copy (bitmap_t* dstPtr, bitmap_t* srcPtr)
 {
     assert(dstPtr->numBit == srcPtr->numBit);
@@ -349,7 +350,7 @@ bitmap_copy (bitmap_t* dstPtr, bitmap_t* srcPtr)
  * bitmap_toggleAll
  * =============================================================================
  */
-TM_PURE void
+void
 bitmap_toggleAll (bitmap_t* bitmapPtr)
 {
     ulong_t* bits = bitmapPtr->bits;

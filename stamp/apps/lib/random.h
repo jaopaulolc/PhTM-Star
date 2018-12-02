@@ -107,6 +107,7 @@ random_alloc ();
  * -- Returns NULL if failure
  * =============================================================================
  */
+TM_SAFE
 random_t*
 Prandom_alloc ();
 
@@ -123,6 +124,7 @@ random_free (random_t* randomPtr);
  * Prandom_free
  * =============================================================================
  */
+TM_SAFE
 void
 Prandom_free (random_t* randomPtr);
 

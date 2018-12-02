@@ -99,7 +99,7 @@ pair_alloc (void* firstPtr, void* secondPtr);
  * -- Returns NULL if failure
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 pair_t*
 Ppair_alloc (void* firstPtr, void* secondPtr);
 
@@ -126,7 +126,7 @@ pair_free (pair_t* pairPtr);
  * Ppair_free
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 Ppair_free (pair_t* pairPtr);
 
