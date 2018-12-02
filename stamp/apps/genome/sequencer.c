@@ -119,7 +119,7 @@ struct constructEntry {
  * =============================================================================
  */
 TM_SAFE
-static ulong_t
+ulong_t
 hashString (char* str)
 {
     ulong_t hash = 0;
@@ -140,12 +140,30 @@ hashString (char* str)
  * =============================================================================
  */
 TM_SAFE
-static ulong_t
+ulong_t
 hashSegment (const void* keyPtr)
 {
-    return (ulong_t)hash_sdbm((char*)keyPtr); /* can be any "good" hash function */
+  return (ulong_t)Phash_sdbm((char*)keyPtr); /* can be any "good" hash function */
 }
 
+TM_SAFE
+long tm_safe_strcmp(const void* p1, const void* p2)
+{
+  const unsigned char *s1 = (const unsigned char *) p1;
+  const unsigned char *s2 = (const unsigned char *) p2;
+
+  unsigned char c1, c2;
+  do
+  {
+    c1 = (unsigned char) *s1++;
+    c2 = (unsigned char) *s2++;
+
+    if (c1 == '\0')
+      return c1 - c2;
+  } while (c1 == c2);
+
+  return c1 - c2;
+}
 
 /* =============================================================================
  * compareSegment
@@ -153,10 +171,11 @@ hashSegment (const void* keyPtr)
  * =============================================================================
  */
 TM_SAFE
-static long
+long
 compareSegment (const pair_t* a, const pair_t* b)
 {
-    return strcmp((const char*)(a->firstPtr), (const char*)(b->firstPtr));
+  //return strcmp((const char*)(a->firstPtr), (const char*)(b->firstPtr));
+  return tm_safe_strcmp((const void *)(a->firstPtr), (const void*)(b->firstPtr));
 }
 
 
@@ -311,7 +330,7 @@ sequencer_run (void* argPtr)
             long ii;
             long ii_stop = MIN(i_stop, (i+CHUNK_STEP1));
             for (ii = i; ii < ii_stop; ii++) {
-                void* segment = vector_at(segmentsContentsPtr, ii);
+                void* segment = PVECTOR_AT(segmentsContentsPtr, ii);
                 TMHASHTABLE_INSERT(uniqueSegmentsPtr,
                                    segment,
                                    segment);
