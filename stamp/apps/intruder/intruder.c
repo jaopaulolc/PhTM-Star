@@ -153,7 +153,7 @@ processPackets (void* argPtr)
         packet_t* packetPtr = (packet_t*)bytes;
         long flowId = packetPtr->flowId;
 
-        error_t error;
+        intruder_error_t error;
 	#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
@@ -202,7 +202,7 @@ processPackets (void* argPtr)
       TM_END();
 	#endif /* !HW_SW_PATHS */
         if (data) {
-            error_t error = PDETECTOR_PROCESS(detectorPtr, data);
+            intruder_error_t error = PDETECTOR_PROCESS(detectorPtr, data);
             P_FREE(data);
             if (error) {
                 bool_t status = PVECTOR_PUSHBACK(errorVectorPtr,
