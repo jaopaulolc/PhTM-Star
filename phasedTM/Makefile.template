@@ -43,7 +43,7 @@ endif
 all: $(target)
 
 $(target): phTM.o
-	$(AR) cr $@ $^
+	$(AR) csr $@ $^
 
 
 clean:
