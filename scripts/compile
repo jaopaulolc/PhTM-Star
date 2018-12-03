@@ -91,6 +91,7 @@ function compile_with_tm_compiler {
       make -C $GCCTM ${MAKE_OPTIONS}
       ;;
   esac
+  suffix="_$(uname -m)"
   echo "## $build compiled"
   compile_stamp_apps
   compile_microbench_apps

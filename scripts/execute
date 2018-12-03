@@ -223,6 +223,9 @@ function execute {
 			norec | rh_norec | hytm_norec_eager | hytm_norec_lazy | hyco)
 				SUFFIXES="${build}_$(uname -m)"
 				;;
+      clangtm | gcctm)
+        SUFFIXES="${build}_$(uname -m)"
+        ;;
 			*)
 				SUFFIXES=$build
 				;;
