@@ -35,7 +35,7 @@ CXXFLAGS = -O3 -Wall -std=c++11 -fPIC
 
 # DEFINES += -DGCCTM
 
-ifeq ($(LIBITM),gcctm)
+ifeq ($(LIBITM), GCCTM)
   CPPFLAGS += -I../libitm/gcc -I../libitm/gcc/config -I../libitm/gcc/config/$(ARCH)
 endif
 

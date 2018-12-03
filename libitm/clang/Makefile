@@ -5,11 +5,17 @@ CXX = g++
 
 ARCH = $(shell uname -m)
 
-DEFINES = -D_GNU_SOURCE
+DEFINES = -D_GNU_SOURCE -D${BACKEND}
 
-CPPFLAGS = $(DEFINES) -I. -I../../NOrec/include -Iconfig 
+CPPFLAGS = $(DEFINES) -I. -Iconfig -I../../NOrec/include
 CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -mavx -g -O3 -fPIC
 LDFLAGS = -Wl,-soname,libitm.so -lrt -L../../NOrec -lnorec
+
+ifeq (${BACKEND}, PHASEDTM)
+  CPPFLAGS += -I../../htm -I../../phasedTM
+  CXXFLAGS += -mrtm
+  LDFLAGS += -L../../phasedTM -lphTM
+endif
 
 SRCS = $(wildcard *.cpp) config/common.cpp
 
