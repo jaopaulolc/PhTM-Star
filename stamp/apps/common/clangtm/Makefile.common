@@ -10,9 +10,9 @@ CFLAGS   += -Wall -Wextra
 CFLAGS   += -fgnu-tm
 CFLAGS   += -O3 -ggdb
 
-LD       := $(CC)
+LD       := clang++
 LDFLAGS  += -lpthread
 LDFLAGS  += -L../../../libitm/clang -litm
-LIBDEPS  += 
+LIBDEPS  += ../../../libitm/clang/libitm.a
 
 include ../common/Makefile.common

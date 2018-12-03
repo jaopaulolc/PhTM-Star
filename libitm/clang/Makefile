@@ -1,4 +1,4 @@
-target = libitm.so
+target = libitm.a
 
 CC = gcc
 CXX = g++
@@ -8,8 +8,8 @@ ARCH = $(shell uname -m)
 DEFINES = -D_GNU_SOURCE -D${BACKEND}
 
 CPPFLAGS = $(DEFINES) -I. -Iconfig -I../../NOrec/include
-CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -mavx -g -O3 -fPIC
-LDFLAGS = -Wl,-soname,libitm.so -lrt -L../../NOrec -lnorec
+CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -mavx -g -O3
+LDFLAGS = -L../../NOrec -lnorec
 
 ifeq (${BACKEND}, PHASEDTM)
   CPPFLAGS += -I../../htm -I../../phasedTM
@@ -21,13 +21,19 @@ SRCS = $(wildcard *.cpp) config/common.cpp
 
 OBJS = $(SRCS:.cpp=.cpp.o)
 
+EXT_OBJS = $(wildcard ../../NOrec/*.o)
+ifeq (${BACKEND}, PHASEDTM)
+  EXT_OBJS += $(wildcard ../../phasedTM/*.o)
+endif
+
 all: $(target)
 
 %.cpp.o:	%.cpp
 	$(CXX) $(CPPFLAGS) -c $^ $(CXXFLAGS) -o $@
 
-$(target): $(OBJS) 
-	$(CXX) $(CPPFLAGS) -shared -fPIC $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+$(target): $(OBJS) $(EXT_OBJS)
+	$(AR) csr $@ $^
+	ranlib $@
 
 clean:
 	$(RM) $(target) $(OBJS)

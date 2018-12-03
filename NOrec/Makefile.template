@@ -24,7 +24,7 @@ SRCS = algs.cpp \
 OBJS = $(SRCS:.cpp=.o)
 
 CPPFLAGS = -I./include -D_GNU_SOURCE -I../htm
-CXXFLAGS = -O3 -Wall -std=c++11 -fPIC
+CXXFLAGS = -O3 -Wall -std=c++11
 
 # DUMMY COMMENT
 # DEFINES += -DCOMMIT_RATE_PROFILING
