@@ -161,6 +161,24 @@ function execute_microbench_apps {
 	done # FOR EACH APPS
 }
 
+function genPhasedSuffixes {
+  local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+  local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}")"
+  for stm in ${_PHASEDTM_STMS}; do
+    case $stm in
+      tinystm)
+        local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
+        SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
+        ;;
+      norec)
+        local tmp="norec"
+        SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
+        ;;
+    esac
+  done
+  SUFFIXES=$(sed 's|^[ ]\+||' <<<$SUFFIXES)
+}
+
 function execute {
 
 	test -e $LOGDIR || mkdir -p $LOGDIR
@@ -187,6 +205,7 @@ function execute {
 	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
 	test "$_PHASEDTM_DESIGNS" == "ALL" && _PHASEDTM_DESIGNS=$PHASEDTM_DESIGNS
 
+	test -z "$_LIBITM_BACKENDS"       && _LIBITM_BACKENDS='norec'
 	
 	echo 'starting execution...'
 
@@ -198,21 +217,7 @@ function execute {
 				;;
 			phasedTM)
 				SUFFIXES=""
-				local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-				local b="$(cross_product ${build}_$s "${_PHASEDTM_DESIGNS}")"
-				for stm in ${_PHASEDTM_STMS}; do
-					case $stm in
-						tinystm)
-							local tmp="$(cross_product "${_tinySTM_DESIGNS}" "${_tinySTM_CMS}" "${_ORT_HASHES}")"
-							SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
-							;;
-						norec)
-							local tmp="norec"
-							SUFFIXES="$SUFFIXES $(cross_product "$b" "$tmp")"
-							;;
-					esac
-				done
-				SUFFIXES=$(sed 's|^[ ]\+||' <<<$SUFFIXES)
+        genPhasedSuffixes
 				;;
 			rtm)
 				SUFFIXES="$(cross_product $build "${_TSX_LOCKS}")"
@@ -224,7 +229,24 @@ function execute {
 				SUFFIXES="${build}_$(uname -m)"
 				;;
       clangtm | gcctm)
-        SUFFIXES="${build}_$(uname -m)"
+        local _SUFFIXES=""
+        local s=$(uname -m)
+        for backend in $_LIBITM_BACKENDS; do
+          case $backend in
+            phasedTM)
+              SUFFIXES=""
+              local _build=$build
+              build=phasedTM
+              genPhasedSuffixes
+              build=$_build
+              _SUFFIXES="$_SUFFIXES $(cross_product $build_$s "$SUFFIXES")"
+              ;;
+            norec)
+              _SUFFIXES="$_SUFFIXES $build_$s-norec"
+              ;;
+          esac
+        done
+        SUFFIXES=$(sed 's|^[ ]\+||' <<<$_SUFFIXES)
         ;;
 			*)
 				SUFFIXES=$build
@@ -243,7 +265,7 @@ function execute {
 	echo 'execution finished.'
 }
 
-while getopts "b:v:S:d:m:l:s:w:i:z:u:t:f:T:n:a:M:H:h" opt;
+while getopts "b:v:S:d:m:l:B:s:w:i:z:u:t:f:T:n:a:M:H:h" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -252,6 +274,7 @@ do
 		d) _tinySTM_DESIGNS=$OPTARG ;;
 		m) _tinySTM_CMS=$OPTARG ;;
 		l) _TSX_LOCKS=$OPTARG ;;
+    B) _LIBITM_BACKENDS=$OPTARG ;;
 		s) _STAMP_APPS=$OPTARG ;;
 		w) _WORK_SIZES=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;

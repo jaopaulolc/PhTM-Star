@@ -73,28 +73,34 @@ function compile_microbench_apps {
 	done # FOR EACH APP
 }
 
-function compile_with_tm_compiler {
-
-  sed -e "s|# DUMMY COMMENT||"           \
-      -e "/# DEFINES += -D${build^^}/s|# ||"  \
-      $NOrec/Makefile.template > $NOrec/Makefile
-  make -C $NOrec clean ${MAKE_OPTIONS}
-  make -C $NOrec LIBITM=$build ${MAKE_OPTIONS}
-
+function compile_libitm {
   case $build in
     clangtm)
       make -C $CLANGTM clean ${MAKE_OPTIONS}
-      make -C $CLANGTM ${MAKE_OPTIONS}
+      make -C $CLANGTM BACKEND=${backend^^} ${MAKE_OPTIONS}
       ;;
     gcctm)
       make -C $GCCTM clean ${MAKE_OPTIONS}
-      make -C $GCCTM ${MAKE_OPTIONS}
+      make -C $GCCTM BACKEND=${backend^^} ${MAKE_OPTIONS}
       ;;
   esac
-  suffix="_$(uname -m)"
-  echo "## $build compiled"
-  compile_stamp_apps
-  compile_microbench_apps
+}
+
+function compile_with_tm_compiler {
+
+  test -z "$_LIBITM_BACKENDS" && _LIBITM_BACKENDS='norec'
+
+  for backend in $_LIBITM_BACKENDS; do
+    case $backend in
+      phasedTM)
+        compile_with_phasedTM
+        ;;
+      norec)
+        suffix="_$(uname -m)-norec"
+        compile_with_norec "" "${build^^}"
+        ;;
+    esac
+  done
 }
 
 function compile_with_tinystm {
@@ -190,19 +196,30 @@ function compile_with_phasedTM {
 
 function compile_with_norec {
 	
-	local phasedTMsuffix="$1"
-	
-	sed	-e "s|# DUMMY COMMENT||"               \
-	    -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
-			-e "/${RW_SET_PROFILING}/s|# ||"       \
-			-e "/${HYTM_LOCK_SUBSCRIPTION}/s|# ||" \
-			$NOrec/Makefile.template > $NOrec/Makefile
-	make -C $NOrec clean ${MAKE_OPTIONS}
-	make -C $NOrec ${MAKE_OPTIONS}
+  local phasedTMDesign="$1"
+  local LIBITM_IMPL=$2
+
+  [[ -z $LIBITM_IMPL ]] && LIBITM_IMPL='DUMMY_STRING_VALUE'
+
+  sed	-e "s|# DUMMY COMMENT||"               \
+      -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
+      -e "/${RW_SET_PROFILING}/s|# ||"       \
+      -e "/${HYTM_LOCK_SUBSCRIPTION}/s|# ||" \
+      -e "/# DEFINES += -D$LIBITM_IMPL/s|# ||"  \
+      $NOrec/Makefile.template > $NOrec/Makefile
+  make -C $NOrec clean ${MAKE_OPTIONS}
+  make -C $NOrec LIBITM=$LIBITM_IMPL ${MAKE_OPTIONS}
 	suffix=""
 	if [ $build == 'phasedTM' ]; then
 		local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
-		suffix="_$s-$phasedTMsuffix-norec"
+		suffix="_$s-$phasedTMDesign-norec"
+  elif [ $build == 'gcctm' ] || [ $build == 'clangtm' ]; then
+    compile_libitm
+    suffix="_$(uname -m)-norec"
+    if [ ! -z "$phasedTMDesign" ]; then
+      local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
+      suffix="_$(uname -m)-phasedTM_$s-$phasedTMDesign-norec"
+    fi
 	else
 		local s=$(uname -m)
 		suffix="_$s"
@@ -347,7 +364,7 @@ function compile {
 	echo 'compilation finished.'
 }
 
-while getopts "b:v:S:d:m:D:l:s:i:a:P:H:T:hX" opt;
+while getopts "b:v:S:d:m:D:l:B:s:i:a:P:H:T:hX" opt;
 do
 	case $opt in
 		b) _BUILDS=$OPTARG ;;
@@ -357,6 +374,7 @@ do
 		m) _tinySTM_CMS=$OPTARG ;;
 		D) _HTM_CMS=$OPTARG ;;
 		l) _TSX_LOCKS=$OPTARG ;;
+    B) _LIBITM_BACKENDS=$OPTARG;;
 		s) _STAMP_APPS=$OPTARG ;;
 		i) _MICROBENCH_APPS=$OPTARG ;;
 		a) _MAX_CAPACITY_ABORTS=$OPTARG ;;
