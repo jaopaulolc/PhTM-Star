@@ -9,7 +9,7 @@
 #include "api/api.hpp"
 #include "stm/txthread.hpp"
 
-#if defined(PHASEDTM)
+#if defined(BACKEND_PHASEDTM)
 #include <phTM.h>
 #endif
 
@@ -51,9 +51,9 @@ initThreadDescriptor(threadDescriptor_t* tx) {
 		fprintf(stderr, "error: pthread_setspecific failed at getThreadDescriptor!\n");
 	}
 	set_affinity(tx->id);
-#if defined(NOREC)
+#if defined(BACKEND_NOREC)
 	stm::thread_init();
-#elif defined(PHASEDTM)
+#elif defined(BACKEND_PHASEDTM)
 	stm::thread_init();
   phTM_thread_init(tx->id);
 #else
@@ -76,9 +76,9 @@ thread_exit_handler(void* arg UNUSED) {
 	fprintf(stderr, "debug: thread %u called thread_exit_handler\n", tx->id);
 #endif
 	if (tx) {
-#if defined(NOREC)
+#if defined(BACKEND_NOREC)
 		stm::thread_shutdown();
-#elif defined(PHASEDTM)
+#elif defined(BACKEND_PHASEDTM)
 		stm::thread_shutdown();
     phTM_thread_exit();
 #else

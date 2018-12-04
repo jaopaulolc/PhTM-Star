@@ -7,7 +7,7 @@
 #include "api/api.hpp"
 #include "stm/txthread.hpp"
 
-#if defined(PHASEDTM)
+#if defined(BACKEND_PHASEDTM)
 #include <phTM.h>
 #endif
 
@@ -31,11 +31,11 @@ _ITM_beginTransaction (jmp_buf* jmpbuf, int codeProperties) {
 	tx->codeProperties = codeProperties;
 	tx->jmpbuf = jmpbuf;
   uint32_t codePathToRun = a_runInstrumentedCode;
-#if defined(NOREC)
+#if defined(BACKEND_NOREC)
 	// RSTM handles nesting by flattening transactions
 	stm::begin((stm::TxThread*)tx->stmTxDescriptor, tx->jmpbuf, codeProperties);
 	CFENCE;
-#elif defined(PHASEDTM)
+#elif defined(BACKEND_PHASEDTM)
   while(1) {
     uint64_t mode = getMode();
     tx->runmode = mode;
@@ -86,12 +86,12 @@ void ITM_REGPARM
 _ITM_commitTransaction () {
 
 	threadDescriptor_t* tx = getThreadDescriptor();
-#if defined(NOREC)
+#if defined(BACKEND_NOREC)
 	stm::commit((stm::TxThread*)tx->stmTxDescriptor);
 	CFENCE;
 	tx = getThreadDescriptor();
 	tx->undolog.commit();
-#elif defined(PHASEDTM)
+#elif defined(BACKEND_PHASEDTM)
   if (tx->runmode == SW) {
     stm::commit((stm::TxThread*)tx->stmTxDescriptor);
     CFENCE;
@@ -117,9 +117,9 @@ _ITM_tryCommitTransaction () {
 
 void _ITM_NORETURN ITM_REGPARM
 _ITM_abortTransaction (_ITM_abortReason abortReason UNUSED) {
-#if defined(NOREC)
+#if defined(BACKEND_NOREC)
 	stm::restart();
-#elif defined(PHASEDTM)
+#elif defined(BACKEND_PHASEDTM)
 	threadDescriptor_t* tx = getThreadDescriptor();
   tx->runmode = getMode();
   if (tx->runmode == SW) {

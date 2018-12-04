@@ -5,7 +5,7 @@ CXX = g++
 
 ARCH = $(shell uname -m)
 
-DEFINES = -D_GNU_SOURCE -D${BACKEND}
+DEFINES = -D_GNU_SOURCE -DBACKEND_${BACKEND}
 
 CPPFLAGS = $(DEFINES) -I. -Iconfig -I../../NOrec/include
 CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -mavx -g -O3
