@@ -38,7 +38,6 @@ _ITM_beginTransaction (jmp_buf* jmpbuf, int codeProperties) {
 #elif defined(BACKEND_PHASEDTM)
   while(1) {
     uint64_t mode = getMode();
-    tx->runmode = mode;
     if (mode == HW || mode == GLOCK) {
       bool modeChanged = HTM_Start_Tx();
       if (!modeChanged) {
@@ -92,7 +91,8 @@ _ITM_commitTransaction () {
 	tx = getThreadDescriptor();
 	tx->undolog.commit();
 #elif defined(BACKEND_PHASEDTM)
-  if (tx->runmode == SW) {
+	uint64_t mode = getMode();
+  if (mode == SW) {
     stm::commit((stm::TxThread*)tx->stmTxDescriptor);
     CFENCE;
     STM_PostCommit_Tx();
@@ -120,9 +120,8 @@ _ITM_abortTransaction (_ITM_abortReason abortReason UNUSED) {
 #if defined(BACKEND_NOREC)
 	stm::restart();
 #elif defined(BACKEND_PHASEDTM)
-	threadDescriptor_t* tx = getThreadDescriptor();
-  tx->runmode = getMode();
-  if (tx->runmode == SW) {
+  uint64_t mode = getMode();
+  if (mode == SW) {
     stm::restart();
   } else {
     htm_abort();

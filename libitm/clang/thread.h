@@ -16,7 +16,6 @@ struct threadDescriptor_t {
 	uint32_t id;
 	uint32_t depth;
 	uint32_t codeProperties;
-  uint32_t runmode;
 
 	void* operator new (size_t size);
 	void operator delete (void* tx);
