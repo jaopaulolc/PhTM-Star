@@ -239,7 +239,7 @@ function execute {
               build=phasedTM
               genPhasedSuffixes
               build=$_build
-              _SUFFIXES="$_SUFFIXES $(cross_product $build_$s "$SUFFIXES")"
+              _SUFFIXES="$_SUFFIXES $(cross_product ${build}_$s "$SUFFIXES")"
               ;;
             norec)
               _SUFFIXES="$_SUFFIXES $build_$s-norec"
