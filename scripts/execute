@@ -242,7 +242,7 @@ function execute {
               _SUFFIXES="$_SUFFIXES $(cross_product ${build}_$s "$SUFFIXES")"
               ;;
             norec)
-              _SUFFIXES="$_SUFFIXES $build_$s-norec"
+              _SUFFIXES="$_SUFFIXES ${build}_$s-norec"
               ;;
           esac
         done
