@@ -205,7 +205,7 @@ extern void norecInitThreadAborts(uint64_t* addr);
 
 #define NUM_COMMITS NULL
 #define NUM_ABORTS NULL
-#define ALLOCA_COMMITS_ABORTS_VARIABLES() /* nothing */
+#define ALLOCA_COMMITS_ABORTS_VARIABLES(numThread) /* nothing */
 #define INIT_COMMITS_ABORTS_VARIABLES() /* nothing */ 
 
 #endif
