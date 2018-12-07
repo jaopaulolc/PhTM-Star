@@ -125,6 +125,16 @@ list_iter_reset (list_iter_t* itPtr, list_t* listPtr)
     *itPtr = &(listPtr->head);
 }
 
+/* =============================================================================
+ * Plist_iter_reset
+ * =============================================================================
+ */
+TM_SAFE
+void
+Plist_iter_reset (list_iter_t* itPtr, list_t* listPtr)
+{
+    *itPtr = &(listPtr->head);
+}
 
 /* =============================================================================
  * TMlist_iter_reset
@@ -148,6 +158,16 @@ list_iter_hasNext (list_iter_t* itPtr, list_t* listPtr)
     return (((*itPtr)->nextPtr != NULL) ? TRUE : FALSE);
 }
 
+/* =============================================================================
+ * Plist_iter_hasNext
+ * =============================================================================
+ */
+TM_SAFE
+bool_t
+Plist_iter_hasNext (list_iter_t* itPtr, list_t* listPtr)
+{
+    return (((*itPtr)->nextPtr != NULL) ? TRUE : FALSE);
+}
 
 /* =============================================================================
  * TMlist_iter_hasNext
@@ -175,6 +195,18 @@ list_iter_next (list_iter_t* itPtr, list_t* listPtr)
     return (*itPtr)->dataPtr;
 }
 
+/* =============================================================================
+ * Plist_iter_next
+ * =============================================================================
+ */
+TM_SAFE
+void*
+Plist_iter_next (list_iter_t* itPtr, list_t* listPtr)
+{
+    *itPtr = (*itPtr)->nextPtr;
+
+    return (*itPtr)->dataPtr;
+}
 
 /* =============================================================================
  * TMlist_iter_next
