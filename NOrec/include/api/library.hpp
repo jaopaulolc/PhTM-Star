@@ -223,7 +223,7 @@ namespace stm
   /**
    *  Abort the current transaction and restart immediately.
    */
-  void restart();
+  NORETURN void restart();
 }
 
 /*** pull in the per-memory-access instrumentation framework */
