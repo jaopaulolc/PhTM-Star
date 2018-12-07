@@ -174,12 +174,12 @@ process (void *arg)
             /*
              * Handle delayed deallocation
              */
-            PELEMENT_FREE(elementPtr);
+            TMELEMENT_FREE(elementPtr);
             continue;
         }
 				
 
-        long numAdded;
+        long numAdded = 0;
 	#ifdef HW_SW_PATHS
 		IF_HTM_MODE
 			START_HTM_MODE
@@ -221,7 +221,7 @@ process (void *arg)
             /*
              * Handle delayed deallocation
              */
-            PELEMENT_FREE(elementPtr);
+            TMELEMENT_FREE(elementPtr);
         }
 
         totalNumAdded += numAdded;

@@ -140,7 +140,7 @@ mesh_insert (mesh_t* meshPtr, element_t* elementPtr, MAP_T* edgeMapPtr)
      * The root element is not needed for the actual refining, but rather
      * for checking the validity of the final mesh.
      */
-    if (!meshPtr->rootElementPtr) {
+    if (meshPtr->rootElementPtr != NULL) {
         meshPtr->rootElementPtr = elementPtr;
     }
 
@@ -150,7 +150,7 @@ mesh_insert (mesh_t* meshPtr, element_t* elementPtr, MAP_T* edgeMapPtr)
     long i;
     long numEdge = element_getNumEdge(elementPtr);
     for (i = 0; i < numEdge; i++) {
-        pair_t* edgePtr = element_getEdge(elementPtr, i);
+        edge_t* edgePtr = element_getEdge(elementPtr, i);
         if (!MAP_CONTAINS(edgeMapPtr, (void*)edgePtr)) {
             /*
              * Record existence of this edge
@@ -215,7 +215,7 @@ TMmesh_insert (TM_ARGDECL
     long numEdge = element_getNumEdge(elementPtr);
     for (i = 0; i < numEdge; i++) {
         edge_t* edgePtr = element_getEdge(elementPtr, i);
-        if (!MAP_CONTAINS(edgeMapPtr, (void*)edgePtr)) {
+        if (!PMAP_CONTAINS(edgeMapPtr, (void*)edgePtr)) {
             /* Record existance of this edge */
             bool_t isSuccess;
             isSuccess =
@@ -226,7 +226,7 @@ TMmesh_insert (TM_ARGDECL
              * Shared edge; update each element's neighborList
              */
             bool_t isSuccess;
-            element_t* sharerPtr = (element_t*)MAP_FIND(edgeMapPtr, edgePtr);
+            element_t* sharerPtr = (element_t*)PMAP_FIND(edgeMapPtr, edgePtr);
             assert(sharerPtr); /* cannot be shared by >2 elements */
             TMELEMENT_ADDNEIGHBOR(elementPtr, sharerPtr);
             TMELEMENT_ADDNEIGHBOR(sharerPtr, elementPtr);

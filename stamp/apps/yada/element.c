@@ -111,7 +111,7 @@ extern double global_angleConstraint;
  * -- put smallest coordinate in position 0
  * =============================================================================
  */
-static TM_PURE
+TM_SAFE
 void
 minimizeCoordinates (element_t* elementPtr)
 {
@@ -143,7 +143,7 @@ minimizeCoordinates (element_t* elementPtr)
  * -- Sets isSkinny to TRUE if the angle constraint is not met
  * =============================================================================
  */
-static TM_PURE
+TM_SAFE
 void
 checkAngles (element_t* elementPtr)
 {
@@ -213,7 +213,7 @@ checkAngles (element_t* elementPtr)
  *
  * =============================================================================
  */
-static TM_PURE
+ TM_SAFE
 void
 calculateCircumCircle (element_t* elementPtr)
 {
@@ -260,7 +260,8 @@ calculateCircumCircle (element_t* elementPtr)
   * Note: Makes pairPtr sorted; i.e., coordinate_compare(first, second) < 0
  * =============================================================================
  */
-static void
+TM_SAFE
+void
 setEdge (element_t* elementPtr, long i)
 {
     long numCoordinate = elementPtr->numCoordinate;
@@ -293,7 +294,7 @@ setEdge (element_t* elementPtr, long i)
  * initEdges
  * =============================================================================
  */
-static TM_PURE
+TM_SAFE
 void
 initEdges (element_t* elementPtr, coordinate_t* coordinates, long numCoordinate)
 {
@@ -312,6 +313,7 @@ initEdges (element_t* elementPtr, coordinate_t* coordinates, long numCoordinate)
  * element_compare
  * =============================================================================
  */
+TM_SAFE
 long
 element_compare (element_t* aElementPtr, element_t* bElementPtr)
 {
@@ -345,6 +347,7 @@ element_compare (element_t* aElementPtr, element_t* bElementPtr)
  * For use in list_t
  * =============================================================================
  */
+TM_SAFE
 long
 element_listCompare (const void* aPtr, const void* bPtr)
 {
@@ -361,6 +364,7 @@ element_listCompare (const void* aPtr, const void* bPtr)
  * For use in MAP_T
  * =============================================================================
  */
+TM_SAFE
 long
 element_mapCompare (const pair_t* aPtr, const pair_t* bPtr)
 {
@@ -409,6 +413,7 @@ element_alloc (coordinate_t* coordinates, long numCoordinate)
  * Contains a copy of input arg 'coordinates'
  * =============================================================================
  */
+TM_SAFE
 element_t*
 Pelement_alloc (coordinate_t* coordinates, long numCoordinate)
 {
@@ -484,6 +489,7 @@ element_free (element_t* elementPtr)
  * Pelement_free
  * =============================================================================
  */
+TM_SAFE
 void
 Pelement_free (element_t* elementPtr)
 {
@@ -509,7 +515,7 @@ TMelement_free (TM_ARGDECL  element_t* elementPtr)
  * element_getNumEdge
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 long
 element_getNumEdge (element_t* elementPtr)
 {
@@ -523,7 +529,7 @@ element_getNumEdge (element_t* elementPtr)
  * Returned edgePtr is sorted; i.e., coordinate_compare(first, second) < 0
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 edge_t*
 element_getEdge (element_t* elementPtr, long i)
 {
@@ -539,7 +545,8 @@ element_getEdge (element_t* elementPtr, long i)
  * element_compareEdge
  * =============================================================================
  */
-static long
+ TM_SAFE
+long
 compareEdge (edge_t* aEdgePtr, edge_t* bEdgePtr)
 {
     long diffFirst = coordinate_compare((coordinate_t*)aEdgePtr->firstPtr,
@@ -558,6 +565,7 @@ compareEdge (edge_t* aEdgePtr, edge_t* bEdgePtr)
  * For use in list_t
  * ============================================================================
  */
+TM_SAFE
 long
 element_listCompareEdge (const void* aPtr, const void* bPtr)
 {
@@ -574,6 +582,7 @@ element_listCompareEdge (const void* aPtr, const void* bPtr)
   * For use in MAP_T
  * =============================================================================
  */
+TM_SAFE
 long
 element_mapCompareEdge (const pair_t* aPtr, const pair_t* bPtr)
 {
@@ -590,6 +599,7 @@ element_mapCompareEdge (const pair_t* aPtr, const pair_t* bPtr)
  * For use in heap_t. Consider using minAngle instead of "do not care".
  * =============================================================================
  */
+TM_SAFE
 long
 element_heapCompare (const void* aPtr, const void* bPtr)
 {
@@ -616,7 +626,7 @@ element_heapCompare (const void* aPtr, const void* bPtr)
  * element_isInCircumCircle
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 element_isInCircumCircle (element_t* elementPtr, coordinate_t* coordinatePtr)
 {
@@ -631,7 +641,8 @@ element_isInCircumCircle (element_t* elementPtr, coordinate_t* coordinatePtr)
  * isEncroached
  * =============================================================================
  */
-static bool_t
+TM_SAFE
+bool_t
 isEncroached (element_t* elementPtr)
 {
     return ((elementPtr->encroachedEdgePtr != NULL) ? TRUE : FALSE);
@@ -642,7 +653,7 @@ isEncroached (element_t* elementPtr)
  * element_setEncroached
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 element_clearEncroached (element_t* elementPtr)
 {
@@ -654,7 +665,7 @@ element_clearEncroached (element_t* elementPtr)
  * element_getEncroachedPtr
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 edge_t*
 element_getEncroachedPtr (element_t* elementPtr)
 {
@@ -667,6 +678,7 @@ element_getEncroachedPtr (element_t* elementPtr)
  * =============================================================================
  */
 bool_t
+TM_SAFE
 element_isSkinny (element_t* elementPtr)
 {
     return ((elementPtr->isSkinny) ? TRUE : FALSE);
@@ -678,7 +690,7 @@ element_isSkinny (element_t* elementPtr)
  * -- Does it need to be refined?
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 element_isBad (element_t* elementPtr)
 {
@@ -811,7 +823,7 @@ TMelement_addNeighbor (TM_ARGDECL  element_t* elementPtr, element_t* neighborPtr
  * element_getNeighborListPtr
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 list_t*
 element_getNeighborListPtr (element_t* elementPtr)
 {
@@ -825,7 +837,7 @@ element_getNeighborListPtr (element_t* elementPtr)
  * Returns pointer to aElementPtr's shared edge
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 edge_t*
 element_getCommonEdge (element_t* aElementPtr, element_t* bElementPtr)
 {
@@ -855,9 +867,9 @@ element_getCommonEdge (element_t* aElementPtr, element_t* bElementPtr)
  * -- Either the element is encroached or is skinny, so get the new point to add
  * =============================================================================
  */
-TM_PURE
-coordinate_t
-element_getNewPoint (element_t* elementPtr)
+TM_SAFE
+void
+element_getNewPoint (element_t* elementPtr, coordinate_t* ret)
 {
     edge_t* encroachedEdgePtr = elementPtr->encroachedEdgePtr;
 
@@ -867,13 +879,18 @@ element_getNewPoint (element_t* elementPtr)
         edge_t* edges = elementPtr->edges;
         for (e = 0; e < numEdge; e++) {
             if (compareEdge(encroachedEdgePtr, &edges[e]) == 0) {
-                return elementPtr->midpoints[e];
+              (*ret).x = elementPtr->midpoints[e].x;
+              (*ret).y = elementPtr->midpoints[e].y;
+              //return elementPtr->midpoints[e];
+              return;
             }
         }
         assert(0);
     }
 
-    return elementPtr->circumCenter;
+    (*ret).x = elementPtr->circumCenter.x;
+    (*ret).y = elementPtr->circumCenter.y;
+    //  return elementPtr->circumCenter;
 }
 
 

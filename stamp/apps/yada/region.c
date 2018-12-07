@@ -94,11 +94,11 @@ struct region {
  * =============================================================================
  */
 
-static TM_SAFE
+TM_SAFE
 void
 TMaddToBadVector (TM_ARGDECL  vector_t* badVectorPtr, element_t* badElementPtr);
 
-static TM_SAFE
+TM_SAFE
 long
 TMretriangulate (TM_ARGDECL
                  element_t* elementPtr,
@@ -106,7 +106,7 @@ TMretriangulate (TM_ARGDECL
                  mesh_t* meshPtr,
                  MAP_T* edgeMapPtr);
 
-static TM_SAFE
+TM_SAFE
 element_t*
 TMgrowRegion (TM_ARGDECL
               element_t* centerElementPtr,
@@ -118,6 +118,7 @@ TMgrowRegion (TM_ARGDECL
  * Pregion_alloc
  * =============================================================================
  */
+TM_SAFE
 region_t*
 Pregion_alloc ()
 {
@@ -143,6 +144,7 @@ Pregion_alloc ()
  * Pregion_free
  * =============================================================================
  */
+TM_SAFE
 void
 Pregion_free (region_t* regionPtr)
 {
@@ -158,7 +160,7 @@ Pregion_free (region_t* regionPtr)
  * TMaddToBadVector
  * =============================================================================
  */
-static TM_SAFE
+TM_SAFE
 void
 TMaddToBadVector (TM_ARGDECL  vector_t* badVectorPtr, element_t* badElementPtr)
 {
@@ -181,7 +183,7 @@ addToBadVector (vector_t* badVectorPtr, element_t* badElementPtr)
  * -- Returns net amount of elements added to mesh
  * =============================================================================
  */
-static TM_SAFE
+TM_SAFE
 long
 TMretriangulate (TM_ARGDECL
                  element_t* elementPtr,
@@ -197,16 +199,16 @@ TMretriangulate (TM_ARGDECL
 
     assert(edgeMapPtr);
 
-    coordinate_t centerCoordinate = element_getNewPoint(elementPtr);
-
+    coordinate_t centerCoordinate;
+    element_getNewPoint(elementPtr, &centerCoordinate);
     /*
      * Remove the old triangles
      */
 
-    list_iter_reset(&it, beforeListPtr);
-    while (list_iter_hasNext(&it, beforeListPtr)) {
+    PLIST_ITER_RESET(&it, beforeListPtr);
+    while (PLIST_ITER_HASNEXT(&it, beforeListPtr)) {
         element_t* beforeElementPtr =
-            (element_t*)list_iter_next(&it, beforeListPtr);
+            (element_t*)PLIST_ITER_NEXT(&it, beforeListPtr);
         TMMESH_REMOVE(meshPtr, beforeElementPtr);
     }
 
@@ -249,11 +251,11 @@ TMretriangulate (TM_ARGDECL
      * point and the two points from the border segment.
      */
 
-    list_iter_reset(&it, borderListPtr);
-    while (list_iter_hasNext(&it, borderListPtr)) {
+    PLIST_ITER_RESET(&it, borderListPtr);
+    while (PLIST_ITER_HASNEXT(&it, borderListPtr)) {
         element_t* afterElementPtr;
         coordinate_t coordinates[3];
-        edge_t* borderEdgePtr = (edge_t*)list_iter_next(&it, borderListPtr);
+        edge_t* borderEdgePtr = (edge_t*)PLIST_ITER_NEXT(&it, borderListPtr);
         assert(borderEdgePtr);
         coordinates[0] = centerCoordinate;
         coordinates[1] = *(coordinate_t*)(borderEdgePtr->firstPtr);
@@ -285,7 +287,8 @@ retriangulate (element_t* elementPtr,
 
     assert(edgeMapPtr);
 
-    coordinate_t centerCoordinate = element_getNewPoint(elementPtr);
+    coordinate_t centerCoordinate;
+    element_getNewPoint(elementPtr, &centerCoordinate);
 
     /*
      * Remove the old triangles
@@ -365,7 +368,7 @@ retriangulate (element_t* elementPtr,
  * -- Return NULL if success, else pointer to encroached boundary
  * =============================================================================
  */
-static TM_SAFE
+TM_SAFE
 element_t*
 TMgrowRegion (TM_ARGDECL
               element_t* centerElementPtr,
@@ -387,7 +390,8 @@ TMgrowRegion (TM_ARGDECL
     PLIST_CLEAR(borderListPtr);
     PQUEUE_CLEAR(expandQueuePtr);
 
-    coordinate_t centerCoordinate = element_getNewPoint(centerElementPtr);
+    coordinate_t centerCoordinate;
+    element_getNewPoint(centerElementPtr, &centerCoordinate);
     coordinate_t* centerCoordinatePtr = &centerCoordinate;
 
     PQUEUE_PUSH(expandQueuePtr, (void*)centerElementPtr);
@@ -404,7 +408,7 @@ TMgrowRegion (TM_ARGDECL
             element_t* neighborElementPtr =
                 (element_t*)TMLIST_ITER_NEXT(&it, neighborListPtr);
             TMELEMENT_ISGARBAGE(neighborElementPtr); /* so we can detect conflicts */
-            if (!list_find(beforeListPtr, (void*)neighborElementPtr)) {
+            if (!PLIST_FIND(beforeListPtr, (void*)neighborElementPtr)) {
                 if (element_isInCircumCircle(neighborElementPtr, centerCoordinatePtr)) {
                     /* This is part of the region */
                     if (!isBoundary && (element_getNumEdge(neighborElementPtr) == 1)) {
@@ -422,11 +426,11 @@ TMgrowRegion (TM_ARGDECL
                     edge_t* borderEdgePtr =
                         element_getCommonEdge(neighborElementPtr, currentElementPtr);
                     if (!borderEdgePtr) {
-                        TM_RESTART();
+                      TM_RESTART();
                     }
                     PLIST_INSERT(borderListPtr,
                                  (void*)borderEdgePtr); /* no duplicates */
-                    if (!MAP_CONTAINS(edgeMapPtr, borderEdgePtr)) {
+                    if (!PMAP_CONTAINS(edgeMapPtr, borderEdgePtr)) {
                         PMAP_INSERT(edgeMapPtr, borderEdgePtr, neighborElementPtr);
                     }
                 }
@@ -458,7 +462,8 @@ growRegion (element_t* centerElementPtr,
     PLIST_CLEAR(borderListPtr);
     PQUEUE_CLEAR(expandQueuePtr);
 
-    coordinate_t centerCoordinate = element_getNewPoint(centerElementPtr);
+    coordinate_t centerCoordinate;
+    element_getNewPoint(centerElementPtr, &centerCoordinate);
     coordinate_t* centerCoordinatePtr = &centerCoordinate;
 
     PQUEUE_PUSH(expandQueuePtr, (void*)centerElementPtr);
@@ -466,7 +471,7 @@ growRegion (element_t* centerElementPtr,
 
         element_t* currentElementPtr = (element_t*)PQUEUE_POP(expandQueuePtr);
 
-        PLIST_INSERT(beforeListPtr, (void*)currentElementPtr); /* no duplicates */
+        list_insert(beforeListPtr, (void*)currentElementPtr); /* no duplicates */
         list_t* neighborListPtr = element_getNeighborListPtr(currentElementPtr);
 
         list_iter_t it;
@@ -495,7 +500,7 @@ growRegion (element_t* centerElementPtr,
                     if (!borderEdgePtr) {
                         TM_RESTART();
                     }
-                    PLIST_INSERT(borderListPtr,
+                    list_insert(borderListPtr,
                                  (void*)borderEdgePtr); /* no duplicates */
                     if (!MAP_CONTAINS(edgeMapPtr, borderEdgePtr)) {
                         PMAP_INSERT(edgeMapPtr, borderEdgePtr, neighborElementPtr);
@@ -524,10 +529,12 @@ TMregion_refine (TM_ARGDECL
     MAP_T* edgeMapPtr = NULL;
     element_t* encroachElementPtr = NULL;
 
-    TMELEMENT_ISGARBAGE(elementPtr); /* so we can detect conflicts */
+    if (TMELEMENT_ISGARBAGE(elementPtr)) { /* so we can detect conflicts */
+      return numDelta;
+    }
 
     while (1) {
-        edgeMapPtr = PMAP_ALLOC(NULL, &element_mapCompareEdge);
+        edgeMapPtr = PMAP_ALLOC(NULL, element_mapCompareEdge);
         assert(edgeMapPtr);
         encroachElementPtr = TMgrowRegion(TM_ARG
                                           elementPtr,
@@ -619,7 +626,7 @@ region_refine (region_t* regionPtr, element_t* elementPtr, mesh_t* meshPtr)
  * Pregion_clearBad
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 Pregion_clearBad (region_t* regionPtr)
 {

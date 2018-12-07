@@ -73,6 +73,11 @@
 #include <stdio.h>
 #include "coordinate.h"
 
+#undef sqrt
+extern double sqrt(double) TM_PURE;
+#undef acos
+extern double acos(double) TM_PURE;
+
 #if defined(TRANSMEM_MODIFICATION)
 
 #define ABS(a) (((a) > 0) ? (a) : -(a))
@@ -112,6 +117,7 @@ static double acos_safe( double x)
  * coordinate_compare
  * =============================================================================
  */
+TM_SAFE
 long
 coordinate_compare (coordinate_t* aPtr, coordinate_t* bPtr)
 {
@@ -133,6 +139,7 @@ coordinate_compare (coordinate_t* aPtr, coordinate_t* bPtr)
  * coordinate_distance
  * =============================================================================
  */
+TM_SAFE
 double
 coordinate_distance (coordinate_t* coordinatePtr, coordinate_t* aPtr)
 {
@@ -156,6 +163,7 @@ coordinate_distance (coordinate_t* coordinatePtr, coordinate_t* aPtr)
  *
  * =============================================================================
  */
+TM_SAFE
 double
 coordinate_angle (coordinate_t* aPtr, coordinate_t* bPtr, coordinate_t* cPtr)
 {

@@ -86,6 +86,7 @@ typedef struct region  region_t;
  * Pregion_alloc
  * =============================================================================
  */
+TM_SAFE
 region_t*
 Pregion_alloc ();
 
@@ -94,6 +95,7 @@ Pregion_alloc ();
  * Pregion_free
  * =============================================================================
  */
+TM_SAFE
 void
 Pregion_free (region_t* regionPtr);
 
@@ -121,7 +123,7 @@ region_refine (region_t* regionPtr, element_t* elementPtr, mesh_t* meshPtr);
  * Pregion_clearBad
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 Pregion_clearBad (region_t* regionPtr);
 
