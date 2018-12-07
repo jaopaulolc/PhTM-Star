@@ -195,6 +195,28 @@
         success; \
      })
 
+#  define PMAP_CONTAINS(map, key) \
+    ({ \
+        bool_t success = FALSE; \
+        pair_t searchPair; \
+        searchPair.firstPtr = (void*)key; \
+        if (Pjsw_avlfind(map, (void*)&searchPair) != NULL) { \
+            success = TRUE; \
+        } \
+        success; \
+     })
+#  define PMAP_FIND(map, key) \
+    ({ \
+        void* dataPtr = NULL; \
+        pair_t searchPair; \
+        searchPair.firstPtr = (void*)(key); \
+        pair_t* pairPtr = (pair_t*)Pjsw_avlfind(map, (void*)&searchPair); \
+        if (pairPtr != NULL) { \
+            dataPtr = pairPtr->secondPtr; \
+        } \
+        dataPtr; \
+     })
+
 #  define PMAP_ALLOC(hash, cmp)        Pjsw_avlnew((cmp_f)cmp)
 #  define PMAP_FREE(map)               Pjsw_avldelete(map)
 #  define PMAP_INSERT(map, key, data) \
@@ -213,7 +235,7 @@
         bool_t success = FALSE; \
         pair_t searchPair; \
         searchPair.firstPtr = (void*)(key); \
-        pair_t* pairPtr = (pair_t*)jsw_avlfind(map, (void*)&searchPair); \
+        pair_t* pairPtr = (pair_t*)Pjsw_avlfind(map, (void*)&searchPair); \
         if (Pjsw_avlerase(map, (void*)&searchPair)) { \
             PPAIR_FREE(pairPtr); \
             success = TRUE; \

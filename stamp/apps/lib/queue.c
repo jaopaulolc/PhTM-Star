@@ -94,7 +94,7 @@ enum config {
  * queue_alloc
  * =============================================================================
  */
-TM_PURE queue_t*
+queue_t*
 queue_alloc (long initCapacity)
 {
     queue_t* queuePtr = (queue_t*)SEQ_MALLOC(sizeof(queue_t));
@@ -119,7 +119,8 @@ queue_alloc (long initCapacity)
  * Pqueue_alloc
  * =============================================================================
  */
-TM_PURE queue_t*
+TM_SAFE
+queue_t*
 Pqueue_alloc (long initCapacity)
 {
     queue_t* queuePtr = (queue_t*)P_MALLOC(sizeof(queue_t));
@@ -170,7 +171,7 @@ TMqueue_alloc (TM_ARGDECL  long initCapacity)
  * queue_free
  * =============================================================================
  */
-TM_PURE void
+void
 queue_free (queue_t* queuePtr)
 {
     SEQ_FREE(queuePtr->elements);
@@ -182,7 +183,8 @@ queue_free (queue_t* queuePtr)
  * Pqueue_free
  * =============================================================================
  */
-TM_PURE void
+TM_SAFE
+void
 Pqueue_free (queue_t* queuePtr)
 {
     P_FREE(queuePtr->elements);
@@ -207,7 +209,6 @@ TMqueue_free (TM_ARGDECL  queue_t* queuePtr)
  * queue_isEmpty
  * =============================================================================
  */
-TM_PURE
 bool_t
 queue_isEmpty (queue_t* queuePtr)
 {
@@ -218,14 +219,39 @@ queue_isEmpty (queue_t* queuePtr)
     return (((pop + 1) % capacity == push) ? TRUE : FALSE);
 }
 
+/* =============================================================================
+ * Pqueue_isEmpty
+ * =============================================================================
+ */
+TM_SAFE
+bool_t
+Pqueue_isEmpty (queue_t* queuePtr)
+{
+    long pop      = queuePtr->pop;
+    long push     = queuePtr->push;
+    long capacity = queuePtr->capacity;
+
+    return (((pop + 1) % capacity == push) ? TRUE : FALSE);
+}
 
 /* =============================================================================
  * queue_clear
  * =============================================================================
  */
-TM_PURE
 void
 queue_clear (queue_t* queuePtr)
+{
+    queuePtr->pop  = queuePtr->capacity - 1;
+    queuePtr->push = 0;
+}
+
+/* =============================================================================
+ * Pqueue_clear
+ * =============================================================================
+ */
+TM_SAFE
+void
+Pqueue_clear (queue_t* queuePtr)
 {
     queuePtr->pop  = queuePtr->capacity - 1;
     queuePtr->push = 0;
@@ -252,8 +278,41 @@ TMqueue_isEmpty (TM_ARGDECL  queue_t* queuePtr)
  * queue_shuffle
  * =============================================================================
  */
-TM_PURE void
+void
 queue_shuffle (queue_t* queuePtr, random_t* randomPtr)
+{
+    long pop      = queuePtr->pop;
+    long push     = queuePtr->push;
+    long capacity = queuePtr->capacity;
+
+    long numElement;
+    if (pop < push) {
+        numElement = push - (pop + 1);
+    } else {
+        numElement = capacity - (pop - push + 1);
+    }
+
+    void** elements = queuePtr->elements;
+    long i;
+    long base = pop + 1;
+    for (i = 0; i < numElement; i++) {
+        long r1 = random_generate(randomPtr) % numElement;
+        long r2 = random_generate(randomPtr) % numElement;
+        long i1 = (base + r1) % capacity;
+        long i2 = (base + r2) % capacity;
+        void* tmp = elements[i1];
+        elements[i1] = elements[i2];
+        elements[i2] = tmp;
+    }
+}
+
+/* =============================================================================
+ * Pqueue_shuffle
+ * =============================================================================
+ */
+TM_SAFE
+void
+Pqueue_shuffle (queue_t* queuePtr, random_t* randomPtr)
 {
     long pop      = queuePtr->pop;
     long push     = queuePtr->push;
@@ -285,7 +344,7 @@ queue_shuffle (queue_t* queuePtr, random_t* randomPtr)
  * queue_push
  * =============================================================================
  */
-TM_PURE bool_t
+bool_t
 queue_push (queue_t* queuePtr, void* dataPtr)
 {
     long pop      = queuePtr->pop;
@@ -340,7 +399,7 @@ queue_push (queue_t* queuePtr, void* dataPtr)
  * Pqueue_push
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 Pqueue_push (queue_t* queuePtr, void* dataPtr)
 {
@@ -454,9 +513,31 @@ TMqueue_push (TM_ARGDECL  queue_t* queuePtr, void* dataPtr)
  * queue_pop
  * =============================================================================
  */
-TM_PURE
 void*
 queue_pop (queue_t* queuePtr)
+{
+    long pop      = queuePtr->pop;
+    long push     = queuePtr->push;
+    long capacity = queuePtr->capacity;
+
+    long newPop = (pop + 1) % capacity;
+    if (newPop == push) {
+        return NULL;
+    }
+
+    void* dataPtr = queuePtr->elements[newPop];
+    queuePtr->pop = newPop;
+
+    return dataPtr;
+}
+
+/* =============================================================================
+ * Pqueue_pop
+ * =============================================================================
+ */
+TM_SAFE
+void*
+Pqueue_pop (queue_t* queuePtr)
 {
     long pop      = queuePtr->pop;
     long push     = queuePtr->push;

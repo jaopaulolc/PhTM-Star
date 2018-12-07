@@ -90,7 +90,6 @@ typedef struct queue queue_t;
  * queue_alloc
  * =============================================================================
  */
-TM_PURE
 queue_t*
 queue_alloc (long initCapacity);
 
@@ -99,7 +98,7 @@ queue_alloc (long initCapacity);
  * Pqueue_alloc
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 queue_t*
 Pqueue_alloc (long initCapacity);
 
@@ -117,7 +116,6 @@ TMqueue_alloc (TM_ARGDECL  long initCapacity);
  * queue_free
  * =============================================================================
  */
-TM_PURE
 void
 queue_free (queue_t* queuePtr);
 
@@ -126,7 +124,7 @@ queue_free (queue_t* queuePtr);
  * Pqueue_free
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 Pqueue_free (queue_t* queuePtr);
 
@@ -144,10 +142,16 @@ TMqueue_free (TM_ARGDECL  queue_t* queuePtr);
  * queue_isEmpty
  * =============================================================================
  */
-TM_PURE
 bool_t
 queue_isEmpty (queue_t* queuePtr);
 
+/* =============================================================================
+ * Pqueue_isEmpty
+ * =============================================================================
+ */
+TM_SAFE
+bool_t
+Pqueue_isEmpty (queue_t* queuePtr);
 
 /* =============================================================================
  * TMqueue_isEmpty
@@ -162,25 +166,36 @@ TMqueue_isEmpty (TM_ARGDECL  queue_t* queuePtr);
  * queue_clear
  * =============================================================================
  */
-TM_PURE
 void
 queue_clear (queue_t* queuePtr);
 
+/* =============================================================================
+ * Pqueue_clear
+ * =============================================================================
+ */
+TM_SAFE
+void
+Pqueue_clear (queue_t* queuePtr);
 
 /* =============================================================================
  * queue_shuffle
  * =============================================================================
  */
-TM_PURE
 void
 queue_shuffle (queue_t* queuePtr, random_t* randomPtr);
 
+/* =============================================================================
+ * Pqueue_shuffle
+ * =============================================================================
+ */
+TM_SAFE
+void
+Pqueue_shuffle (queue_t* queuePtr, random_t* randomPtr);
 
 /* =============================================================================
  * queue_push
  * =============================================================================
  */
-TM_PURE
 bool_t
 queue_push (queue_t* queuePtr, void* dataPtr);
 
@@ -189,7 +204,7 @@ queue_push (queue_t* queuePtr, void* dataPtr);
  * Pqueue_push
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 Pqueue_push (queue_t* queuePtr, void* dataPtr);
 
@@ -207,10 +222,16 @@ TMqueue_push (TM_ARGDECL  queue_t* queuePtr, void* dataPtr);
  * queue_pop
  * =============================================================================
  */
-TM_PURE
 void*
 queue_pop (queue_t* queuePtr);
 
+/* =============================================================================
+ * Pqueue_pop
+ * =============================================================================
+ */
+TM_SAFE
+void*
+Pqueue_pop (queue_t* queuePtr);
 
 /* =============================================================================
  * TMqueue_pop
@@ -223,11 +244,11 @@ TMqueue_pop (TM_ARGDECL  queue_t* queuePtr);
 
 #define PQUEUE_ALLOC(c)     Pqueue_alloc(c)
 #define PQUEUE_FREE(q)      Pqueue_free(q)
-#define PQUEUE_ISEMPTY(q)   queue_isEmpty(q)
-#define PQUEUE_CLEAR(q)     queue_clear(q)
-#define PQUEUE_SHUFFLE(q)   queue_shuffle(q, randomPtr);
+#define PQUEUE_ISEMPTY(q)   Pqueue_isEmpty(q)
+#define PQUEUE_CLEAR(q)     Pqueue_clear(q)
+#define PQUEUE_SHUFFLE(q)   Pqueue_shuffle(q, randomPtr);
 #define PQUEUE_PUSH(q, d)   Pqueue_push(q, (void*)(d))
-#define PQUEUE_POP(q)       queue_pop(q)
+#define PQUEUE_POP(q)       Pqueue_pop(q)
 
 #define TMQUEUE_ALLOC(c)    TMqueue_alloc(TM_ARG_ALONE  c)
 #define TMQUEUE_FREE(q)     TMqueue_free(TM_ARG  q)

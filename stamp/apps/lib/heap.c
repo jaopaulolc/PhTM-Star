@@ -168,11 +168,11 @@ siftUp (heap_t* heapPtr, long startIndex)
  * =============================================================================
  */
 TM_SAFE
-static void
+/*static*/ void
 TMsiftUp (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 {
     void** elements = (void**)TM_SHARED_READ_P(heapPtr->elements);
-    long (*compare)(const void*, const void*) TM_IFUNC_DECL = heapPtr->compare;
+    long (*compare)(const void*, const void*) TM_SAFE = heapPtr->compare;
 
     long index = startIndex;
     while ((index > 1)) {
@@ -180,7 +180,7 @@ TMsiftUp (TM_ARGDECL  heap_t* heapPtr, long startIndex)
         void* parentPtr = (void*)TM_SHARED_READ_P(elements[parentIndex]);
         void* thisPtr   = (void*)TM_SHARED_READ_P(elements[index]);
         long ret;
-        TM_IFUNC_CALL2(ret, compare, parentPtr, thisPtr);
+        ret = compare(parentPtr, thisPtr);
         if (ret >= 0) {
             break;
         }
@@ -315,11 +315,11 @@ heapify (heap_t* heapPtr, long startIndex)
  * =============================================================================
  */
 TM_SAFE
-static void
+/*static*/ void
 TMheapify (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 {
     void** elements = (void**)TM_SHARED_READ_P(heapPtr->elements);
-    long (*compare)(const void*, const void*) TM_IFUNC_DECL = heapPtr->compare;
+    long (*compare)(const void*, const void*) TM_SAFE = heapPtr->compare;
 
     long size = (long)TM_SHARED_READ(heapPtr->size);
     long index = startIndex;
@@ -337,11 +337,11 @@ TMheapify (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 
             e1 = (void*)TM_SHARED_READ_P(elements[leftIndex]);
             e2 = (void*)TM_SHARED_READ_P(elements[index]);
-            TM_IFUNC_CALL2(ret, compare, e1, e2);
+            ret = compare(e1, e2);
 
             if (ret > 0)
                 maxIndex = leftIndex;
-            else 
+            else
                 maxIndex = index;
         } else {
             maxIndex = index;
@@ -354,7 +354,7 @@ TMheapify (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 
             e1 = (void*)TM_SHARED_READ_P(elements[rightIndex]);
             e2 = (void*)TM_SHARED_READ_P(elements[maxIndex]);
-            TM_IFUNC_CALL2(ret, compare, e1, e2);
+            ret = compare(e1, e2);
 
             if (ret > 0)
                 maxIndex = rightIndex;

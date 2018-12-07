@@ -236,13 +236,13 @@ static node_t*
 TMlookup (TM_ARGDECL  rbtree_t* s, void* k)
 {
     void* k2;
-    long (*compare)(const void*, const void*) TM_IFUNC_DECL = s->compare;
+    long (*compare)(const void*, const void*) TM_SAFE = s->compare;
     node_t* p = TX_LDNODE(s, root);
 
     while (p != NULL) {
         long cmp;
         k2 = TX_LDF_P(p, k);
-        TM_IFUNC_CALL2(cmp, compare, k, k2);
+        cmp = compare(k, k2);
         if (cmp == 0) {
             return p;
         }
@@ -703,7 +703,7 @@ static node_t*
 TMinsert (TM_ARGDECL  rbtree_t* s, void* k, void* v, node_t* n)
 {
     void* k2;
-    long (*compare)(const void*, const void*) TM_IFUNC_DECL = s->compare;
+    long (*compare)(const void*, const void*) TM_SAFE = s->compare;
     node_t* t = TX_LDNODE(s, root);
 
     if (t == NULL) {
@@ -724,7 +724,7 @@ TMinsert (TM_ARGDECL  rbtree_t* s, void* k, void* v, node_t* n)
     for (;;) {
         long cmp;
         k2 = TX_LDF_P(t, k);
-        TM_IFUNC_CALL2(cmp, compare, k, k2);
+        cmp = compare(k, k2);
         if (cmp == 0) {
             return t;
         } else if (cmp < 0) {

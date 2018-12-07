@@ -104,7 +104,7 @@ typedef struct jsw_avlnode {
 
 struct jsw_avltree {
   jsw_avlnode_t *root; /* Top of the tree */
-  cmp_f          cmp;    /* Compare two items */
+  TM_SAFE cmp_f          cmp;    /* Compare two items */
 #ifdef USE_DUP_AND_REL
   dup_f          dup;    /* Clone an item (user-defined) */
   rel_f          rel;    /* Destroy an item (user-defined) */
@@ -209,6 +209,7 @@ static jsw_avlnode_t *new_node ( jsw_avltree_t *tree, void *data )
 }
 
 
+TM_SAFE
 static jsw_avlnode_t *Pnew_node ( jsw_avltree_t *tree, void *data )
 {
   jsw_avlnode_t *rn = (jsw_avlnode_t *)P_MALLOC ( sizeof *rn );
@@ -249,7 +250,7 @@ jsw_avltree_t *jsw_avlnew ( cmp_f cmp )
   return rt;
 }
 
-TM_PURE
+TM_SAFE
 #ifdef USE_DUP_AND_REL
 jsw_avltree_t *Pjsw_avlnew ( cmp_f cmp, dup_f dup, rel_f rel )
 #else /* ! USE_DUP_AND_REL */
@@ -301,7 +302,7 @@ void jsw_avldelete ( jsw_avltree_t *tree )
   SEQ_FREE ( tree );
 }
 
-TM_PURE
+TM_SAFE
 void Pjsw_avldelete ( jsw_avltree_t *tree )
 {
   jsw_avlnode_t *it = tree->root;
@@ -332,6 +333,23 @@ void Pjsw_avldelete ( jsw_avltree_t *tree )
 
 
 void *jsw_avlfind ( jsw_avltree_t *tree, void *data )
+{
+  jsw_avlnode_t *it = tree->root;
+
+  while ( it != NULL ) {
+    long cmp = tree->cmp ( it->data, data );
+
+    if ( cmp == 0 )
+      break;
+
+    it = it->link[cmp < 0];
+  }
+
+  return it == NULL ? NULL : it->data;
+}
+
+TM_SAFE
+void *Pjsw_avlfind ( jsw_avltree_t *tree, void *data )
 {
   jsw_avlnode_t *it = tree->root;
 
@@ -409,6 +427,7 @@ long jsw_avlinsert ( jsw_avltree_t *tree, void *data )
   return 1;
 }
 
+TM_SAFE
 long Pjsw_avlinsert ( jsw_avltree_t *tree, void *data )
 {
   /* Empty tree case */
@@ -564,6 +583,7 @@ long jsw_avlerase ( jsw_avltree_t *tree, void *data )
   return 1;
 }
 
+TM_SAFE
 long Pjsw_avlerase ( jsw_avltree_t *tree, void *data )
 {
   if ( tree->root != NULL ) {

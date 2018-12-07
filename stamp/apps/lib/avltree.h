@@ -110,7 +110,7 @@ typedef struct jsw_avltree jsw_avltree_t;
 typedef struct jsw_avltrav jsw_avltrav_t;
 
 /* User-defined item handling */
-typedef long   (*cmp_f) ( const void *p1, const void *p2 );
+typedef long   (*cmp_f) ( const void *p1, const void *p2 ) TM_SAFE;
 #ifdef USE_DUP_AND_REL
 typedef void *(*dup_f) ( void *p );
 typedef void  (*rel_f) ( void *p );
@@ -119,23 +119,24 @@ typedef void  (*rel_f) ( void *p );
 /* AVL tree functions */
 #ifdef USE_DUP_AND_REL
 jsw_avltree_t *jsw_avlnew ( cmp_f cmp, dup_f dup, rel_f rel );
-TM_PURE
+TM_SAFE
 jsw_avltree_t *Pjsw_avlnew ( cmp_f cmp, dup_f dup, rel_f rel );
 #else /* ! USE_DUP_AND_REL */
 jsw_avltree_t *jsw_avlnew ( cmp_f cmp );
-TM_PURE
+TM_SAFE
 jsw_avltree_t *Pjsw_avlnew ( cmp_f cmp );
 #endif /* ! USE_DUP_AND_REL */
 void           jsw_avldelete ( jsw_avltree_t *tree );
-TM_PURE
+TM_SAFE
 void           Pjsw_avldelete ( jsw_avltree_t *tree );
-TM_PURE
 void          *jsw_avlfind ( jsw_avltree_t *tree, void *data );
+TM_SAFE
+void          *Pjsw_avlfind ( jsw_avltree_t *tree, void *data );
 long           jsw_avlinsert ( jsw_avltree_t *tree, void *data );
-TM_PURE
+TM_SAFE
 long           Pjsw_avlinsert ( jsw_avltree_t *tree, void *data );
 long           jsw_avlerase ( jsw_avltree_t *tree, void *data );
-TM_PURE
+TM_SAFE
 long           Pjsw_avlerase ( jsw_avltree_t *tree, void *data );
 size_t         jsw_avlsize ( jsw_avltree_t *tree );
 

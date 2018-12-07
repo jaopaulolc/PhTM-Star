@@ -108,7 +108,7 @@ TMfreeNode (TM_ARGDECL  list_node_t* nodePtr);
  * =============================================================================
  */
 TM_SAFE
-static long
+/*static*/ long
 compareDataPtrAddresses (const void* a, const void* b)
 {
     return ((long)a - (long)b);
