@@ -134,7 +134,7 @@ list_iter_hasNext (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 bool_t
-Plist_iter_hasNext (list_iter_t* itPtr, list_t* listPtr);
+Plist_iter_hasNext (list_iter_t* itPtr/*, list_t* listPtr*/);
 
 /* =============================================================================
  * TMlist_iter_hasNext
@@ -142,7 +142,7 @@ Plist_iter_hasNext (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 bool_t
-TMlist_iter_hasNext (TM_ARGDECL  list_iter_t* itPtr, list_t* listPtr);
+TMlist_iter_hasNext (TM_ARGDECL  list_iter_t* itPtr/*, list_t* listPtr*/);
 
 
 /* =============================================================================
@@ -158,7 +158,7 @@ list_iter_next (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 void*
-Plist_iter_next (list_iter_t* itPtr, list_t* listPtr);
+Plist_iter_next (list_iter_t* itPtr/*, list_t* listPtr*/);
 
 /* =============================================================================
  * TMlist_iter_next
@@ -166,7 +166,7 @@ Plist_iter_next (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 void*
-TMlist_iter_next (TM_ARGDECL  list_iter_t* itPtr, list_t* listPtr);
+TMlist_iter_next (TM_ARGDECL  list_iter_t* itPtr/*, list_t* listPtr*/);
 
 
 /* =============================================================================
@@ -391,8 +391,8 @@ Plist_clear (list_t* listPtr);
 
 
 #define PLIST_ITER_RESET(it, list)      Plist_iter_reset(it, list)
-#define PLIST_ITER_HASNEXT(it, list)    Plist_iter_hasNext(it, list)
-#define PLIST_ITER_NEXT(it, list)       Plist_iter_next(it, list)
+#define PLIST_ITER_HASNEXT(it, list)    Plist_iter_hasNext(it/*, list*/)
+#define PLIST_ITER_NEXT(it, list)       Plist_iter_next(it/*, list*/)
 #define PLIST_ALLOC(cmp)                Plist_alloc(cmp)
 #define PLIST_FREE(list)                Plist_free(list)
 #define PLIST_GETSIZE(list)             Plist_getSize(list)
@@ -403,8 +403,8 @@ Plist_clear (list_t* listPtr);
 
 
 #define TMLIST_ITER_RESET(it, list)     TMlist_iter_reset(TM_ARG  it, list)
-#define TMLIST_ITER_HASNEXT(it, list)   TMlist_iter_hasNext(TM_ARG  it, list)
-#define TMLIST_ITER_NEXT(it, list)      TMlist_iter_next(TM_ARG  it, list)
+#define TMLIST_ITER_HASNEXT(it, list)   TMlist_iter_hasNext(TM_ARG  it/*, list*/)
+#define TMLIST_ITER_NEXT(it, list)      TMlist_iter_next(TM_ARG  it/*, list*/)
 #define TMLIST_ALLOC(cmp)               TMlist_alloc(TM_ARG  cmp)
 #define TMLIST_FREE(list)               TMlist_free(TM_ARG  list)
 #define TMLIST_GETSIZE(list)            TMlist_getSize(TM_ARG  list)

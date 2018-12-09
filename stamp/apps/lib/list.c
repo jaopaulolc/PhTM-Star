@@ -164,7 +164,7 @@ list_iter_hasNext (list_iter_t* itPtr, list_t* listPtr)
  */
 TM_SAFE
 bool_t
-Plist_iter_hasNext (list_iter_t* itPtr, list_t* listPtr)
+Plist_iter_hasNext (list_iter_t* itPtr/*, list_t* listPtr*/)
 {
     return (((*itPtr)->nextPtr != NULL) ? TRUE : FALSE);
 }
@@ -175,7 +175,7 @@ Plist_iter_hasNext (list_iter_t* itPtr, list_t* listPtr)
  */
 TM_SAFE
 bool_t
-TMlist_iter_hasNext (TM_ARGDECL  list_iter_t* itPtr, list_t* listPtr)
+TMlist_iter_hasNext (TM_ARGDECL  list_iter_t* itPtr/*, list_t* listPtr*/)
 {
     list_iter_t next = (list_iter_t)TM_SHARED_READ_P((*itPtr)->nextPtr);
 
@@ -201,7 +201,7 @@ list_iter_next (list_iter_t* itPtr, list_t* listPtr)
  */
 TM_SAFE
 void*
-Plist_iter_next (list_iter_t* itPtr, list_t* listPtr)
+Plist_iter_next (list_iter_t* itPtr/*, list_t* listPtr*/)
 {
     *itPtr = (*itPtr)->nextPtr;
 
@@ -214,7 +214,7 @@ Plist_iter_next (list_iter_t* itPtr, list_t* listPtr)
  */
 TM_SAFE
 void*
-TMlist_iter_next (TM_ARGDECL  list_iter_t* itPtr, list_t* listPtr)
+TMlist_iter_next (TM_ARGDECL  list_iter_t* itPtr/*, list_t* listPtr*/)
 {
     list_iter_t next = (list_iter_t)TM_SHARED_READ_P((*itPtr)->nextPtr);
     TM_LOCAL_WRITE_P(*itPtr, next);
