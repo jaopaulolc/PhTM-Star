@@ -5,17 +5,26 @@ CXX = g++
 
 ARCH = $(shell uname -m)
 
-DEFINES = -D_GNU_SOURCE
+DEFINES = -D_GNU_SOURCE -DBACKEND_${BACKEND}
 
 CPPFLAGS = $(DEFINES) -I. -I../../NOrec/include -Iconfig -Iconfig/$(ARCH)
 CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -g -O3
 LDFLAGS = -L../../NOrec -lnorec
+
+ifeq ($(BACKEND), PHASEDTM)
+  CPPFLAGS += -I../../htm -I../../phasedTM
+  CXXFLAGS += -mrtm
+  LDFLAGS += -L../../phasedTM -lphTM
+endif
 
 SRCS = $(wildcard *.cpp) config/common.cpp
 
 OBJS = $(SRCS:.cpp=.cpp.o) beginTransaction.S.o
 
 EXT_OBJS = $(wildcard ../../NOrec/*.o)
+ifeq (${BACKEND}, PHASEDTM)
+  EXT_OBJS += $(wildcard ../../phasedTM/*.o)
+endif
 
 all: $(target)
 

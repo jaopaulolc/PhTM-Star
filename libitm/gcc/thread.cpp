@@ -9,6 +9,10 @@
 #include "api/api.hpp"
 #include "stm/txthread.hpp"
 
+#if defined(BACKEND_PHASEDTM)
+#include <phTM.h>
+#endif
+
 static uint32_t numberOfThreads = 0;
 static pthread_mutex_t init_thread_lock = PTHREAD_MUTEX_INITIALIZER;
 __thread threadDescriptor_t* __threadDescriptor = NULL;
@@ -47,7 +51,14 @@ initThreadDescriptor(threadDescriptor_t* tx) {
 		fprintf(stderr, "error: pthread_setspecific failed at getThreadDescriptor!\n");
 	}
 	set_affinity(tx->id);
+#if defined(BACKEND_NOREC)
 	stm::thread_init();
+#elif defined(BACKEND_PHASEDTM)
+	stm::thread_init();
+  phTM_thread_init(tx->id);
+#else
+#error "unknown or no backend selected!"
+#endif
 	tx->stmTxDescriptor = (void*)stm::Self;
 }
 
@@ -65,7 +76,14 @@ thread_exit_handler(void* arg UNUSED) {
 	fprintf(stderr, "debug: thread %u called thread_exit_handler\n", tx->id);
 #endif
 	if (tx) {
+#if defined(BACKEND_NOREC)
 		stm::thread_shutdown();
+#elif defined(BACKEND_PHASEDTM)
+		stm::thread_shutdown();
+    phTM_thread_exit();
+#else
+#error "unknown or no backend selected!"
+#endif
 		if (tx->id == 0) {
 			stm::sys_shutdown();
 		}

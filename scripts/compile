@@ -93,7 +93,7 @@ function compile_with_tm_compiler {
   for backend in $_LIBITM_BACKENDS; do
     case $backend in
       phasedTM)
-        compile_with_phasedTM
+        compile_with_phasedTM "${build}"
         ;;
       norec)
         suffix="_$(uname -m)-norec"
@@ -179,6 +179,8 @@ function compile_with_phasedTM {
 	test -z "$_PHASEDTM_DESIGNS"       && _PHASEDTM_DESIGNS='OPTIMIZED'
 	test "$_PHASEDTM_DESIGNS" == "ALL" && _PHASEDTM_DESIGNS=$PHASEDTM_DESIGNS
 
+  local buildname="$1"
+
 	local MAKE_OPTIONS_copy="$MAKE_OPTIONS"
 	for stm in ${_PHASEDTM_STMS}; do
 		MAKE_OPTIONS="${MAKE_OPTIONS_copy} PHASED_STM=$stm"
@@ -188,7 +190,7 @@ function compile_with_phasedTM {
 			touch $PhasedTM/Makefile
 			make -C $PhasedTM clean ${MAKE_OPTIONS}
 			make -C $PhasedTM ${MAKE_OPTIONS}
-			compile_with_$stm "$design"
+			compile_with_$stm "$design" "${buildname^^}"
 		done # FOR EACH PHASEDTM DESIGN
 	done # FOR EACH STM
 	MAKE_OPTIONS="$MAKE_OPTIONS_copy"
