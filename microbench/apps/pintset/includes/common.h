@@ -80,10 +80,6 @@ typedef struct thread_data {
 #define RO                              1
 #define RW                              0
 
-/* Annotations used in this benchmark */
-# define TM_SAFE
-# define TM_PURE
-
 void rand_init(unsigned short *seed);
 int rand_range(int n, unsigned short *seed);
 

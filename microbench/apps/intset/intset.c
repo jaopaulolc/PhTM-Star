@@ -39,10 +39,6 @@
 
 #include <tm.h>
 
-/* Annotations used in this benchmark */
-# define TM_SAFE
-# define TM_PURE
-
 #ifdef DEBUG
 # define IO_FLUSH                       fflush(NULL)
 /* Note: stdio is thread-safe */
