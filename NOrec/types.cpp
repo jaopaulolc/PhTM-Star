@@ -131,7 +131,7 @@ namespace stm
   /***  Another writeset reset function that we don't want inlined */
   void WriteSet::reset_internal()
   {
-      memset(index, 0, sizeof(index_t) * ilength);
+      memset((void*)index, 0, sizeof(index_t) * ilength);
       version = 1;
   }
 
