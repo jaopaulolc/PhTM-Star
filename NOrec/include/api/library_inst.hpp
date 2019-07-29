@@ -343,7 +343,7 @@ namespace stm
       {
           // get second word's address
           void** addr1 = (void**) ((uintptr_t)addr + 0);
-          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr2 = (void**) ((uintptr_t)addr + 4);
           union {
               double t;
               struct { void* v1; void* v2; } v;
@@ -360,7 +360,7 @@ namespace stm
       {
           // compute the two addresses
           void** addr1 = (void**) ((uintptr_t)addr + 0);
-          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr2 = (void**) ((uintptr_t)addr + 4);
           // turn the value into two words
           union {
               double t;
@@ -383,7 +383,7 @@ namespace stm
       {
           // compute the two addresses
           void** addr1 = (void**) ((uintptr_t)addr + 0);
-          void** addr2 = (void**) ((uintptr_t)addr + 8);
+          void** addr2 = (void**) ((uintptr_t)addr + 4);
           union {
               double t;
               struct { void* v1; void* v2; } v;
