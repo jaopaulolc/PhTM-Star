@@ -116,6 +116,7 @@ rbtree_alloc (long (*compare)(const void*, const void*));
  * TMrbtree_alloc
  * =============================================================================
  */
+TM_SAFE
 rbtree_t*
 TMrbtree_alloc (TM_ARGDECL  long (*compare)(const void*, const void*));
 
@@ -132,6 +133,7 @@ rbtree_free (rbtree_t* r);
  * TMrbtree_free
  * =============================================================================
  */
+TM_SAFE
 void
 TMrbtree_free (TM_ARGDECL  rbtree_t* r);
 
@@ -150,7 +152,7 @@ rbtree_insert (rbtree_t* r, void* key, void* val);
  * -- Returns TRUE on success
  * =============================================================================
  */
-TM_CALLABLE
+TM_SAFE
 bool_t
 TMrbtree_insert (TM_ARGDECL  rbtree_t* r, void* key, void* val);
 
@@ -167,7 +169,7 @@ rbtree_delete (rbtree_t* r, void* key);
  * TMrbtree_delete
  * =============================================================================
  */
-TM_CALLABLE
+TM_SAFE
 bool_t
 TMrbtree_delete (TM_ARGDECL  rbtree_t* r, void* key);
 
@@ -186,7 +188,7 @@ rbtree_update (rbtree_t* r, void* key, void* val);
  * -- Return FALSE if had to insert node first
  * =============================================================================
  */
-TM_CALLABLE
+TM_SAFE
 bool_t
 TMrbtree_update (TM_ARGDECL  rbtree_t* r, void* key, void* val);
 
@@ -203,7 +205,7 @@ rbtree_get (rbtree_t* r, void* key);
  * TMrbtree_get
  * =============================================================================
  */
-TM_CALLABLE
+TM_SAFE
 void*
 TMrbtree_get (TM_ARGDECL  rbtree_t* r, void* key);
 
@@ -220,7 +222,7 @@ rbtree_contains (rbtree_t* r, void* key);
  * TMrbtree_contains
  * =============================================================================
  */
-TM_CALLABLE
+TM_SAFE
 bool_t
 TMrbtree_contains (TM_ARGDECL  rbtree_t* r, void* key);
 

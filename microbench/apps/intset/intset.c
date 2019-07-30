@@ -130,6 +130,7 @@ static inline void rand_init(unsigned short *seed)
   seed[2] = (unsigned short)rand();
 }
 
+TM_PURE
 static inline int rand_range(int n, unsigned short *seed)
 {
   /* Return a random number in range [0;n) */
@@ -477,6 +478,7 @@ static int set_remove(intset_t *set, val_t val, thread_data_t *td)
 typedef struct intset intset_t;
 typedef intptr_t val_t;
 
+TM_SAFE
 static long compare(const void *a, const void *b)
 {
   return ((val_t)a - (val_t)b);
