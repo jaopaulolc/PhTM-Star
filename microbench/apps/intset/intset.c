@@ -486,7 +486,7 @@ static long compare(const void *a, const void *b)
 
 static intset_t *set_new()
 {
-  return (intset_t *)rbtree_alloc(&compare);
+  return (intset_t *)rbtree_alloc((long (*)(const void*,const void*))compare);
 }
 
 static void set_delete(intset_t *set)
