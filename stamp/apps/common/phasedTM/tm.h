@@ -7,8 +7,8 @@
 #include <msr.h>
 #include <pmu.h>
 #else
-#define msrInitialize()         		/* nothing */
-#define msrTerminate()          		/* nothing */
+#define msrInitialize()             /* nothing */
+#define msrTerminate()              /* nothing */
 #endif
 
 #define RO	1
@@ -81,7 +81,7 @@
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
 																	if (mode == HW || mode == GLOCK){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+#define START_HTM_MODE              bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
 																			break; \
@@ -143,7 +143,7 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 														msrTerminate()
 
 #define TM_THREAD_ENTER()           long __tid__ = thread_getId(); \
-																		set_affinity(__tid__);                       \
+																		set_affinity(__tid__);         \
 																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
 																		phTM_thread_init()
 
@@ -159,7 +159,7 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 #include <thread.h>
 
 #undef TM_ARG
-#undef TM_ARG_ALONE 
+#undef TM_ARG_ALONE
 
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */
@@ -198,7 +198,7 @@ extern void norecInitThreadAborts(uint64_t* addr);
 #define NUM_COMMITS 0
 #define NUM_ABORTS  0
 #define ALLOCA_COMMITS_ABORTS_VARIABLES(numThread) /* nothing */
-#define INIT_COMMITS_ABORTS_VARIABLES() /* nothing */ 
+#define INIT_COMMITS_ABORTS_VARIABLES() /* nothing */
 
 #endif
 
@@ -208,13 +208,13 @@ typedef struct throughputProfilingData_ {
 	uint64_t sampleCount;
 	uint64_t maxSamples;
 	uint64_t stepCount;
-	uint64_t sampleStep;	
+	uint64_t sampleStep;
 	uint64_t before;
 	double*  samples;
 } throughputProfilingData_t;
 
 #if defined(GENOME)
-#define INIT_SAMPLE_STEP 1000 
+#define INIT_SAMPLE_STEP 1000
 #elif defined(INTRUDER)
 #define INIT_SAMPLE_STEP 5000
 #elif defined(KMEANS)
@@ -312,17 +312,17 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																				} \
 																			}
 
-#define STM_START(abort_flags)            				 \
+#define STM_START(abort_flags)                     \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-    CFENCE; 
+    CFENCE;
 
 #define STM_COMMIT  stm::commit(tx)
 
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
 																	if (mode == HW || mode == GLOCK){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+#define START_HTM_MODE              bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
 																			break; \
@@ -377,17 +377,17 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define TM_THREAD_EXIT()              stm::thread_shutdown(); \
 																			phTM_thread_exit(NUM_COMMITS, NUM_ABORTS)
 
-#define STM_START(abort_flags)            				 \
+#define STM_START(abort_flags)                     \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-    CFENCE; 
+    CFENCE;
 
 #define STM_COMMIT  stm::commit(tx)
 
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
 																	if (mode == HW || mode == GLOCK){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+#define START_HTM_MODE              bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
 																			break; \
@@ -405,7 +405,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																		} \
 																	} \
 																}
-#endif /* NO PROFILING */															
+#endif /* NO PROFILING */
 
 #define TM_RESTART()            { \
 																	uint64_t mode = getMode(); \
@@ -425,7 +425,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define TM_SHARED_WRITE_P(var, val)   TM_STORE(&var, val)
 #define TM_SHARED_WRITE_F(var, val)   TM_STORE(&var, val)
 
-#define TM_LOCAL_WRITE(var, val)     	({var = val; var;})
+#define TM_LOCAL_WRITE(var, val)      ({var = val; var;})
 #define TM_LOCAL_WRITE_P(var, val)    ({var = val; var;})
 #define TM_LOCAL_WRITE_F(var, val)    ({var = val; var;})
 #define TM_LOCAL_WRITE_D(var, val)    ({var = val; var;})

@@ -19,8 +19,8 @@
 #include <msr.h>
 #include <pmu.h>
 #else
-#define msrInitialize()         			/* nothing */
-#define msrTerminate()          			/* nothing */
+#define msrInitialize()               /* nothing */
+#define msrTerminate()                /* nothing */
 #endif
 
 #include <string.h>
@@ -66,7 +66,7 @@ extern uint64_t **__writeSetSize;
 															STM_STARTUP(numThread);                                              \
 										{ int i;                                                                       \
 											__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
-								    	__stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
+								      __stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
 											__readSetSize  = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                  \
 											__writeSetSize = (uint64_t**)malloc(numThread*sizeof(uint64_t*));                  \
 											for(i=0; i < numThread; i++){                                                      \
@@ -94,7 +94,7 @@ extern uint64_t **__writeSetSize;
 								for(k=0; k < nmeasurements; k++)                               \
 									total[j-ncustomCounters] += measurements[k][j];              \
 							printf("Thread %lu\n",i);                                         \
-					  	for(j=0; j < nmeasurements; j++) {                               \
+					    for(j=0; j < nmeasurements; j++) {                               \
 								uint64_t numCommits = __stm_commits[i][j];                     \
 								uint64_t numStarts  = numCommits + __stm_aborts[i][j];         \
 								printf("Tx %2lu | %10lu | %10lu (%6.2lf) | %9ld (%8.2lf) | %9ld (%8.2lf) | %12lu (%6.2lf) | %12lu (%6.2lf) | %11lu (%6.2lf)\n"  \
@@ -152,7 +152,7 @@ extern uint64_t ***__writeSetSize;
 						for(i=0; i < __numThreads__; i++) {                        \
 							uint64_t j;                                              \
 							printf("Thread %ld\n",i);                                \
-					  	for(j=0; j < NUMBER_OF_TRANSACTIONS; j++) {              \
+					    for(j=0; j < NUMBER_OF_TRANSACTIONS; j++) {              \
 								printf("Tx %2lu\n", j);                                \
 								uint64_t k;                                            \
 								for(k=0; k < __counter[i][j]; k++)                     \
@@ -207,14 +207,14 @@ typedef struct throughputProfilingData_ {
 	uint64_t sampleCount;
 	uint64_t maxSamples;
 	uint64_t stepCount;
-	uint64_t sampleStep;	
+	uint64_t sampleStep;
 	uint64_t before;
 	double*  samples;
   char padding[CACHE_LINE_SIZE];
 } throughputProfilingData_t;
 
 #if defined(GENOME)
-#define INIT_SAMPLE_STEP 1000 
+#define INIT_SAMPLE_STEP 1000
 #elif defined(INTRUDER)
 #define INIT_SAMPLE_STEP 5000
 #elif defined(KMEANS)

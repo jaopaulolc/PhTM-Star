@@ -75,7 +75,7 @@
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
 																	if (mode == HW || mode == GLOCK){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+#define START_HTM_MODE              bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
 																			break; \
@@ -137,7 +137,7 @@ static __thread unsigned int __stm_aborts = 0;
 #include <stm/txthread.hpp>
 
 #undef TM_ARG
-#undef TM_ARG_ALONE 
+#undef TM_ARG_ALONE
 
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */
@@ -174,7 +174,7 @@ static __thread uint64_t __stm_aborts = 0;
 #define STM_START(tid, ro, abort_flags)            \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
     stm::begin(tx, &_jmpbuf, abort_flags);         \
-    CFENCE; 
+    CFENCE;
 
 #define STM_COMMIT         \
     stm::commit(tx);      \
@@ -182,7 +182,7 @@ static __thread uint64_t __stm_aborts = 0;
 #define IF_HTM_MODE							while(1){ \
 																	uint64_t mode = getMode(); \
 																	if (mode == HW || mode == GLOCK){
-#define START_HTM_MODE 							bool modeChanged = HTM_Start_Tx(); \
+#define START_HTM_MODE              bool modeChanged = HTM_Start_Tx(); \
 																		if (!modeChanged) {
 #define COMMIT_HTM_MODE								HTM_Commit_Tx(); \
 																			break; \

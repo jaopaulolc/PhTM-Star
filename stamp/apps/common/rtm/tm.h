@@ -122,7 +122,7 @@ typedef struct throughputProfilingData_ {
 	uint64_t sampleCount;
 	uint64_t maxSamples;
 	uint64_t stepCount;
-	uint64_t sampleStep;	
+	uint64_t sampleStep;
 	uint64_t before;
 	double*  samples;
   char padding[CACHE_LINE_SIZE];

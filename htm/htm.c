@@ -56,7 +56,7 @@ void increaseTransTimestampSize(uint64_t **ptr, uint64_t *oldLength, uint64_t ne
 
 
 void TX_START(){
-	
+
 	__tx_retries = 0;
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	if(started == 0){
@@ -86,7 +86,7 @@ void TX_START(){
 			} else {
 				__tx_retries++;
 			}
-		
+
 			if(__tx_retries >= HTM_MAX_RETRIES){
 				__tx_retries = HTM_MAX_RETRIES;
 				lock(&__htm_global_lock);
@@ -106,7 +106,7 @@ void TX_START(){
 }
 
 void TX_END(){
-	
+
 	if(__tx_retries >= HTM_MAX_RETRIES){
 		unlock(&__htm_global_lock);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
@@ -139,7 +139,7 @@ void HTM_SHUTDOWN(){
 
 	printf("hw_lock_transitions: %lu\n", hw_lock_transitions);
 #ifdef PHASE_PROFILING
-	
+
 	FILE *f = fopen("transitions.timestamp", "w");
 	if(f == NULL){
 		perror("fopen");

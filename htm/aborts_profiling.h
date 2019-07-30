@@ -65,7 +65,7 @@ void __report_prof_counters() {
   uint64_t nested   = global_profiling_counters[ABORT_NESTED_IDX];
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-	conflict += suspended_conflict + nontx_conflict 
+	conflict += suspended_conflict + nontx_conflict
 	         + tlb_conflict + fetch_conflict;
 #endif /* PowerTM */
 	starts = commits + aborts;
@@ -83,7 +83,7 @@ void __report_prof_counters() {
 	printf("#starts    : %12ld %6.2f %6.2f\n", tStarts , RATIO(starts,tStarts)
 	                                                   , RATIO(stm_starts,tStarts));
 	printf("#commits   : %12ld %6.2f %6.2f %6.2f\n", tCommits, RATIO(tCommits,tStarts)
-	                                                         , RATIO(commits,starts) 
+	                                                         , RATIO(commits,starts)
 																													 , RATIO(stm_commits,stm_starts));
 	printf("#aborts    : %12ld %6.2f %6.2f %6.2f\n", tAborts , RATIO(tAborts,tStarts)
 	                                                         , RATIO(aborts,starts)
@@ -93,7 +93,7 @@ void __report_prof_counters() {
 	printf("#commits   : %12ld %6.2f\n", commits, RATIO(commits,starts));
 	printf("#aborts    : %12ld %6.2f\n", aborts , RATIO(aborts,starts));
 #endif /* !PHASEDTM */
-	
+
 	printf("#conflicts : %12ld %6.2f\n", conflict, RATIO(conflict,aborts));
 	printf("#capacity  : %12ld %6.2f\n", capacity, RATIO(capacity,aborts));
 	printf("#explicit  : %12ld %6.2f\n", explicit, RATIO(explicit,aborts));

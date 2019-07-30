@@ -7,7 +7,7 @@
 #include <stm/txthread.hpp>
 
 #undef TM_ARG
-#undef TM_ARG_ALONE 
+#undef TM_ARG_ALONE
 
 #define TM_SAFE                       /* nothing */
 #define TM_PURE                       /* nothing */

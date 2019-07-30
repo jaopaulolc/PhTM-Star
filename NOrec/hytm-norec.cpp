@@ -38,7 +38,7 @@ extern __thread uint64_t* __thread_commits;
 extern __thread uint64_t* __thread_aborts;
 
 namespace HyTM {
-	
+
 	const int HTM_MAX_RETRIES = 9;
 
 	stm::pad_word_t commit_counter __ALIGN__ = { .val = 0 };
@@ -46,7 +46,7 @@ namespace HyTM {
 
 	bool
 	HTM_Begin_Tx() {
-		
+
 		while(1){
 			uint32_t status = htm_begin();
 			if(htm_has_started(status)) {
@@ -145,7 +145,7 @@ namespace {
 					}
       }
   }
-  
+
 	uintptr_t
   validate_with_hw(TxThread* tx)
   {
@@ -224,132 +224,132 @@ namespace {
   bool
   HyTM_NOrec_Generic<CM>::begin(TxThread* tx)
   {
-     	// Originally, NOrec required us to wait until the timestamp is odd
-     	// before we start.  However, we can round down if odd, in which case
-     	// we don't need control flow here.
+    // Originally, NOrec required us to wait until the timestamp is odd
+    // before we start.  However, we can round down if odd, in which case
+    // we don't need control flow here.
 
-     	// Sample the sequence lock, if it is even decrement by 1
-     	tx->start_time = timestamp.val & ~(1L);
+    // Sample the sequence lock, if it is even decrement by 1
+    tx->start_time = timestamp.val & ~(1L);
 
-			// Sample hw commit counter
-			tx->hw_commit_counter = HyTM::commit_counter.val;
+    // Sample hw commit counter
+    tx->hw_commit_counter = HyTM::commit_counter.val;
 
-     	// notify the allocator
-     	tx->allocator.onTxBegin();
+    // notify the allocator
+    tx->allocator.onTxBegin();
 
-     	// notify CM
-     	CM::onBegin(tx);
+    // notify CM
+    CM::onBegin(tx);
 
-     	return false;
+    return false;
   }
 
   template <class CM>
   void
   HyTM_NOrec_Generic<CM>::commit(STM_COMMIT_SIG(tx,upper_stack_bound))
   {
-      // From a valid state, the transaction increments the seqlock.  Then it
-      // does writeback and increments the seqlock again
+    // From a valid state, the transaction increments the seqlock.  Then it
+    // does writeback and increments the seqlock again
 
-      // read-only is trivially successful at last read
-      if (!tx->writes.size()) {
-					while (tx->hw_commit_counter != HyTM::commit_counter.val) {
-      			if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
-      				tx->tmabort(tx);
-      		}
-					CFENCE;
-          CM::onCommit(tx);
-          tx->vlist.reset();
-          OnReadOnlyCommit(tx);
-          return;
+    // read-only is trivially successful at last read
+    if (!tx->writes.size()) {
+      while (tx->hw_commit_counter != HyTM::commit_counter.val) {
+        if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
+          tx->tmabort(tx);
       }
-
-      // get the lock and validate (use RingSTM obstruction-free technique)
-      while (!bcasptr(&timestamp.val, tx->start_time, tx->start_time + 1))
-          if ((tx->start_time = validate(tx)) == VALIDATION_FAILED)
-              tx->tmabort(tx);
-			
-			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
-      	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
-      		// Release the sequence lock, then abort tx
-      		CFENCE;
-      		timestamp.val = tx->start_time + 2;
-      		tx->tmabort(tx);
-				}
-      }
-			CFENCE;
-
-      tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
-
-      // Release the sequence lock, then clean up
       CFENCE;
-      timestamp.val = tx->start_time + 2;
       CM::onCommit(tx);
       tx->vlist.reset();
-      tx->writes.reset();
-      OnReadWriteCommit(tx);
+      OnReadOnlyCommit(tx);
+      return;
+    }
+
+    // get the lock and validate (use RingSTM obstruction-free technique)
+    while (!bcasptr(&timestamp.val, tx->start_time, tx->start_time + 1))
+      if ((tx->start_time = validate(tx)) == VALIDATION_FAILED)
+        tx->tmabort(tx);
+
+    // if hw commit counter has changed, we must validate the read-set
+    while (tx->hw_commit_counter != HyTM::commit_counter.val) {
+      if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
+        // Release the sequence lock, then abort tx
+        CFENCE;
+        timestamp.val = tx->start_time + 2;
+        tx->tmabort(tx);
+      }
+    }
+    CFENCE;
+
+    tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
+
+    // Release the sequence lock, then clean up
+    CFENCE;
+    timestamp.val = tx->start_time + 2;
+    CM::onCommit(tx);
+    tx->vlist.reset();
+    tx->writes.reset();
+    OnReadWriteCommit(tx);
   }
 
   template <class CM>
   void
   HyTM_NOrec_Generic<CM>::commit_ro(STM_COMMIT_SIG(tx,))
   {
-			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
-      	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
-      		tx->tmabort(tx);
-      }
-      // Since all reads were consistent, and no writes were done, the read-only
-      // NOrec transaction just resets itself and is done.
-      CM::onCommit(tx);
-			
+    // if hw commit counter has changed, we must validate the read-set
+    while (tx->hw_commit_counter != HyTM::commit_counter.val) {
+      if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED)
+        tx->tmabort(tx);
+    }
+    // Since all reads were consistent, and no writes were done, the read-only
+    // NOrec transaction just resets itself and is done.
+    CM::onCommit(tx);
+
     if (__thread_commits != NULL)
       (*__thread_commits)++;
-			
-			tx->vlist.reset();
-      OnReadOnlyCommit(tx);
+
+    tx->vlist.reset();
+    OnReadOnlyCommit(tx);
   }
 
   template <class CM>
   void
   HyTM_NOrec_Generic<CM>::commit_rw(STM_COMMIT_SIG(tx,upper_stack_bound))
   {
-      // From a valid state, the transaction increments the seqlock.  Then it does
-      // writeback and increments the seqlock again
+    // From a valid state, the transaction increments the seqlock.  Then it does
+    // writeback and increments the seqlock again
 
-      // get the lock and validate (use RingSTM obstruction-free technique)
-      while (!bcasptr(&timestamp.val, tx->start_time, tx->start_time + 1))
-          if ((tx->start_time = validate(tx)) == VALIDATION_FAILED)
-              tx->tmabort(tx);
-			
-			// if hw commit counter has changed, we must validate the read-set
-			while (tx->hw_commit_counter != HyTM::commit_counter.val) {
-      	if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
-      		// Release the sequence lock, then abort tx
-      		CFENCE;
-      		timestamp.val = tx->start_time + 2;
-      		tx->tmabort(tx);
-				}
+    // get the lock and validate (use RingSTM obstruction-free technique)
+    while (!bcasptr(&timestamp.val, tx->start_time, tx->start_time + 1))
+      if ((tx->start_time = validate(tx)) == VALIDATION_FAILED)
+        tx->tmabort(tx);
+
+    // if hw commit counter has changed, we must validate the read-set
+    while (tx->hw_commit_counter != HyTM::commit_counter.val) {
+      if ((tx->hw_commit_counter = validate_with_hw(tx)) == VALIDATION_FAILED){
+        // Release the sequence lock, then abort tx
+        CFENCE;
+        timestamp.val = tx->start_time + 2;
+        tx->tmabort(tx);
       }
-			CFENCE;
+    }
+    CFENCE;
 
-      tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
+    tx->writes.writeback(STM_WHEN_PROTECT_STACK(upper_stack_bound));
 
-      // Release the sequence lock, then clean up
-      CFENCE;
-      timestamp.val = tx->start_time + 2;
+    // Release the sequence lock, then clean up
+    CFENCE;
+    timestamp.val = tx->start_time + 2;
 
-      // notify CM
-      CM::onCommit(tx);
-			
+    // notify CM
+    CM::onCommit(tx);
 
-      tx->vlist.reset();
-      tx->writes.reset();
     if (__thread_commits != NULL)
       (*__thread_commits)++;
 
-      // This switches the thread back to RO mode.
-      OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
+    tx->vlist.reset();
+    tx->writes.reset();
+
+    // This switches the thread back to RO mode.
+    OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
   }
 
   template <class CM>
@@ -363,7 +363,7 @@ namespace {
       // read the location to a temp
       void* tmp = *addr;
       CFENCE;
-      
+
       // if the timestamp has changed since the last read,
 			// we must validate and restart this read
 			while (tx->start_time != timestamp.val || tx->hw_commit_counter != HyTM::commit_counter.val ) {

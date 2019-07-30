@@ -17,7 +17,7 @@ static __thread bool deferredTx __ALIGN__ = false;
 volatile modeIndicator_t modeIndicator	__ALIGN__ = {
 																	.mode = HW,
 																	.deferredCount = 0,
-										  						.undeferredCount = 0
+                                  .undeferredCount = 0
 																};
 volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
