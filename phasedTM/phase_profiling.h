@@ -10,12 +10,11 @@ static uint64_t start_time __ALIGN__ = 0;
 static uint64_t end_time __ALIGN__ = 0;
 static uint64_t trans_index __ALIGN__ = 1;
 static uint64_t trans_labels_size __ALIGN__ = INIT_MAX_TRANS;
-#endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 static uint64_t hw_sw_transitions __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
 static uint64_t hw_lock_transitions __ALIGN__ = 0;
 #endif /* DESIGN == OPTIMIZED */
-#if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
+
 typedef struct _trans_label_t {
 	uint64_t timestamp;
 	unsigned char mode;
