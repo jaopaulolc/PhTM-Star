@@ -43,6 +43,18 @@ static void memtransfer (void* dst, const void* src, size_t size) {
   }
 }
 
+#define ITM_VECTOR_READ(TYPE, LSMOD, EXT) \
+  ITM_REGPARM TYPE _ITM_##LSMOD##EXT (const TYPE *addr) { \
+    TYPE v; \
+    memtransfer(&v, addr, sizeof(TYPE)); \
+    return v; \
+  }
+
+#define ITM_VECTOR_WRITE(TYPE, LSMOD, EXT) \
+  ITM_REGPARM void _ITM_##LSMOD##EXT (TYPE *addr, TYPE value) { \
+    memtransfer(addr, &value, sizeof(TYPE)); \
+  }
+
 // ABI Section 5.12
 #define ITM_BARRIERS(TYPE, EXT) \
   ITM_READ(TYPE, R, EXT) \
@@ -52,6 +64,15 @@ static void memtransfer (void* dst, const void* src, size_t size) {
   ITM_WRITE(TYPE, W, EXT) \
   ITM_WRITE(TYPE, WaR, EXT) \
   ITM_WRITE(TYPE, WaW, EXT) \
+
+#define ITM_VECTOR_BARRIERS(TYPE, EXT) \
+  ITM_VECTOR_READ(TYPE, R, EXT) \
+  ITM_VECTOR_READ(TYPE, RaR, EXT) \
+  ITM_VECTOR_READ(TYPE, RaW, EXT) \
+  ITM_VECTOR_READ(TYPE, RfW, EXT) \
+  ITM_VECTOR_WRITE(TYPE, W, EXT) \
+  ITM_VECTOR_WRITE(TYPE, WaR, EXT) \
+  ITM_VECTOR_WRITE(TYPE, WaW, EXT) \
 
 ITM_BARRIERS (uint8_t, U1)
 ITM_BARRIERS (uint16_t, U2)
@@ -65,14 +86,14 @@ ITM_BARRIERS (long double, E)
 //ITM_BARRIERS (long double _Complex, CE)
 #if defined(__i386__) || defined(__x86_64__)
 # ifdef __MMX__
-	ITM_BARRIERS (__m64, M64)
+  ITM_VECTOR_BARRIERS (__m64, M64)
 # endif
 # ifdef __SSE__
-  ITM_BARRIERS (__m128i , M128i)
-  ITM_BARRIERS (__m128 , M128)
+  ITM_VECTOR_BARRIERS (__m128i , M128i)
+  ITM_VECTOR_BARRIERS (__m128 , M128)
 # endif
 # ifdef __AVX__
-  ITM_BARRIERS (__m256 , M256)
+  ITM_VECTOR_BARRIERS (__m256 , M256)
 # endif
 #endif													/* i386 */
 #undef ITM_BARRIERS
