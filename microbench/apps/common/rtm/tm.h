@@ -17,39 +17,39 @@
 
 #if defined(TSX_ABORT_PROFILING)
 
-#define TM_INIT(nThreads)       HTM_STARTUP(nThreads);                          \
-                                msrInitialize();                                \
-																pmuStartup(1);                                  \
-															  pmuAddCustomCounter(0,RTM_TX_ABORTED);          \
-															  pmuAddCustomCounter(1,RTM_TX_COMMITED);         \
-															  pmuAddCustomCounter(2,TX_ABORT_CONFLICT);       \
-															  pmuAddCustomCounter(3,TX_ABORT_CAPACITY)        
-#define TM_EXIT(nThreads)       HTM_SHUTDOWN();                                                            \
-    {                                                                                                      \
-		setlocale(LC_ALL, "");                                                                                 \
-		int ncustomCounters = pmuNumberOfCustomCounters();                                                     \
-		uint64_t eventCount[ncustomCounters];                                                                  \
-		memset(eventCount, 0, sizeof(uint64_t)*ncustomCounters);                                               \
-		int ii;                                                                                                \
-		for(ii=0; ii < nThreads; ii++){                                                                        \
-			uint64_t **measurements = pmuGetMeasurements(ii);                                                    \
-			long j;                                                                                              \
-			for(j=0; j < ncustomCounters; j++){                                                                  \
-				eventCount[j] += measurements[0][j];                                                               \
-			}                                                                                                    \
-		}                                                                                                      \
-		uint64_t aborts  = eventCount[0];                                                                      \
-		uint64_t commits = eventCount[1];                                                                      \
-		uint64_t starts  = commits + aborts;                                                                   \
-		uint64_t conflicts = eventCount[2];                                                                    \
-		uint64_t capacity  = eventCount[3];                                                                    \
-		printf("#starts    : %12lu\n", starts);                                                                \
-		printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts));                   \
-		printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));                     \
-		printf("#conflicts : %12lu\n", conflicts);                                                             \
-		printf("#capacity  : %12lu\n", capacity);                                                              \
-		}                                                                                                      \
-																			pmuShutdown();                                                       \
+#define TM_INIT(nThreads)       HTM_STARTUP();                             \
+                                msrInitialize();                           \
+																pmuStartup(1);                             \
+															  pmuAddCustomCounter(0,RTM_TX_ABORTED);     \
+															  pmuAddCustomCounter(1,RTM_TX_COMMITED);    \
+															  pmuAddCustomCounter(2,TX_ABORT_CONFLICT);  \
+															  pmuAddCustomCounter(3,TX_ABORT_CAPACITY)
+#define TM_EXIT(nThreads)       HTM_SHUTDOWN();                                           \
+    {                                                                                     \
+		setlocale(LC_ALL, "");                                                                \
+		int ncustomCounters = pmuNumberOfCustomCounters();                                    \
+		uint64_t eventCount[ncustomCounters];                                                 \
+		memset(eventCount, 0, sizeof(uint64_t)*ncustomCounters);                              \
+		int ii;                                                                               \
+		for(ii=0; ii < nThreads; ii++){                                                       \
+			uint64_t **measurements = pmuGetMeasurements(ii);                                   \
+			long j;                                                                             \
+			for(j=0; j < ncustomCounters; j++){                                                 \
+				eventCount[j] += measurements[0][j];                                              \
+			}                                                                                   \
+		}                                                                                     \
+		uint64_t aborts  = eventCount[0];                                                     \
+		uint64_t commits = eventCount[1];                                                     \
+		uint64_t starts  = commits + aborts;                                                  \
+		uint64_t conflicts = eventCount[2];                                                   \
+		uint64_t capacity  = eventCount[3];                                                   \
+		printf("#starts    : %12lu\n", starts);                                               \
+		printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts));  \
+		printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));    \
+		printf("#conflicts : %12lu\n", conflicts);                                            \
+		printf("#capacity  : %12lu\n", capacity);                                             \
+		}                                                                                     \
+																			pmuShutdown();                                      \
 																			msrTerminate()
 
 #define TM_INIT_THREAD(tid)           set_affinity(tid); HTM_THREAD_ENTER(tid); \
@@ -58,10 +58,10 @@
 
 #else /* ! TSX_ABORT_PROFILING */
 
-#define TM_INIT(nThreads)             HTM_STARTUP(nThreads)
+#define TM_INIT(nThreads)             HTM_STARTUP()
 #define TM_EXIT(nThreads)             HTM_SHUTDOWN()
 
-#define TM_INIT_THREAD(tid)           set_affinity(tid); HTM_THREAD_ENTER(tid)
+#define TM_INIT_THREAD(tid)           set_affinity(tid); HTM_THREAD_ENTER()
 #define TM_EXIT_THREAD(tid)           HTM_THREAD_EXIT()
 
 #endif /* ! TSX_ABORT_PROFILING */

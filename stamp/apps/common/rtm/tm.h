@@ -31,7 +31,7 @@
 
 #define TM_STARTUP(numThread)         msrInitialize();                               \
 																			pmuStartup(NUMBER_OF_TRANSACTIONS);            \
-																			HTM_STARTUP(numThread);                        \
+																			HTM_STARTUP();                                 \
 																			pmuAddCustomCounter(0, RTM_TX_STARTED);        \
 																			pmuAddCustomCounter(1, RTM_TX_COMMITED);       \
 																			pmuAddCustomCounter(2, HLE_TX_STARTED);        \
@@ -41,7 +41,7 @@
 #define COMMIT_RATE_PROFILING 0
 #define TM_STARTUP(numThread)         msrInitialize();                                 \
 																			pmuStartup(NUMBER_OF_TRANSACTIONS);              \
-																			HTM_STARTUP(numThread);                          \
+																			HTM_STARTUP();                                   \
 																			pmuAddCustomCounter(0, TX_ABORT_CONFLICT);       \
 																			pmuAddCustomCounter(1, TX_ABORT_CAPACITY);       \
 																			pmuAddCustomCounter(2, RTM_TX_ABORT_UNFRIENDLY); \
@@ -105,7 +105,7 @@
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
 																			set_affinity(__threadId__); \
-																			HTM_THREAD_ENTER(__threadId__)
+																			HTM_THREAD_ENTER()
 #define TM_THREAD_EXIT()              HTM_THREAD_EXIT()
 
 
@@ -161,7 +161,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 
 
 #define TM_STARTUP(numThread)         msrInitialize(); \
-																			HTM_STARTUP(numThread); \
+																			HTM_STARTUP();   \
 																			{ \
 																				__throughputProfilingData = (throughputProfilingData_t*)calloc(numThread, \
 																					sizeof(throughputProfilingData_t)); \
@@ -211,7 +211,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
 																			set_affinity(__threadId__); \
-																			HTM_THREAD_ENTER(__threadId__); \
+																			HTM_THREAD_ENTER(); \
 																			throughputProfilingData_t *__thProfData = &__throughputProfilingData[__threadId__]; \
 																			__thProfData->before = getTime()
 
@@ -248,13 +248,13 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #else /* NO PROFILING */
 
 #define TM_STARTUP(numThread)         msrInitialize(); \
-																			HTM_STARTUP(numThread)
+																			HTM_STARTUP()
 #define TM_SHUTDOWN()                 HTM_SHUTDOWN(); \
 																			msrTerminate()
 
 #define TM_THREAD_ENTER()             long __threadId__ = thread_getId();\
 																			set_affinity(__threadId__); \
-																			HTM_THREAD_ENTER(__threadId__)
+																			HTM_THREAD_ENTER()
 #define TM_THREAD_EXIT()              HTM_THREAD_EXIT()
 
 #define TM_BEGIN()                    TX_START()

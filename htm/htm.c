@@ -14,14 +14,11 @@
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
-static __thread long __tx_id __ALIGN__;  // tx thread id
 #define HTM_MAX_RETRIES 9
 static __thread long __tx_retries __ALIGN__; // current number of retries for non-lock aborts
 
 static lock_t __htm_global_lock __ALIGN__ = LOCK_INITIALIZER;
 volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(lock_t)] __ALIGN__;
-
-static long __nThreads __ALIGN__;
 
 
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
@@ -82,8 +79,8 @@ void TX_START(){
 			while( isLocked(&__htm_global_lock) ) pthread_yield();
 		} else {
 			uint32_t abort_reason __ALIGN__ = htm_abort_reason(__tx_status);
-			__inc_abort_counter(__tx_id, abort_reason);
-	
+			__inc_abort_counter(abort_reason);
+
 			if (htm_abort_persistent(abort_reason)){
 				__tx_retries = HTM_MAX_RETRIES;
 			} else {
@@ -123,15 +120,13 @@ void TX_END(){
 	}
 	else{
 		htm_end();
-		__inc_commit_counter(__tx_id);
+		__inc_commit_counter();
 	}
 }
 
 
-void HTM_STARTUP(long numThreads){
+void HTM_STARTUP(){
 
-	__nThreads = numThreads;
-	__init_prof_counters(__nThreads);
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	trans_timestamp = (uint64_t*)malloc(sizeof(uint64_t)*INIT_MAX_TRANS);
 	//memset(trans_timestamp, 0,sizeof(uint64_t)*INIT_MAX_TRANS);
@@ -140,7 +135,7 @@ void HTM_STARTUP(long numThreads){
 
 void HTM_SHUTDOWN(){
 
-	__term_prof_counters(__nThreads);
+	__report_prof_counters();
 
 	printf("hw_lock_transitions: %lu\n", hw_lock_transitions);
 #ifdef PHASE_PROFILING
@@ -185,16 +180,16 @@ void HTM_SHUTDOWN(){
 
 	printf("hw:   %6.2lf\n", 100.0*((double)hw_time/(double)ttime));
 	printf("lock: %6.2lf\n", 100.0*((double)lock_time/(double)ttime));
-	
+
 #endif /* TIME_MODE_PROFILING */
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	free(trans_timestamp);
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
 }
 
-void HTM_THREAD_ENTER(long id){
+void HTM_THREAD_ENTER(){
 
-	__tx_id      = id;
+	__init_prof_counters();
 	__tx_retries = 0;
 }
 
@@ -204,4 +199,5 @@ void HTM_THREAD_EXIT(){
 #if defined(PHASE_PROFILING) || defined(TIME_MODE_PROFILING)
 	end_time = getTime();
 #endif /* PHASE_PROFILING || TIME_MODE_PROFILING */
+	__term_prof_counters();
 }

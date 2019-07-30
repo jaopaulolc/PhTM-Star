@@ -101,34 +101,23 @@
 #define TM_FREE(addr)                      stm_free(addr, sizeof(*addr))
 #define TM_FREE2(addr, size)               stm_free(addr, size)
 
-static unsigned int **__stm_commits;
-static unsigned int **__stm_aborts;
+static __thread unsigned int __stm_commits = 0;
+static __thread unsigned int __stm_aborts = 0;
 
 #define TM_INIT(nThreads)                  stm_init(); mod_mem_init(0); mod_ab_init(0, NULL);   \
-                                           phTM_init(nThreads); \
-										__stm_commits = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads); \
-								    __stm_aborts  = (unsigned int **)malloc(sizeof(unsigned int *)*nThreads)
+                                           phTM_init();
 
-#define TM_EXIT(nThreads)   phTM_term(nThreads, NUMBER_OF_TRANSACTIONS, __stm_commits, __stm_aborts); \
-													  stm_exit(); \
-										{ \
-											int i; \
-											for (i=0; i < nThreads; i++) { \
-												free(__stm_commits[i]); \
-												free(__stm_aborts[i]);  \
-											} \
-											free(__stm_commits); \
-											free(__stm_aborts);  \
-										}
+#define TM_EXIT(nThreads)   phTM_term(); \
+													  stm_exit()
 
 #define TM_INIT_THREAD(tid)                set_affinity(tid);                       \
 																					 stm_init_thread(NUMBER_OF_TRANSACTIONS); \
 																					 phTM_thread_init(tid)
 #define TM_EXIT_THREAD(tid)                \
-										if(stm_get_stats("nb_commits",&__stm_commits[tid]) == 0){     \
+										if(stm_get_stats("nb_commits",&__stm_commits) == 0){     \
 											fprintf(stderr,"error: get nb_commits failed!\n");          \
 										}                                                             \
-										if(stm_get_stats("nb_aborts",&__stm_aborts[tid]) == 0){       \
+										if(stm_get_stats("nb_aborts",&__stm_aborts) == 0){       \
 											fprintf(stderr,"error: get nb_aborts failed!\n");           \
 										}                                                             \
 																					stm_exit_thread();                      \
@@ -160,41 +149,23 @@ static unsigned int **__stm_aborts;
 #define TM_ARGDECL_ALONE              /* nothing */
 
 extern __thread long __txId__;
-static uint64_t **__stm_commits;
-static uint64_t **__stm_aborts;
+static __thread uint64_t __stm_commits = 0;
+static __thread uint64_t __stm_aborts = 0;
 
 #define TM_INIT(nThreads)	            stm::sys_init(NULL); \
-                                      phTM_init(nThreads); \
-										__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
-								    __stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
-										{ \
-											int i; \
-											for (i=0; i < nThreads; i++) { \
-												__stm_commits[i] = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
-												__stm_aborts[i]  = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
-											} \
-										}
+                                      phTM_init()
 
-#define TM_EXIT(nThreads)             phTM_term(nThreads, NUMBER_OF_TRANSACTIONS, __stm_commits, __stm_aborts); \
-																			stm::sys_shutdown(); \
-										{ \
-											int i; \
-											for (i=0; i < nThreads; i++) { \
-												free(__stm_commits[i]); \
-												free(__stm_aborts[i]);  \
-											} \
-											free(__stm_commits); \
-											free(__stm_aborts);  \
-										}
+#define TM_EXIT(nThreads)             phTM_term(); \
+																			stm::sys_shutdown()
 
 #define TM_INIT_THREAD(tid)           set_affinity(tid);    \
 																			stm::thread_init();   \
-																			norecInitThreadCommits(__stm_commits[tid]); \
-																			norecInitThreadAborts(__stm_aborts[tid]);   \
-																			phTM_thread_init(tid)
+																			norecInitThreadCommits(&__stm_commits); \
+																			norecInitThreadAborts(&__stm_aborts);   \
+																			phTM_thread_init()
 
 #define TM_EXIT_THREAD(tid)           stm::thread_shutdown();                 \
-																			phTM_thread_exit()
+																			phTM_thread_exit(__stm_commits, __stm_aborts)
 
 #define TM_MALLOC(size)               TM_ALLOC(size)
 /* TM_FREE(ptr) is already defined in the file interface. */

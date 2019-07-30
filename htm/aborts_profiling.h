@@ -22,71 +22,48 @@ enum {
 	COMMITED_IDX,
 };
 
-static uint64_t **profCounters __ALIGN__;
+static pthread_mutex_t profiling_lock __ALIGN__ = PTHREAD_MUTEX_INITIALIZER;
+static long __next_tx_id = 0;
+static uint64_t global_profiling_counters[NUM_PROF_COUNTERS] __ALIGN__;
+static __thread uint64_t thread_profiling_counters[NUM_PROF_COUNTERS] __ALIGN__;
+static uint64_t global_stm_commits __ALIGN__ = 0;
+static uint64_t global_stm_aborts __ALIGN__ = 0;
 
-static void __init_prof_counters(long nThreads){
+static void __init_prof_counters(){
 
-	long i;
-	profCounters = (uint64_t**)malloc(nThreads*sizeof(uint64_t*));
-	for (i=0; i < nThreads; i++){
-		profCounters[i] = (uint64_t*)calloc(NUM_PROF_COUNTERS, sizeof(uint64_t));
-	}
+  pthread_mutex_lock(&profiling_lock);
+  __next_tx_id++;
+  if (__next_tx_id == 1) {
+    memset(&global_profiling_counters, 0, sizeof(uint64_t)*NUM_PROF_COUNTERS);
+  }
+  pthread_mutex_unlock(&profiling_lock);
+  memset(&thread_profiling_counters, 0, sizeof(uint64_t)*NUM_PROF_COUNTERS);
 }
 
-#ifdef PHASEDTM
-void __term_prof_counters(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts){
-#else
-static void __term_prof_counters(long nThreads){
+#ifndef PHASEDTM
+static
 #endif
+void __report_prof_counters() {
 
-#ifdef PHASEDTM
-	uint64_t stm_starts  = 0;
-	uint64_t stm_commits = 0;
-	uint64_t stm_aborts  = 0;
-#endif /* PHASEDTM */
-	
-	uint64_t starts = 0;
-	uint64_t commits = 0;
-	uint64_t aborts = 0;
-	uint64_t explicit = 0;
-	uint64_t conflict = 0;
+  if (__next_tx_id != 0) { // not last tx
+    return;
+  }
+
+  uint64_t starts;
+  uint64_t commits  = global_profiling_counters[COMMITED_IDX];
+  uint64_t aborts   = global_profiling_counters[ABORTED_IDX];
+  uint64_t explicit = global_profiling_counters[ABORT_EXPLICIT_IDX];
+  uint64_t conflict = global_profiling_counters[ABORT_TX_CONFLICT_IDX];
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-	uint64_t suspended_conflict = 0;
-	uint64_t nontx_conflict = 0;
-	uint64_t tlb_conflict = 0;
-	uint64_t fetch_conflict = 0;
+  uint64_t suspended_conflict = global_profiling_counters[ABORT_SUSPENDED_CONFLICT_IDX];
+  uint64_t nontx_conflict     = global_profiling_counters[ABORT_NON_TX_CONFLICT_IDX];
+  uint64_t tlb_conflict       = global_profiling_counters[ABORT_TLB_CONFLICT_IDX];
+  uint64_t fetch_conflict     = global_profiling_counters[ABORT_FETCH_CONFLICT_IDX];
 #endif /* PowerTM */
-	uint64_t capacity = 0;
-	uint64_t illegal = 0;
-	uint64_t nested = 0;
+  uint64_t capacity = global_profiling_counters[ABORT_CAPACITY_IDX];
+  uint64_t illegal  = global_profiling_counters[ABORT_ILLEGAL_IDX];
+  uint64_t nested   = global_profiling_counters[ABORT_NESTED_IDX];
 
-	long i;
-	for (i=0; i < nThreads; i++){
-		commits  += profCounters[i][COMMITED_IDX];
-		aborts   += profCounters[i][ABORTED_IDX];
-		explicit += profCounters[i][ABORT_EXPLICIT_IDX];
-		conflict += profCounters[i][ABORT_TX_CONFLICT_IDX];
-#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-		suspended_conflict += profCounters[i][ABORT_SUSPENDED_CONFLICT_IDX];
-		nontx_conflict     += profCounters[i][ABORT_NON_TX_CONFLICT_IDX];
-		tlb_conflict       += profCounters[i][ABORT_TLB_CONFLICT_IDX];
-		fetch_conflict     += profCounters[i][ABORT_FETCH_CONFLICT_IDX];
-#endif /* PowerTM */
-		capacity += profCounters[i][ABORT_CAPACITY_IDX];
-		illegal  += profCounters[i][ABORT_ILLEGAL_IDX];
-		nested   += profCounters[i][ABORT_NESTED_IDX];
-
-#ifdef PHASEDTM
-		long j;
-		for (j=0; j < nTxs; j++) {
-			stm_commits += stmCommits[i][j];
-			stm_aborts  += stmAborts[i][j];
-		}
-#endif /* PHASEDTM */
-
-		free(profCounters[i]);
-	}
-	free(profCounters);
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 	conflict += suspended_conflict + nontx_conflict 
 	         + tlb_conflict + fetch_conflict;
@@ -96,6 +73,9 @@ static void __term_prof_counters(long nThreads){
 #define RATIO(a,b) (100.0F*((float)a/(float)b))
 
 #ifdef PHASEDTM
+  uint64_t stm_starts;
+  uint64_t stm_commits = global_stm_commits;
+  uint64_t stm_aborts = global_stm_aborts;
 	stm_starts = stm_commits + stm_aborts;
 	uint64_t tStarts  = starts + stm_starts;
 	uint64_t tCommits = commits + stm_commits;
@@ -125,57 +105,102 @@ static void __term_prof_counters(long nThreads){
 	printf("#tlb_conflicts       : %12ld %6.2f\n", tlb_conflict      , RATIO(tlb_conflict,conflict));
 	printf("#fetch_conflicts     : %12ld %6.2f\n", fetch_conflict    , RATIO(fetch_conflict,conflict));
 #endif /* PowerTM */
+
+#undef RATIO
 }
 
-static void __inc_commit_counter(long tid){
+#ifdef PHASEDTM
+void __term_prof_counters(uint64_t stm_commits, uint64_t stm_aborts){
+#else
+static void __term_prof_counters() {
+#endif
 
-	profCounters[tid][COMMITED_IDX]++;
+  pthread_mutex_lock(&profiling_lock);
+    __next_tx_id--;
+    global_profiling_counters[COMMITED_IDX]
+      += thread_profiling_counters[COMMITED_IDX];
+    global_profiling_counters[ABORTED_IDX]
+      += thread_profiling_counters[ABORTED_IDX];
+    global_profiling_counters[ABORT_EXPLICIT_IDX]
+      += thread_profiling_counters[ABORT_EXPLICIT_IDX];
+    global_profiling_counters[ABORT_TX_CONFLICT_IDX]
+      += thread_profiling_counters[ABORT_TX_CONFLICT_IDX];
+#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+    global_profiling_counters[ABORT_SUSPENDED_CONFLICT_IDX]
+      += thread_profiling_counters[ABORT_SUSPENDED_CONFLICT_IDX];
+    global_profiling_counters[ABORT_NON_TX_CONFLICT_IDX]
+      += thread_profiling_counters[ABORT_NON_TX_CONFLICT_IDX];
+    global_profiling_counters[ABORT_TLB_CONFLICT_IDX]
+      += thread_profiling_counters[ABORT_TLB_CONFLICT_IDX];
+    global_profiling_counters[ABORT_FETCH_CONFLICT_IDX]
+      += thread_profiling_counters[ABORT_FETCH_CONFLICT_IDX];
+#endif /* PowerTM */
+    global_profiling_counters[ABORT_CAPACITY_IDX]
+      += thread_profiling_counters[ABORT_CAPACITY_IDX];
+    global_profiling_counters[ABORT_ILLEGAL_IDX]
+      += thread_profiling_counters[ABORT_ILLEGAL_IDX];
+    global_profiling_counters[ABORT_NESTED_IDX]
+      += thread_profiling_counters[ABORT_NESTED_IDX];
+
+#ifdef PHASEDTM
+    global_stm_commits += stm_commits;
+    global_stm_aborts += stm_aborts;
+#endif
+  pthread_mutex_unlock(&profiling_lock);
+
 }
 
-static void __inc_abort_counter(long tid, uint32_t abort_reason){
+static void __inc_commit_counter() {
 
-	profCounters[tid][ABORTED_IDX]++;
+	thread_profiling_counters[COMMITED_IDX]++;
+}
+
+static void __inc_abort_counter(uint32_t abort_reason){
+
+	thread_profiling_counters[ABORTED_IDX]++;
 	if(abort_reason & ABORT_EXPLICIT){
-		profCounters[tid][ABORT_EXPLICIT_IDX]++;
+		thread_profiling_counters[ABORT_EXPLICIT_IDX]++;
 	}
 	if(abort_reason & ABORT_TX_CONFLICT){
-		profCounters[tid][ABORT_TX_CONFLICT_IDX]++;
+		thread_profiling_counters[ABORT_TX_CONFLICT_IDX]++;
 	}
 #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
 	if(abort_reason & ABORT_SUSPENDED_CONFLICT){
-		profCounters[tid][ABORT_SUSPENDED_CONFLICT_IDX]++;
+		thread_profiling_counters[ABORT_SUSPENDED_CONFLICT_IDX]++;
 	}
 	if(abort_reason & ABORT_NON_TX_CONFLICT){
-		profCounters[tid][ABORT_NON_TX_CONFLICT_IDX]++;
+		thread_profiling_counters[ABORT_NON_TX_CONFLICT_IDX]++;
 	}
 	if(abort_reason & ABORT_TLB_CONFLICT){
-		profCounters[tid][ABORT_TLB_CONFLICT_IDX]++;
+		thread_profiling_counters[ABORT_TLB_CONFLICT_IDX]++;
 	}
 	if(abort_reason & ABORT_FETCH_CONFLICT){
-		profCounters[tid][ABORT_FETCH_CONFLICT_IDX]++;
+		thread_profiling_counters[ABORT_FETCH_CONFLICT_IDX]++;
 	}
 #endif /* PowerTM */
 	if(abort_reason & ABORT_CAPACITY){
-		profCounters[tid][ABORT_CAPACITY_IDX]++;
+		thread_profiling_counters[ABORT_CAPACITY_IDX]++;
 	}
 	if(abort_reason & ABORT_ILLEGAL){
-		profCounters[tid][ABORT_ILLEGAL_IDX]++;
+		thread_profiling_counters[ABORT_ILLEGAL_IDX]++;
 	}
 	if(abort_reason & ABORT_NESTED){
-		profCounters[tid][ABORT_NESTED_IDX]++;
+		thread_profiling_counters[ABORT_NESTED_IDX]++;
 	}
 }
 
 #else /* ! HTM_STATUS_PROFILING */
 
-#define __init_prof_counters(nThreads)		    /* nothing */
-#define __inc_commit_counter(tid)							/* nothing */
-#define __inc_abort_counter(tid,abort_reason)	/* nothing */
+#define __init_prof_counters()            /* nothing */
+#define __inc_commit_counter()            /* nothing */
+#define __inc_abort_counter(abort_reason)	/* nothing */
 
 #ifdef PHASEDTM
-#define __term_prof_counters(nThreads,nTxs,stmCommits,stmAborts) /* nothing */
+#define __term_prof_counters(stmCommits, stmAborts) /* nothing */
 #else
-#define __term_prof_counters(nThreads)													 /* nothing */
+#define __term_prof_counters()                      /* nothing */
 #endif
+
+#define __report_prof_counters()                      /* nothing */
 
 #endif /* ! HTM_STATUS_PROFILING */

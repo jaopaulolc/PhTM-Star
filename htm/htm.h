@@ -22,10 +22,10 @@ extern "C" {
 
 void TX_START();
 void TX_END();
-void HTM_STARTUP(long numThreads);
+void HTM_STARTUP();
 void HTM_SHUTDOWN();
 
-void HTM_THREAD_ENTER(long id);
+void HTM_THREAD_ENTER();
 void HTM_THREAD_EXIT();
 
 #if defined(__cplusplus)

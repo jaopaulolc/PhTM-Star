@@ -136,19 +136,19 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 #define TM_STARTUP(nThreads)	msrInitialize(); \
 															stm_init();      \
 															mod_mem_init(0); \
-                        			phTM_init(nThreads)
+                              phTM_init()
 
-#define TM_SHUTDOWN()       phTM_term(thread_getNumThread(), NUMBER_OF_TRANSACTIONS, NULL, NULL); \
+#define TM_SHUTDOWN()       phTM_term(); \
 														stm_exit(); \
 														msrTerminate()
 
 #define TM_THREAD_ENTER()           long __tid__ = thread_getId(); \
 																		set_affinity(__tid__);                       \
 																		stm_init_thread(NUMBER_OF_TRANSACTIONS); \
-																		phTM_thread_init(__tid__)
+																		phTM_thread_init()
 
 #define TM_THREAD_EXIT()    stm_exit_thread(); \
-														phTM_thread_exit()
+														phTM_thread_exit(0, 0)
 
 #elif STM == NOrec
 
@@ -179,32 +179,24 @@ typedef union { stm_word_t w; float f;} floatconv_t;
 
 #if defined(HTM_STATUS_PROFILING)
 extern __thread long __txId__;
-extern uint64_t **__stm_commits;
-extern uint64_t **__stm_aborts;
+extern __thread uint64_t __stm_commits;
+extern __thread uint64_t __stm_aborts;
 
 extern void norecInitThreadCommits(uint64_t* addr);
 extern void norecInitThreadAborts(uint64_t* addr);
 
-#define ALLOCA_COMMITS_ABORTS_VARIABLES(numThread) \
-										{ int i;                                                                       \
-											__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
-								    	__stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*numThread);           \
-											for(i=0; i < numThread; i++){                                                      \
-												__stm_commits[i] = (uint64_t*)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));   \
-												__stm_aborts[i]  = (uint64_t*)calloc(NUMBER_OF_TRANSACTIONS,sizeof(uint64_t));   \
-											}                                                                                  \
-										}
+#define ALLOCA_COMMITS_ABORTS_VARIABLES(numThread) /* nothing */
 #define INIT_COMMITS_ABORTS_VARIABLES() \
-	norecInitThreadCommits(__stm_commits[__txId__]); \
-	norecInitThreadAborts(__stm_aborts[__txId__])
+	norecInitThreadCommits(&__stm_commits); \
+	norecInitThreadAborts(&__stm_aborts)
 
 #define NUM_COMMITS __stm_commits
 #define NUM_ABORTS __stm_aborts
 
 #else
 
-#define NUM_COMMITS NULL
-#define NUM_ABORTS NULL
+#define NUM_COMMITS 0
+#define NUM_ABORTS  0
 #define ALLOCA_COMMITS_ABORTS_VARIABLES(numThread) /* nothing */
 #define INIT_COMMITS_ABORTS_VARIABLES() /* nothing */ 
 
@@ -253,7 +245,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 
 #define TM_STARTUP(numThread)					msrInitialize();        \
 																			stm::sys_init(NULL); \
-																			phTM_init(numThread); \
+																			phTM_init(); \
 																			{ \
 																				__throughputProfilingData = (throughputProfilingData_t*)calloc(numThread, \
 																					sizeof(throughputProfilingData_t)); \
@@ -270,7 +262,7 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																				} \
 																			}
 
-#define TM_SHUTDOWN()                 phTM_term(thread_getNumThread(), NUMBER_OF_TRANSACTIONS, NULL, NULL); \
+#define TM_SHUTDOWN()                 phTM_term(); \
 																			stm::sys_shutdown(); \
 											                msrTerminate(); \
 																			{ \
@@ -305,12 +297,12 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define TM_THREAD_ENTER()             long __tid__ = thread_getId(); \
 																			set_affinity(__tid__);   \
 																			stm::thread_init(); \
-																			phTM_thread_init(__tid__); \
+																			phTM_thread_init(); \
 																			throughputProfilingData_t *__thProfData = &__throughputProfilingData[__tid__]; \
 																			__thProfData->before = getTime()
 
 #define TM_THREAD_EXIT()              stm::thread_shutdown(); \
-																			phTM_thread_exit(); \
+																			phTM_thread_exit(NUM_COMMITS, NUM_ABORTS); \
 																			{ \
 																				uint64_t now = getTime(); \
 																				if (__thProfData->stepCount) { \
@@ -370,9 +362,9 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #define TM_STARTUP(numThread)					msrInitialize();        \
 																			stm::sys_init(NULL); \
 																			ALLOCA_COMMITS_ABORTS_VARIABLES(numThread); \
-																			phTM_init(numThread)
+																			phTM_init()
 
-#define TM_SHUTDOWN()                 phTM_term(thread_getNumThread(), NUMBER_OF_TRANSACTIONS, NUM_COMMITS, NUM_ABORTS); \
+#define TM_SHUTDOWN()                 phTM_term(); \
 																			stm::sys_shutdown(); \
 											                msrTerminate()
 
@@ -380,10 +372,10 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 																			set_affinity(__tid__);   \
 																			stm::thread_init(); \
 																			INIT_COMMITS_ABORTS_VARIABLES(); \
-																			phTM_thread_init(__tid__)
+																			phTM_thread_init()
 
 #define TM_THREAD_EXIT()              stm::thread_shutdown(); \
-																			phTM_thread_exit()
+																			phTM_thread_exit(NUM_COMMITS, NUM_ABORTS)
 
 #define STM_START(abort_flags)            				 \
     stm::TxThread* tx = (stm::TxThread*)stm::Self; \
@@ -451,8 +443,8 @@ extern void increaseThroughputSamplesSize(double **ptr, uint64_t *oldLength, uin
 #ifdef MAIN_FUNCTION_FILE
 
 #if defined(HTM_STATUS_PROFILING)
-uint64_t **__stm_commits;
-uint64_t **__stm_aborts;
+__thread uint64_t __stm_commits;
+__thread uint64_t __stm_aborts;
 #endif
 
 #if defined(THROUGHPUT_PROFILING)

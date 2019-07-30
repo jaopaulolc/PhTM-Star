@@ -28,16 +28,16 @@ void
 STM_PostCommit_Tx();
 
 void
-phTM_init(long nThreads);
+phTM_init();
 
 void
-phTM_term(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts);
+phTM_term();
 
 void
-phTM_thread_init(long tid);
+phTM_thread_init();
 
 void
-phTM_thread_exit(void);
+phTM_thread_exit(uint64_t stmCommits,uint64_t stmAborts);
 
 #if defined(__cplusplus)
 } /* extern "C" { */

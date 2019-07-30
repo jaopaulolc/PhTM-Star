@@ -303,8 +303,8 @@ namespace {
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
 			
-			if(__thread_commits != NULL)
-				__thread_commits[__txId__]++;
+    if (__thread_commits != NULL)
+      (*__thread_commits)++;
 			
 			tx->vlist.reset();
       OnReadOnlyCommit(tx);
@@ -342,11 +342,11 @@ namespace {
       // notify CM
       CM::onCommit(tx);
 			
-			if(__thread_commits != NULL)
-				__thread_commits[__txId__]++;
 
       tx->vlist.reset();
       tx->writes.reset();
+    if (__thread_commits != NULL)
+      (*__thread_commits)++;
 
       // This switches the thread back to RO mode.
       OnReadWriteCommit(tx, read_ro, write_ro, commit_ro);
@@ -431,9 +431,9 @@ namespace {
       // branch overhead without concern because we're not worried about
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
-			
+
 			if(__thread_aborts != NULL)
-				__thread_aborts[__txId__]++;
+				(*__thread_aborts)++;
 
       tx->vlist.reset();
       tx->writes.reset();

@@ -199,9 +199,9 @@ namespace {
       // Since all reads were consistent, and no writes were done, the read-only
       // NOrec transaction just resets itself and is done.
       CM::onCommit(tx);
-			
-			if(__thread_commits != NULL)
-				__thread_commits[__txId__]++;
+
+			if (__thread_commits != NULL)
+        (*__thread_commits)++;
 		#ifdef COMMIT_RATE_PROFILING
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 		#endif /* COMMIT_RATE_PROFILING */
@@ -235,8 +235,8 @@ namespace {
       // notify CM
       CM::onCommit(tx);
 
-			if(__thread_commits != NULL)
-				__thread_commits[__txId__]++;
+			if (__thread_commits != NULL)
+				(*__thread_commits)++;
 		#ifdef COMMIT_RATE_PROFILING
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();
@@ -331,9 +331,9 @@ namespace {
       // branch overhead without concern because we're not worried about
       // rollback overheads.
       STM_ROLLBACK(tx->writes, upper_stack_bound, except, len);
-		
-			if(__thread_aborts != NULL)
-				__thread_aborts[__txId__]++;
+
+			if (__thread_aborts != NULL)
+				(*__thread_aborts)++;
 		#ifdef COMMIT_RATE_PROFILING
 			__readSetSize[tx->id - 1][__txId__]  += tx->vlist.size();
 			__writeSetSize[tx->id - 1][__txId__] += tx->writes.size();

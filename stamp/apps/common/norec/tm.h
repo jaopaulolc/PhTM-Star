@@ -176,13 +176,13 @@ extern uint64_t ***__writeSetSize;
 #define TM_THREAD_ENTER()    long __threadId__ = thread_getId(); \
 														 TM_ARGDECL_ALONE = STM_NEW_THREAD(); \
                              STM_INIT_THREAD(TM_ARG_ALONE, thread_getId()); \
-														 set_affinity(__threadId__); \
-														 norecInitThreadCommits(__stm_commits[__threadId__]); \
-														 norecInitThreadAborts(__stm_aborts[__threadId__])
+														 set_affinity(__threadId__)
 
 #define TM_THREAD_EXIT()     STM_FREE_THREAD(TM_ARG_ALONE)
 
 #define TM_BEGIN()                    __txId__ = __COUNTER__;                   \
+                                      norecInitThreadCommits(&__stm_commits[__threadId__][__txId__]); \
+                                      norecInitThreadAborts(&__stm_aborts[__threadId__][__txId__]); \
 																			pmuStartCounting(__threadId__, __txId__); \
 																			STM_BEGIN_WR()
 #define TM_BEGIN_RO()                 __txId__ = __COUNTER__;                   \

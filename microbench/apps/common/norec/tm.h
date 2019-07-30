@@ -19,38 +19,27 @@
 #define TM_ARGDECL_ALONE              /* nothing */
 
 extern __thread uint64_t __txId__;
-static uint64_t **__stm_commits;
-static uint64_t **__stm_aborts;
+static uint64_t *__stm_commits;
+static uint64_t *__stm_aborts;
 
 extern void norecInitThreadCommits(uint64_t* addr);
 extern void norecInitThreadAborts(uint64_t* addr);
 
 #define TM_INIT(nThreads)	            stm::sys_init(NULL); \
-										__stm_commits = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
-								    __stm_aborts  = (uint64_t **)malloc(sizeof(uint64_t *)*nThreads); \
-										{ \
-											uint64_t i; \
-											for (i=0; i < nThreads; i++) { \
-												__stm_commits[i] = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
-												__stm_aborts[i]  = (uint64_t*)malloc(sizeof(uint64_t)*NUMBER_OF_TRANSACTIONS); \
-											} \
-										}
+										__stm_commits = (uint64_t *)malloc(sizeof(uint64_t)*nThreads); \
+								    __stm_aborts  = (uint64_t *)malloc(sizeof(uint64_t)*nThreads); \
 
 #define TM_EXIT(nThreads)             stm::sys_shutdown(); \
 								{ \
-										uint64_t starts = 0, aborts = 0, commits = 0;                                   \
-										uint64_t ii;                                                                    \
-										for(ii=0; ii < nThreads; ii++){                                                 \
-											uint64_t i;                                                                   \
-											for(i=0; i < NUMBER_OF_TRANSACTIONS; i++){                                    \
-												aborts  += __stm_aborts[ii][i];                                             \
-												commits += __stm_commits[ii][i];                                            \
-											}                                                                             \
-											free(__stm_aborts[ii]); free(__stm_commits[ii]);                              \
-										}                                                                               \
-										starts = commits + aborts;                                                      \
-										free(__stm_aborts); free(__stm_commits);                                        \
-										printf("#starts    : %12lu\n", starts);                                              \
+										uint64_t starts = 0, aborts = 0, commits = 0; \
+										uint64_t i;                                  \
+										for(i=0; i < nThreads; i++){               \
+											aborts  += __stm_aborts[i];                \
+											commits += __stm_commits[i];               \
+										}                                             \
+										starts = commits + aborts;                    \
+										free(__stm_aborts); free(__stm_commits);      \
+										printf("#starts    : %12lu\n", starts);       \
 										printf("#commits   : %12lu %6.2f\n", commits, 100.0*((float)commits/(float)starts)); \
 										printf("#aborts    : %12lu %6.2f\n", aborts, 100.0*((float)aborts/(float)starts));   \
 										printf("#conflicts : %12lu\n", aborts);                                              \
@@ -59,8 +48,8 @@ extern void norecInitThreadAborts(uint64_t* addr);
 
 #define TM_INIT_THREAD(tid)           set_affinity(tid); \
 																			stm::thread_init(); \
-														          norecInitThreadCommits(__stm_commits[tid]); \
-														          norecInitThreadAborts(__stm_aborts[tid])
+														          norecInitThreadCommits(&__stm_commits[tid]); \
+														          norecInitThreadAborts(&__stm_aborts[tid])
 
 #define TM_EXIT_THREAD(tid)           stm::thread_shutdown()
 

@@ -21,7 +21,6 @@ volatile modeIndicator_t modeIndicator	__ALIGN__ = {
 																};
 volatile char padding1[__CACHE_LINE_SIZE__ - sizeof(modeIndicator_t)] __ALIGN__;
 
-__thread uint32_t __tx_tid __ALIGN__;
 __thread uint64_t htm_retries __ALIGN__;
 __thread uint32_t abort_reason __ALIGN__ = 0;
 #if DESIGN == OPTIMIZED
@@ -186,7 +185,7 @@ HTM_Start_Tx() {
 		previous_abort_reason = abort_reason; 
 #endif /* DESIGN == OPTIMIZED */
 		abort_reason = htm_abort_reason(status);
-		__inc_abort_counter(__tx_tid, abort_reason);
+		__inc_abort_counter(abort_reason);
 		
 		modeIndicator_t indicator = atomicReadModeIndicator();
 		if (indicator.value != 0) {
@@ -257,7 +256,7 @@ HTM_Commit_Tx() {
 
 #if	DESIGN == PROTOTYPE
 	htm_end();
-	__inc_commit_counter(__tx_tid);
+	__inc_commit_counter();
 #else  /* DESIGN == OPTIMIZED */
 	if (htm_global_lock_is_mine){
 		unlockMode();
@@ -268,7 +267,7 @@ HTM_Commit_Tx() {
 		sum_cycles += tx_cycles;
 	} else {
 		htm_end();
-		__inc_commit_counter(__tx_tid);
+		__inc_commit_counter();
   }
   abort_rate = (abort_rate * 75) / 100;
 #endif /* DESIGN == OPTIMIZED */
@@ -352,22 +351,21 @@ STM_PostCommit_Tx() {
 }
 
 void
-phTM_init(long nThreads){
+phTM_init(){
 	printf("DESIGN: %s\n", (DESIGN == PROTOTYPE) ? "PROTOTYPE" : "OPTIMIZED");
-	__init_prof_counters(nThreads);
 	phase_profiling_init();
 }
 
 void
-phTM_thread_init(long tid){
-	__tx_tid = tid;
+phTM_thread_init(){
 #if DESIGN == OPTIMIZED
   abort_rate = 0.0;
 #endif
+	__init_prof_counters();
 }
 
 void
-phTM_thread_exit(void){
+phTM_thread_exit(uint64_t stmCommits, uint64_t stmAborts){
 	phase_profiling_stop();
 #if DESIGN == OPTIMIZED
 	if (deferredTx) {
@@ -375,10 +373,11 @@ phTM_thread_exit(void){
 		atomicDecDeferredCount();
 	}
 #endif /* DESIGN == OPTIMIZED */
+	__term_prof_counters(stmCommits, stmAborts);
 }
 
 void
-phTM_term(long nThreads, long nTxs, uint64_t **stmCommits, uint64_t **stmAborts){
-	__term_prof_counters(nThreads, nTxs, stmCommits, stmAborts);
+phTM_term() {
+	__report_prof_counters();
 	phase_profiling_report();
 }
