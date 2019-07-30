@@ -23,29 +23,25 @@
 		}	\
 	*/
 
-// ABI Section 5.12 
-#define ITM_BARRIERS(TYPE, EXT) \
-	ITM_REGPARM TYPE _ITM_R##EXT(const TYPE *addr) { \
+#define ITM_READ(TYPE, LSMOD, EXT) \
+	ITM_REGPARM TYPE _ITM_##LSMOD##EXT (const TYPE *addr) { \
 		return stm::stm_read(addr, (stm::TxThread*)stm::Self); \
-	}	\
-	ITM_REGPARM TYPE _ITM_RaR##EXT(const TYPE *addr) { \
-		return stm::stm_read(addr, (stm::TxThread*)stm::Self); \
-	} \
-	ITM_REGPARM TYPE _ITM_RaW##EXT(const TYPE *addr) { \
-		return stm::stm_read(addr, (stm::TxThread*)stm::Self); \
-	} \
-	ITM_REGPARM TYPE _ITM_RfW##EXT(const TYPE *addr) { \
-		return stm::stm_read(addr, (stm::TxThread*)stm::Self); \
-	} \
-	void ITM_REGPARM _ITM_W##EXT(TYPE *addr, TYPE value) { \
-		stm::stm_write(addr, value, (stm::TxThread*)stm::Self); \
-	} \
-	void ITM_REGPARM _ITM_WaR##EXT(TYPE *addr, TYPE value) { \
-		stm::stm_write(addr, value, (stm::TxThread*)stm::Self); \
-	} \
-	void ITM_REGPARM _ITM_WaW##EXT(TYPE *addr, TYPE value) { \
+	}
+
+#define ITM_WRITE(TYPE, LSMOD, EXT) \
+	ITM_REGPARM void _ITM_##LSMOD##EXT (TYPE *addr, TYPE value) { \
 		stm::stm_write(addr, value, (stm::TxThread*)stm::Self); \
 	}
+
+// ABI Section 5.12
+#define ITM_BARRIERS(TYPE, EXT) \
+  ITM_READ(TYPE, R, EXT) \
+  ITM_READ(TYPE, RaR, EXT) \
+  ITM_READ(TYPE, RaW, EXT) \
+  ITM_READ(TYPE, RfW, EXT) \
+  ITM_WRITE(TYPE, W, EXT) \
+  ITM_WRITE(TYPE, WaR, EXT) \
+  ITM_WRITE(TYPE, WaW, EXT) \
 
 ITM_BARRIERS (uint8_t, U1)
 ITM_BARRIERS (uint16_t, U2)
