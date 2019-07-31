@@ -55,7 +55,7 @@ initThreadDescriptor(threadDescriptor_t* tx) {
 	stm::thread_init();
 #elif defined(BACKEND_PHASEDTM)
 	stm::thread_init();
-  phTM_thread_init(tx->id);
+  phTM_thread_init();
 #else
 #error "unknown or no backend selected!"
 #endif
@@ -80,7 +80,7 @@ thread_exit_handler(void* arg UNUSED) {
 		stm::thread_shutdown();
 #elif defined(BACKEND_PHASEDTM)
 		stm::thread_shutdown();
-    phTM_thread_exit();
+    phTM_thread_exit(0,0);
 #else
 #error "unknown or no backend selected!"
 #endif
