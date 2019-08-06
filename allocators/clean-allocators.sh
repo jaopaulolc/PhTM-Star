@@ -8,7 +8,7 @@ make clean ${MAKE_OPTIONS} 2>&1 > /dev/null
 cd ..
 
 # Hoard
-cd hoard-20151222/src
+cd hoard/src
 make clean ${MAKE_OPTIONS} 2>&1 > /dev/null
 cd ../..
 

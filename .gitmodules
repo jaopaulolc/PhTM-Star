@@ -1,3 +1,6 @@
 [submodule "allocators/gperftools"]
 	path = allocators/gperftools
 	url = https://github.com/gperftools/gperftools.git
+[submodule "allocators/hoard"]
+	path = allocators/hoard
+	url = git@atomic:transactional-memory/hoard.git

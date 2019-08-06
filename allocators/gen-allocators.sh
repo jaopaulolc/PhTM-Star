@@ -18,7 +18,7 @@ cd ..
 
 # Hoard
 echo "Compiling Hoard..."
-cd hoard-20151222/src
+cd hoard/src
 make Linux-gcc-unknown $MAKE_OPTIONS 2>&1 > /dev/null
 if [ $? -eq 0 ]; then
 	echo "Hoard compilation succeded!"
