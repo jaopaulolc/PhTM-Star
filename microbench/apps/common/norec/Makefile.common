@@ -4,14 +4,14 @@ CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DSTM
 CFLAGS   += -Wall -Wextra
-CFLAGS   += -O3
+CFLAGS   += -O3 -g
 
 LD       := $(CXX)
 LDFLAGS  += -lpthread
 
 LIBDIR    = ../../../NOrec
 CPPFLAGS += -I$(LIBDIR)/include 
-LDFLAGS  += -L$(LIBDIR) -lnorec -lrt
+LDFLAGS  += -L$(LIBDIR) -lnorec
 TMLIB    += $(LIBDIR)/libnorec.a
 
 include ../common/Makefile.common

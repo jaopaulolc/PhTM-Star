@@ -11,7 +11,7 @@ LDFLAGS  += -lpthread
 
 LIBDIR    = ../../../libitm/gcc
 CPPFLAGS += -I$(LIBDIR)
-LDFLAGS  += -L$(LIBDIR) -litm -lrt
+LDFLAGS  += -L$(LIBDIR) -litm
 TMLIB    += $(LIBDIR)/libitm.a
 
 include ../common/Makefile.common

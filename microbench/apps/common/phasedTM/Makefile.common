@@ -4,7 +4,7 @@ CC       := $(CXX)
 CPPFLAGS += -DNDEBUG
 CPPFLAGS += -I../common/$(TMBUILD) -DHW_SW_PATHS
 CFLAGS   += -Wall -Wextra
-CFLAGS   += -O3
+CFLAGS   += -O3 -g
 
 LD       := $(CXX)
 LDFLAGS  += -lpthread
