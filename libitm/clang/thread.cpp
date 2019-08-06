@@ -69,6 +69,24 @@ threadDescriptor_t::operator delete (void* tx) {
 	}
 }
 
+__attribute__((destructor))
+void pre_exit_main_thread(void) {
+  threadDescriptor_t* tx = getThreadDescriptor();
+  if (tx) {
+#if defined(BACKEND_NOREC)
+    stm::thread_shutdown();
+    stm::sys_shutdown();
+#elif defined(BACKEND_PHASEDTM)
+    stm::thread_shutdown();
+    phTM_thread_exit(0,0);
+    stm::sys_shutdown();
+    phTM_term();
+#else
+#error "unknown or no backend selected!"
+#endif
+  }
+}
+
 static void
 thread_exit_handler(void* arg UNUSED) {
 	threadDescriptor_t* tx = getThreadDescriptor();
@@ -84,9 +102,6 @@ thread_exit_handler(void* arg UNUSED) {
 #else
 #error "unknown or no backend selected!"
 #endif
-		if (tx->id == 0) {
-			stm::sys_shutdown();
-		}
 		free(tx);
 	}
 	setThreadDescriptor(NULL);
@@ -94,7 +109,14 @@ thread_exit_handler(void* arg UNUSED) {
 
 static void
 thread_exit_init() {
-	stm::sys_init(NULL);
+#if defined(BACKEND_NOREC)
+  stm::sys_init(NULL);
+#elif defined(BACKEND_PHASEDTM)
+  stm::sys_init(NULL);
+  phTM_init();
+#else
+#error "unknown or no backend selected!"
+#endif
 	if (pthread_key_create(&thread_release_key, thread_exit_handler)) {
 		fprintf(stderr, "error: pthread_key_create failed at thread_exit_init!\n");
 	}
