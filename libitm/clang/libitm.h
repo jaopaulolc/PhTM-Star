@@ -143,10 +143,15 @@ ITM_BARRIERS (double, D)
 # endif
 # ifdef __SSE__
   ITM_BARRIERS (__m128i , M128i)
+  ITM_BARRIERS (__m128i , M128ii)
   ITM_BARRIERS (__m128 , M128)
+  ITM_BARRIERS (__m128 , M128d)
 # endif
 # ifdef __AVX__
+  ITM_BARRIERS (__m256 , M256i)
+  ITM_BARRIERS (__m256 , M256ii)
   ITM_BARRIERS (__m256 , M256)
+  ITM_BARRIERS (__m256 , M256d)
 # endif
 #endif													/* i386 */
 #undef ITM_BARRIERS
