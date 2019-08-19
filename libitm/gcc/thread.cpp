@@ -84,7 +84,9 @@ void pre_exit_main_thread(void) {
 #else
 #error "unknown or no backend selected!"
 #endif
+		free(tx);
   }
+  setThreadDescriptor(NULL);
 }
 
 static void
@@ -102,6 +104,15 @@ thread_exit_handler(void* arg UNUSED) {
 #else
 #error "unknown or no backend selected!"
 #endif
+    long next_tid;
+    pthread_mutex_lock (&init_thread_lock);
+    next_tid = --numberOfThreads;
+    if (next_tid == 0) {
+      pre_exit_main_thread();
+      pthread_mutex_unlock (&init_thread_lock);
+      return;
+    }
+    pthread_mutex_unlock (&init_thread_lock);
 		free(tx);
 	}
 	setThreadDescriptor(NULL);
