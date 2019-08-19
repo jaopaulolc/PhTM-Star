@@ -34,9 +34,15 @@ CXXFLAGS = -O3 -Wall -std=c++11
 # DEFINES += -DHYTM_LAZY
 
 # DEFINES += -DGCCTM
+# DEFINES += -DCLANGTM
+
+CPPFLAGS += -I../libitm
 
 ifeq ($(LIBITM), GCCTM)
-  CPPFLAGS += -I../libitm -I../libitm/gcc
+  CPPFLAGS += -I../libitm/gcc
+endif
+ifeq ($(LIBITM), CLANGTM)
+  CPPFLAGS += -I../libitm/clang
 endif
 
 CPPFLAGS += $(DEFINES)

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <immintrin.h>
-#include <setjmp.h>
+#include "config/arch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -86,7 +86,7 @@ typedef enum {
 	a_abortTransaction = 0x10,
 } _ITM_actions;
 
-extern uint32_t _ITM_beginTransaction (jmp_buf* jmpbuf, int codeProperties) ITM_REGPARM;
+extern uint32_t _ITM_beginTransaction (libitm_jmpbuf* jmpbuf, int codeProperties) ITM_REGPARM;
 
 // ABI Section 5.8
 /* Values used as arguments to abort. */

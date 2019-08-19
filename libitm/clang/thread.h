@@ -2,7 +2,6 @@
 #define _THREAD_H
 
 #include <stdint.h>
-#include <setjmp.h>
 #include "undolog.h"
 
 #ifdef __cplusplus
@@ -10,7 +9,7 @@ extern "C" {
 #endif
 
 struct threadDescriptor_t {
-	jmp_buf *jmpbuf;
+	libitm_jmpbuf *jmpbuf;
 	void* stmTxDescriptor;
 	undolog_t undolog;
 	uint32_t id;

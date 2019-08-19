@@ -21,6 +21,8 @@
 #if defined(GCCTM)
 #include <gcc/thread.h>
 #include <gcc/libitm.h>
+#elif defined(CLANGTM)
+#include <clang/libitm.h>
 #endif
 
 using namespace stm;
@@ -67,6 +69,8 @@ namespace
       jmpbuf_t* jmpbuf = (jmpbuf_t*)scope;
       jmpbuf->rip = jmpbuf->rip - 5; // call _ITM_beginTransaction on restart
       GTM_longjmp(itm_tx->codeProperties, jmpbuf);
+#elif defined(CLANGTM)
+      libitm_longjmp((libitm_jmpbuf*)scope, 1);
 #else
       // need to null out the scope
       longjmp(*scope, 1);

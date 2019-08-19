@@ -19,7 +19,7 @@ endif
 
 SRCS = $(wildcard *.cpp) config/common.cpp
 
-OBJS = $(SRCS:.cpp=.cpp.o)
+OBJS = $(SRCS:.cpp=.cpp.o) sjlj.S.o
 
 EXT_OBJS = $(wildcard ../../NOrec/*.o)
 ifeq (${BACKEND}, PHASEDTM)
@@ -27,6 +27,9 @@ ifeq (${BACKEND}, PHASEDTM)
 endif
 
 all: $(target)
+
+%.S.o: config/$(ARCH)/%.S
+	$(CXX) $(CPPFLAGS) -c $^ $(CXXFLAGS) -o $@
 
 %.cpp.o:	%.cpp
 	$(CXX) $(CPPFLAGS) -c $^ $(CXXFLAGS) -o $@

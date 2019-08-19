@@ -20,7 +20,7 @@ extern "C" {
 }
 
 uint32_t ITM_REGPARM
-_ITM_beginTransaction (jmp_buf* jmpbuf, int codeProperties) {
+_ITM_beginTransaction (libitm_jmpbuf* jmpbuf, int codeProperties) {
 
 	threadDescriptor_t* tx = getThreadDescriptor();
 	if ( unlikely (tx == NULL) ) {
