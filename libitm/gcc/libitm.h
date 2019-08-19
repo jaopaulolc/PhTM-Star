@@ -85,7 +85,7 @@ typedef enum {
 	a_abortTransaction = 0x10,
 } _ITM_actions;
 
-#include "target.h" // _ITM_beginTransaction && jmpbuf_t
+#include "config/arch.h" // _ITM_beginTransaction && jmpbuf_t
 
 extern uint32_t _ITM_beginTransaction (uint32_t codeProperties, jmpbuf_t *jmpbuf) ITM_REGPARM;
 

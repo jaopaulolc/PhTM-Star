@@ -19,8 +19,8 @@
 #include <inst.hpp>
 
 #if defined(GCCTM)
-#include <thread.h>
-#include <target.h>
+#include <gcc/thread.h>
+#include <gcc/libitm.h>
 #endif
 
 using namespace stm;

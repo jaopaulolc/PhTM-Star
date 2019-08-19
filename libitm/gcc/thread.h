@@ -2,7 +2,7 @@
 #define _THREAD_H
 
 #include <stdint.h>
-#include "target.h"
+#include "config/arch.h"
 #include "undolog.h"
 
 #ifdef __cplusplus
