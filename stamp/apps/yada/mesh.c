@@ -140,7 +140,7 @@ mesh_insert (mesh_t* meshPtr, element_t* elementPtr, MAP_T* edgeMapPtr)
      * The root element is not needed for the actual refining, but rather
      * for checking the validity of the final mesh.
      */
-    if (meshPtr->rootElementPtr != NULL) {
+    if (meshPtr->rootElementPtr == NULL) {
         meshPtr->rootElementPtr = elementPtr;
     }
 
