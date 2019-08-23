@@ -51,6 +51,10 @@ function clean {
 				test -e $NOrec/Makefile && rm $NOrec/Makefile
 				make $MAKE_OPTIONS -C $NOrec -f Makefile.template clean
 				;;
+      clangtm | gcctm)
+        local _build=$(tr '[:lower:]' '[:upper:]' <<<$build)
+        make $MAKE_OPTIONS -C ${!_build} -f Makefile clean
+        ;;
 			hle) ;;
 			lock) ;;
 			\?) echo $0" : error - unknown build '$build'"
