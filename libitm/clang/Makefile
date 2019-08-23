@@ -8,7 +8,7 @@ ARCH = $(shell uname -m)
 DEFINES = -D_GNU_SOURCE -DBACKEND_${BACKEND}
 
 CPPFLAGS = $(DEFINES) -I. -Iconfig -I../../NOrec/include
-CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -mavx -g -O3
+CXXFLAGS = -Wall -Wextra -Wno-ignored-attributes -g -O3
 LDFLAGS = -L../../NOrec -lnorec
 
 ifeq (${BACKEND}, PHASEDTM)
