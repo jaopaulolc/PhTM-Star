@@ -9,11 +9,14 @@
 #include <aborts_profiling.h>
 #include <types.h>
 
+#define UNUSED __attribute__((unused))
+
 #define HTM_MAX_RETRIES 9
 
 const modeIndicator_t NULL_INDICATOR = { .value = 0 };
 
 static __thread bool deferredTx __ALIGN__ = false;
+static __thread bool decUndefCounter __ALIGN__ = false;
 volatile modeIndicator_t modeIndicator	__ALIGN__ = {
 																	.mode = HW,
 																	.deferredCount = 0,
@@ -276,7 +279,7 @@ HTM_Commit_Tx() {
 
 
 bool
-STM_PreStart_Tx(bool restarted) {
+STM_PreStart_Tx(bool restarted UNUSED) {
 	
 	modeIndicator_t indicator;
 	modeIndicator_t expected;
@@ -287,15 +290,17 @@ STM_PreStart_Tx(bool restarted) {
 		do {
 			indicator = atomicReadModeIndicator();
 				if (indicator.deferredCount == 0 || indicator.mode == HW) {
-					if(restarted) atomicDecUndeferredCount();
+          if (decUndefCounter) atomicDecUndeferredCount();
+          decUndefCounter = false;
 					changeMode(HW);
 					return true;
 				}
-			if(restarted) break;
+      if(decUndefCounter) break;
 			expected = setMode(indicator, SW);
 			new = incUndeferredCount(expected);
 			success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
 		} while (!success);
+    decUndefCounter = true;
 	}
 #if DESIGN == OPTIMIZED
 	else {
