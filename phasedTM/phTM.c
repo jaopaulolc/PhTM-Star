@@ -312,10 +312,6 @@ STM_PreStart_Tx(bool restarted UNUSED) {
 
 void
 STM_PostCommit_Tx() {
-	
-	bool success;
-	modeIndicator_t expected;
-	modeIndicator_t new;
 
 #if DESIGN == OPTIMIZED
 	if (deferredTx) {
@@ -338,17 +334,13 @@ STM_PostCommit_Tx() {
 	}
 #endif /* DESIGN == OPTIMIZED */
 	
-	do {
-		expected = atomicReadModeIndicator();
-		if (deferredTx) {
-			new = decDeferredCount(expected);
-		} else{
-			new = decUndeferredCount(expected);
-		}
-		success = boolCAS(&(modeIndicator.value), &(expected.value), new.value);
-	} while (!success);
-	if (deferredTx){
+  if (!deferredTx) {
+    atomicDecUndeferredCount();
+    decUndefCounter = false;
+  } else { // deferredTx
 		deferredTx = false;
+    atomicDecDeferredCount();
+    modeIndicator_t new = atomicReadModeIndicator();
 		if (new.deferredCount == 0) {
 			changeMode(HW);
 		}
