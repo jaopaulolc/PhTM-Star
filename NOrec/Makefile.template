@@ -4,6 +4,10 @@ TARGET = libnorec.a
 
 ARCH = $(shell uname -m)
 
+ifeq ($(LIBITM), CLANGTM)
+  CXX = clang++
+endif
+
 SRCS = algs.cpp \
 			 cbr.cpp \
 			 hytm-norec.cpp \
