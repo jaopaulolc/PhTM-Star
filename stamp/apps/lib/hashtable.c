@@ -275,7 +275,7 @@ allocBuckets (long numBucket, long (*comparePairs)(const pair_t*, const pair_t*)
 TM_SAFE
 list_t**
 TMallocBuckets (TM_ARGDECL
-                long numBucket, TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*))
+                long numBucket, TM_IFUNC_DECL long (*comparePairs)(const pair_t*, const pair_t*))
 {
     long i;
     list_t** buckets;
@@ -353,8 +353,8 @@ TM_SAFE
 hashtable_t*
 TMhashtable_alloc (TM_ARGDECL
                    long initNumBucket,
-                   TM_SAFE ulong_t (*hash)(const void*),
-                   TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*),
+                   TM_IFUNC_DECL ulong_t (*hash)(const void*),
+                   TM_IFUNC_DECL long (*comparePairs)(const pair_t*, const pair_t*),
                    long resizeRatio,
                    long growthFactor)
 {

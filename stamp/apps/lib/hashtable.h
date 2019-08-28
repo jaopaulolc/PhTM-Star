@@ -107,8 +107,8 @@ typedef struct hashtable {
 #ifdef HASHTABLE_SIZE_FIELD
     long size;
 #endif
-    TM_SAFE ulong_t (*hash)(const void*);
-    TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*);
+    TM_IFUNC_DECL ulong_t (*hash)(const void*);
+    TM_IFUNC_DECL long (*comparePairs)(const pair_t*, const pair_t*);
     long resizeRatio;
     long growthFactor;
     /* comparePairs should return <0 if before, 0 if equal, >0 if after */
@@ -199,8 +199,8 @@ TM_SAFE
 hashtable_t*
 TMhashtable_alloc (TM_ARGDECL
                    long initNumBucket,
-                   TM_SAFE ulong_t (*hash)(const void*),
-                   TM_SAFE long (*comparePairs)(const pair_t*, const pair_t*),
+                   TM_IFUNC_DECL ulong_t (*hash)(const void*),
+                   TM_IFUNC_DECL long (*comparePairs)(const pair_t*, const pair_t*),
                    long resizeRatio,
                    long growthFactor);
 

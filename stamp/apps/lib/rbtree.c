@@ -104,7 +104,7 @@ typedef struct node {
 
 struct rbtree {
     node_t* root;
-    TM_SAFE long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
+    TM_IFUNC_DECL long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
 };
 
 #define LDA(a)              *(a)
@@ -236,7 +236,7 @@ static node_t*
 TMlookup (TM_ARGDECL  rbtree_t* s, void* k)
 {
     void* k2;
-    long (*compare)(const void*, const void*) TM_SAFE = s->compare;
+    long (*compare)(const void*, const void*) TM_IFUNC_DECL = s->compare;
     node_t* p = TX_LDNODE(s, root);
 
     while (p != NULL) {
@@ -703,7 +703,7 @@ static node_t*
 TMinsert (TM_ARGDECL  rbtree_t* s, void* k, void* v, node_t* n)
 {
     void* k2;
-    long (*compare)(const void*, const void*) TM_SAFE = s->compare;
+    long (*compare)(const void*, const void*) TM_IFUNC_DECL = s->compare;
     node_t* t = TX_LDNODE(s, root);
 
     if (t == NULL) {
@@ -1312,7 +1312,7 @@ rbtree_alloc (long (*compare)(const void*, const void*))
  */
 TM_SAFE
 rbtree_t*
-TMrbtree_alloc (TM_ARGDECL  long (*compare)(const void*, const void*))
+TMrbtree_alloc (TM_ARGDECL  TM_IFUNC_DECL long (*compare)(const void*, const void*))
 {
     rbtree_t* n = (rbtree_t* )TM_MALLOC(sizeof(*n));
     if (n){

@@ -92,7 +92,7 @@ typedef list_node_t* list_iter_t;
 
 typedef struct list {
     list_node_t head;
-    TM_SAFE long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
+    TM_IFUNC_DECL long (*compare)(const void*, const void*);   /* returns {-1,0,1}, 0 -> equal */
     long size;
 } list_t;
 
@@ -187,7 +187,7 @@ list_alloc (long (*compare)(const void*, const void*));
  */
 TM_SAFE
 list_t*
-Plist_alloc (TM_SAFE long (*compare)(const void*, const void*));
+Plist_alloc (TM_SAFE TM_IFUNC_DECL long (*compare)(const void*, const void*));
 
 
 /* =============================================================================
@@ -198,7 +198,7 @@ Plist_alloc (TM_SAFE long (*compare)(const void*, const void*));
  */
 TM_SAFE
 list_t*
-TMlist_alloc (TM_ARGDECL TM_SAFE long (*compare)(const void*, const void*));
+TMlist_alloc (TM_ARGDECL TM_IFUNC_DECL long (*compare)(const void*, const void*));
 
 
 /* =============================================================================

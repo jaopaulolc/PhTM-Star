@@ -79,7 +79,7 @@ struct heap {
     void** elements;
     long size;
     long capacity;
-    TM_SAFE long (*compare)(const void*, const void*);
+    TM_IFUNC_DECL long (*compare)(const void*, const void*);
 };
 
 
@@ -172,7 +172,7 @@ TM_SAFE
 TMsiftUp (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 {
     void** elements = (void**)TM_SHARED_READ_P(heapPtr->elements);
-    long (*compare)(const void*, const void*) TM_SAFE = heapPtr->compare;
+    long (*compare)(const void*, const void*) TM_IFUNC_DECL = heapPtr->compare;
 
     long index = startIndex;
     while ((index > 1)) {
@@ -319,7 +319,7 @@ TM_SAFE
 TMheapify (TM_ARGDECL  heap_t* heapPtr, long startIndex)
 {
     void** elements = (void**)TM_SHARED_READ_P(heapPtr->elements);
-    long (*compare)(const void*, const void*) TM_SAFE = heapPtr->compare;
+    long (*compare)(const void*, const void*) TM_IFUNC_DECL = heapPtr->compare;
 
     long size = (long)TM_SHARED_READ(heapPtr->size);
     long index = startIndex;
