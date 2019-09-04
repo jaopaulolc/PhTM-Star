@@ -74,16 +74,9 @@ function compile_microbench_apps {
 }
 
 function compile_libitm {
-  case $build in
-    clangtm)
-      make -C $CLANGTM clean ${MAKE_OPTIONS}
-      make -C $CLANGTM BACKEND=${backend^^} ${MAKE_OPTIONS}
-      ;;
-    gcctm)
-      make -C $GCCTM clean ${MAKE_OPTIONS}
-      make -C $GCCTM BACKEND=${backend^^} ${MAKE_OPTIONS}
-      ;;
-  esac
+  local _build=$(tr '[:lower:]' '[:upper:]' <<<$build)
+  make -C ${!_build} clean ${MAKE_OPTIONS}
+  make -C ${!_build} BACKEND=${backend^^} ${MAKE_OPTIONS}
 }
 
 function compile_with_tm_compiler {
@@ -215,7 +208,7 @@ function compile_with_norec {
 	if [ $build == 'phasedTM' ]; then
 		local s=$( [ $(uname -m) == 'x86_64' ] && echo 'rtm' || echo 'powerTM' )
 		suffix="_$s-$phasedTMDesign-norec"
-  elif [ $build == 'gcctm' ] || [ $build == 'clangtm' ]; then
+  elif [[ $build =~ 'gcctm' ]] || [[ $build =~ 'clangtm' ]]; then
     compile_libitm
     suffix="_$(uname -m)-norec"
     if [ ! -z "$phasedTMDesign" ]; then
@@ -319,7 +312,7 @@ function compile {
 			seq)
 				compile_seq
 				;;
-      clangtm | gcctm)
+      clangtm* | gcctm*)
         compile_with_tm_compiler
         ;;
 			tinystm)
