@@ -1,0 +1,19 @@
+# TMBUILD = gcctm-prof
+# ======== Defines ========
+CC       := clang
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../common/$(TMBUILD)
+CPPFLAGS += -I../../../libitm/clang-prof
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -O3 -g -fgnu-tm
+
+LD       := clang++
+LDFLAGS  += -lpthread
+
+LIBDIR    = ../../../libitm/clang-prof
+CPPFLAGS += -I$(LIBDIR)
+LDFLAGS  += -L$(LIBDIR) -litm
+LDFLAGS  += -lbfd -lelf -lz -liberty
+TMLIB    += $(LIBDIR)/libitm.a
+
+include ../common/Makefile.common

@@ -1,0 +1,15 @@
+# TMBUILD ?= proftm
+CC       := clang
+CPPFLAGS += -DNDEBUG
+CPPFLAGS += -I../lib -I../common/$(TMBUILD)
+CPPFLAGS += -I../../../libitm/clang-prof
+CFLAGS   += -Wall -Wextra
+CFLAGS   += -fgnu-tm
+CFLAGS   += -O3 -g
+
+LD       := clang++
+LDFLAGS  += -lpthread -lbfd -lelf -lz -liberty
+LDFLAGS  += -L../../../libitm/clang-prof -litm
+LIBDEPS  += ../../../libitm/clang-prof/libitm.a
+
+include ../common/Makefile.common
