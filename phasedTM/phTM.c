@@ -74,10 +74,10 @@ static inline uint64_t getCycles()
 int
 changeMode(uint64_t newMode) {
 	
-	bool success;
-	modeIndicator_t indicator;
-	modeIndicator_t expected;
-	modeIndicator_t new;
+	bool success = false;
+	modeIndicator_t indicator = { .value = 0 };
+	modeIndicator_t expected = { .value = 0 };
+	modeIndicator_t new = { .value = 0 };
 
 	switch(newMode) {
 		case SW:
@@ -281,9 +281,9 @@ HTM_Commit_Tx() {
 bool
 STM_PreStart_Tx(bool restarted UNUSED) {
 	
-	modeIndicator_t indicator;
-	modeIndicator_t expected;
-	modeIndicator_t new;
+	modeIndicator_t indicator = { .value = 0 };
+	modeIndicator_t expected = { .value = 0 };
+	modeIndicator_t new = { .value = 0 };
 	bool success;
 	
 	if (!deferredTx) {
