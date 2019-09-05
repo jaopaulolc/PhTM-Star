@@ -8,7 +8,7 @@ CPPFLAGS += -I../lib -I../common/$(TMBUILD)
 CPPFLAGS += -I../../../libitm/clang
 CFLAGS   += -Wall -Wextra
 CFLAGS   += -fgnu-tm
-CFLAGS   += -O3 -ggdb
+CFLAGS   += -O3 -fno-tree-vectorize -fno-slp-vectorize -ggdb
 
 LD       := clang++
 LDFLAGS  += -lpthread
