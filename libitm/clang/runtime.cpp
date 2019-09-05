@@ -118,10 +118,14 @@ _ITM_tryCommitTransaction () {
 void _ITM_NORETURN ITM_REGPARM
 _ITM_abortTransaction (_ITM_abortReason abortReason UNUSED) {
 #if defined(BACKEND_NOREC)
+  threadDescriptor_t* tx = getThreadDescriptor();
+  tx->undolog.rollback();
 	stm::restart();
 #elif defined(BACKEND_PHASEDTM)
   uint64_t mode = getMode();
   if (mode == SW) {
+    threadDescriptor_t* tx = getThreadDescriptor();
+    tx->undolog.rollback();
     stm::restart();
   } else {
     htm_abort();
