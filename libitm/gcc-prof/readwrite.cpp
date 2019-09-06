@@ -18,10 +18,13 @@ static void* last_addr_used = NULL;
       last_addr_used = NULL; \
       if (ptr < top && ptr >= bot) { \
         REQ_STACK_MAP[ret_pc]++; \
+        STACK_COUNTER++; \
       } else if (tx->heapLocalPointers.count(ptr) > 0) { \
         REQ_L_HEAP_MAP[ret_pc]++; \
+        HEAP_COUNTER++; \
       } else { \
         REQ_GL_HEAP_MAP[ret_pc]++; \
+        HEAP_COUNTER++; \
       } \
     } else { \
       if (ptr < top && ptr >= bot) { \
@@ -32,6 +35,7 @@ static void* last_addr_used = NULL;
         HEAP_COUNTER++; \
       } else { \
         GL_HEAP_MAP[ret_pc]++; \
+        HEAP_COUNTER++; \
       } \
     }
 
