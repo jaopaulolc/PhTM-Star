@@ -100,6 +100,7 @@ static void memtransfer (void* dst, const void* src, size_t size) {
 
 #define ITM_VECTOR_READ(TYPE, LSMOD, EXT) \
   ITM_REGPARM TYPE _ITM_##LSMOD##EXT (const TYPE *addr) { \
+    READ_PROFILING_CODE \
     TYPE v; \
     memtransfer(&v, addr, sizeof(TYPE)); \
     return v; \
@@ -107,6 +108,7 @@ static void memtransfer (void* dst, const void* src, size_t size) {
 
 #define ITM_VECTOR_WRITE(TYPE, LSMOD, EXT) \
   ITM_REGPARM void _ITM_##LSMOD##EXT (TYPE *addr, TYPE value) { \
+    WRITE_PROFILING_CODE \
     memtransfer(addr, &value, sizeof(TYPE)); \
   }
 
