@@ -10,7 +10,9 @@ static void* last_addr_used = NULL;
     void* ret_addr = __builtin_return_address(0); \
     uint64_t ret_pc = (uint64_t)__builtin_extract_return_addr(ret_addr); \
     threadDescriptor_t* tx = getThreadDescriptor(); \
-    GL_COUNTER++; \
+    if (last_addr_used != (void*)addr) { \
+      GL_COUNTER++; \
+    } \
     void *top = mask_stack_top(tx); \
     void *bot = mask_stack_bottom(); \
     void *ptr = (void*)addr; \
@@ -75,6 +77,7 @@ _ITM_incrementRequiredReads(void* ptr) {
   last_addr_used = ptr;
   threadDescriptor_t* tx = getThreadDescriptor();
   if ( likely (tx != NULL) ) {
+    tx->numberOfReads++;
     tx->numberOfRequiredReads++;
   }
 }
@@ -84,6 +87,7 @@ _ITM_incrementRequiredWrites(void* ptr) {
   last_addr_used = ptr;
   threadDescriptor_t* tx = getThreadDescriptor();
   if ( likely (tx != NULL) ) {
+    tx->numberOfWrites++;
     tx->numberOfRequiredWrites++;
   }
 }
