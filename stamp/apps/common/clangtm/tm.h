@@ -61,12 +61,14 @@
 
 /* Indirect function call management */
 /* In STAMP applications, it is safe to use transaction_pure */
+#if 1
 #define TM_IFUNC_DECL                 __attribute__((transaction_safe))
 #define TM_IFUNC_CALL1(r, f, a1)      r = f(a1)
 #define TM_IFUNC_CALL2(r, f, a1, a2)  r = f((a1), (a2))
+#endif
 /* Alternative */
 #if 0
-#define TM_IFUNC_DECL                 /* nothing */
+#define TM_IFUNC_DECL                 __attribute__((transaction_pure))
 #define TM_IFUNC_CALL1(r, f, a1)      {__attribute__((transaction_pure)) long (*ff)(const void*) = (f); r = ff(a1);}
 #define TM_IFUNC_CALL2(r, f, a1, a2)  {__attribute__((transaction_pure)) long (*ff)(const void*, const void*) = (f); r = ff((a1), (a2));}
 #endif
