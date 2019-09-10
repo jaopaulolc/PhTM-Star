@@ -127,7 +127,11 @@ decoder_getComplete (decoder_t* decoderPtr, long* decodedFlowIdPtr);
  */
 TM_SAFE
 char*
+#if defined(CLANGTM_TMLOCALVARS)
+TMdecoder_getComplete (TM_ARGDECL  decoder_t* decoderPtr, __TMVar(long) * decodedFlowIdPtr);
+#else
 TMdecoder_getComplete (TM_ARGDECL  decoder_t* decoderPtr, long* decodedFlowIdPtr);
+#endif
 
 
 #define TMDECODER_PROCESS(d, b, n)      TMdecoder_process(TM_ARG  d, b, n)

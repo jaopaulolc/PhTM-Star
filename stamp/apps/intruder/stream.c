@@ -88,7 +88,11 @@ struct stream {
     long percentAttack;
     random_t* randomPtr;
     vector_t* allocVectorPtr;
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(queue_t*) packetQueuePtr;
+#else
     queue_t* packetQueuePtr;
+#endif
     MAP_T* attackMapPtr;
 };
 

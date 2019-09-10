@@ -308,7 +308,17 @@ TMdecoder_process (TM_ARGDECL  decoder_t* decoderPtr, char* bytes, long numByte)
         return ERROR_SHORT;
     }
 
+#if defined(CLANGTM_TMLOCALVARS)
+    struct packet {
+        __TMVar(long) flowId;
+        __TMVar(long) fragmentId;
+        __TMVar(long) numFragment;
+        __TMVar(long) length;
+        __TMVar(char) data[];
+    } *packetPtr = (struct packet*)bytes;
+#else
     packet_t* packetPtr = (packet_t*)bytes;
+#endif
     long flowId      = packetPtr->flowId;
     long fragmentId  = packetPtr->fragmentId;
     long numFragment = packetPtr->numFragment;
@@ -486,10 +496,21 @@ decoder_getComplete (decoder_t* decoderPtr, long* decodedFlowIdPtr)
  */
 TM_SAFE
 char*
+#if defined(CLANGTM_TMLOCALVARS)
+TMdecoder_getComplete (TM_ARGDECL  decoder_t* decoderPtr, __TMVar(long)* decodedFlowIdPtr)
+#else
 TMdecoder_getComplete (TM_ARGDECL  decoder_t* decoderPtr, long* decodedFlowIdPtr)
+#endif
 {
     char* data;
+#if defined(CLANGTM_TMLOCALVARS)
+    struct decoded {
+        __TMVar(long) flowId;
+        __TMVar(char*) data;
+    } *decodedPtr = (struct decoded*)TMQUEUE_POP(decoderPtr->decodedQueuePtr);
+#else
     decoded_t* decodedPtr = (decoded_t*)TMQUEUE_POP(decoderPtr->decodedQueuePtr);
+#endif
 
     if (decodedPtr) {
         *decodedFlowIdPtr = decodedPtr->flowId;

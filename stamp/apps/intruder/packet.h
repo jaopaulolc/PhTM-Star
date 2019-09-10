@@ -76,9 +76,15 @@
 
 typedef struct packet {
     long flowId;
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(long) fragmentId;
+    __TMVar(long) numFragment;
+    __TMVar(long) length;
+#else
     long fragmentId;
     long numFragment;
     long length;
+#endif
     char data[];
 } packet_t;
 
