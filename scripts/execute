@@ -91,7 +91,7 @@ function execute_stamp_apps {
 				rm -f $outputLog
 				for j in $(seq 1 ${_NEXEC}); do
 					echo "execution $j: $(basename $appRunPath) ${exec_flags}$t ($memalloc) ($work)"
-          [[ "${build}" == "gcctm" || "${build}" == "clangtm" ]] \
+          [[ "${build}" =~ "gcctm" || "${build}" =~ "clangtm" ]] \
             && STM_CONFIG="NOrec" \
             || STM_CONFIG=${!build}
           eval LIBITM_PATH=\${${build^^}}
@@ -228,7 +228,7 @@ function execute {
 			norec | rh_norec | hytm_norec_eager | hytm_norec_lazy | hyco)
 				SUFFIXES="${build}_$(uname -m)"
 				;;
-      clangtm | gcctm)
+      clangtm* | gcctm*)
         local _SUFFIXES=""
         local s=$(uname -m)
         for backend in $_LIBITM_BACKENDS; do

@@ -1,6 +1,10 @@
 # Clang with transactional memory
 # TMBUILD ?= clangtm
 
+TMLOCALVARS ?= n
+ifeq ($(TMLOCALVARS),y)
+  CPPFLAGS += -DCLANGTM_TMLOCALVARS=1
+endif
 # ======== Defines ========
 CC = clang
 CPPFLAGS += -DNDEBUG

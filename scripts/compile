@@ -47,6 +47,13 @@ function usage {
 
 function compile_stamp_apps {
 
+  local build="$1"
+  local MAKE_OPTIONS_copy="$MAKE_OPTIONS"
+
+  if [ "$build" == 'clangtm_tmvar' ]; then
+    MAKE_OPTIONS="$MAKE_OPTIONS TMLOCALVARS=y"
+  fi
+
 	for app in ${_STAMP_APPS}; do
 		local APP_SRC_PATH=$STAMP/apps/$app
 		local BIN_APP_PATH=$STAMP/$build/$app
@@ -57,6 +64,8 @@ function compile_stamp_apps {
 		mv $BIN_APP_PATH/$app $BIN_APP_PATH/${app}-${build}${suffix}
 		echo -e "\t++ ${app} compiled"
 	done # FOR EACH APP
+
+  MAKE_OPTIONS="$MAKE_OPTIONS_copy"
 }
 
 function compile_microbench_apps {
@@ -196,6 +205,9 @@ function compile_with_norec {
 
   [[ -z $LIBITM_IMPL ]] && LIBITM_IMPL='DUMMY_STRING_VALUE'
 
+  [[ "$LIBITM_IMPL" =~ "CLANGTM" ]] && LIBITM_IMPL=CLANGTM
+  [[ "$LIBITM_IMPL" =~ "GCCTM" ]] && LIBITM_IMPL=GCCTM
+
   sed	-e "s|# DUMMY COMMENT||"               \
       -e "/${COMMIT_RATE_PROFILING}/s|# ||"  \
       -e "/${RW_SET_PROFILING}/s|# ||"       \
@@ -220,7 +232,7 @@ function compile_with_norec {
 		suffix="_$s"
 	fi
 	echo "## $build ${suffix} compiled"
-	compile_stamp_apps
+	compile_stamp_apps $build
 	compile_microbench_apps
 }
 
