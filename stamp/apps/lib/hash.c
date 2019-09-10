@@ -115,7 +115,11 @@ hash_sdbm (char* str)
  */
 TM_SAFE
 ulong_t
+#if defined(CLANGTM_TMLOCALVARS)
+Phash_sdbm (__TMVar(char)* str)
+#else
 Phash_sdbm (char* str)
+#endif
 {
     ulong_t hash = 0;
     ulong_t c;

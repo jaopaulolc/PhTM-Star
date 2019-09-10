@@ -80,7 +80,11 @@ extern "C" {
 
 
 typedef struct pair {
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(void*) firstPtr;
+#else
     void* firstPtr;
+#endif
     void* secondPtr;
 } pair_t;
 

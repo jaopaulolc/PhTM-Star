@@ -150,8 +150,13 @@ hashSegment (const void* keyPtr)
 TM_SAFE
 long tm_safe_strcmp(const void* p1, const void* p2)
 {
+#if defined(CLANGTM_TMLOCALVARS)
+  const __TMVar unsigned char *s1 = (const unsigned char *) p1;
+  const __TMVar unsigned char *s2 = (const unsigned char *) p2;
+#else
   const unsigned char *s1 = (const unsigned char *) p1;
   const unsigned char *s2 = (const unsigned char *) p2;
+#endif
 
   unsigned char c1, c2;
   do
