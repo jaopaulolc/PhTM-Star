@@ -472,7 +472,7 @@ TM_SAFE bool_t
 manager_deleteCustomer (TM_ARGDECL  manager_t* managerPtr, long customerId)
 {
     customer_t* customerPtr;
-    MAP_T* reservationTables[NUM_RESERVATION_TYPE];
+    //MAP_T* reservationTables[NUM_RESERVATION_TYPE];
     list_t* reservationInfoListPtr;
     list_iter_t it;
     bool_t status;
@@ -482,9 +482,9 @@ manager_deleteCustomer (TM_ARGDECL  manager_t* managerPtr, long customerId)
         return FALSE;
     }
 
-    reservationTables[RESERVATION_CAR] = managerPtr->carTablePtr;
-    reservationTables[RESERVATION_ROOM] = managerPtr->roomTablePtr;
-    reservationTables[RESERVATION_FLIGHT] = managerPtr->flightTablePtr;
+    //reservationTables[RESERVATION_CAR] = managerPtr->carTablePtr;
+    //reservationTables[RESERVATION_ROOM] = managerPtr->roomTablePtr;
+    //reservationTables[RESERVATION_FLIGHT] = managerPtr->flightTablePtr;
 
     /* Cancel this customer's reservations */
     reservationInfoListPtr = customerPtr->reservationInfoListPtr;
@@ -494,9 +494,27 @@ manager_deleteCustomer (TM_ARGDECL  manager_t* managerPtr, long customerId)
         reservation_t* reservationPtr;
         reservationInfoPtr =
             (reservation_info_t*)TMLIST_ITER_NEXT(&it, reservationInfoListPtr);
-        reservationPtr =
-            (reservation_t*)TMMAP_FIND(reservationTables[reservationInfoPtr->type],
-                                     reservationInfoPtr->id);
+        //reservationPtr =
+        //    (reservation_t*)TMMAP_FIND(reservationTables[reservationInfoPtr->type],
+        //                             reservationInfoPtr->id);
+        reservation_type_t type = reservationInfoPtr->type;
+        switch (type) {
+          case RESERVATION_CAR:
+            reservationPtr =
+              (reservation_t*)TMMAP_FIND(managerPtr->carTablePtr,
+                                       reservationInfoPtr->id);
+            break;
+          case RESERVATION_ROOM:
+            reservationPtr =
+              (reservation_t*)TMMAP_FIND(managerPtr->roomTablePtr,
+                                       reservationInfoPtr->id);
+            break;
+          case RESERVATION_FLIGHT:
+            reservationPtr =
+              (reservation_t*)TMMAP_FIND(managerPtr->flightTablePtr,
+                                       reservationInfoPtr->id);
+            break;
+        }
         if (reservationPtr == NULL) {
             TM_RESTART();
         }
