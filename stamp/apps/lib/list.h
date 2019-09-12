@@ -110,7 +110,11 @@ list_iter_reset (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 void
+#if defined(CLANGTM_TMLOCALVARS)
+Plist_iter_reset (__TMVar(list_iter_t)* itPtr, list_t* listPtr);
+#else
 Plist_iter_reset (list_iter_t* itPtr, list_t* listPtr);
+#endif
 
 /* =============================================================================
  * TMlist_iter_reset
@@ -138,7 +142,11 @@ list_iter_hasNext (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 bool_t
+#if defined(CLANGTM_TMLOCALVARS)
+Plist_iter_hasNext (__TMVar(list_iter_t)* itPtr/*, list_t* listPtr*/);
+#else
 Plist_iter_hasNext (list_iter_t* itPtr/*, list_t* listPtr*/);
+#endif
 
 /* =============================================================================
  * TMlist_iter_hasNext
@@ -166,7 +174,11 @@ list_iter_next (list_iter_t* itPtr, list_t* listPtr);
  */
 TM_SAFE
 void*
+#if defined(CLANGTM_TMLOCALVARS)
+Plist_iter_next (__TMVar(list_iter_t)* itPtr/*, list_t* listPtr*/);
+#else
 Plist_iter_next (list_iter_t* itPtr/*, list_t* listPtr*/);
+#endif
 
 /* =============================================================================
  * TMlist_iter_next
