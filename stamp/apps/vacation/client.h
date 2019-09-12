@@ -80,8 +80,13 @@
 
 typedef struct client {
     long id;
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(manager_t*) managerPtr;
+    __TMVar(random_t*) randomPtr;
+#else
     manager_t* managerPtr;
     random_t* randomPtr;
+#endif
     long numOperation;
     long numQueryPerTransaction;
     long queryRange;

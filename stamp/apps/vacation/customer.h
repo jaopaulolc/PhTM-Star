@@ -81,7 +81,11 @@
 
 typedef struct customer {
     long id;
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(list_t*) reservationInfoListPtr;
+#else
     list_t* reservationInfoListPtr;
+#endif
 } customer_t;
 
 

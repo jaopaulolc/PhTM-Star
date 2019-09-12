@@ -79,10 +79,17 @@
 #include "types.h"
 
 typedef struct manager {
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(MAP_T*) carTablePtr;
+    __TMVar(MAP_T*) roomTablePtr;
+    __TMVar(MAP_T*) flightTablePtr;
+    __TMVar(MAP_T*) customerTablePtr;
+#else
     MAP_T* carTablePtr;
     MAP_T* roomTablePtr;
     MAP_T* flightTablePtr;
     MAP_T* customerTablePtr;
+#endif
 } manager_t;
 
 

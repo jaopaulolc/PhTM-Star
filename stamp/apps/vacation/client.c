@@ -183,8 +183,13 @@ client_run (void* argPtr)
         switch (action) {
 
             case ACTION_MAKE_RESERVATION: {
+#if defined(CLANGTM_TMLOCALVARS)
+                __TMVar(long) maxPrices[NUM_RESERVATION_TYPE] = { -1, -1, -1 };
+                __TMVar(long) maxIds[NUM_RESERVATION_TYPE] = { -1, -1, -1 };
+#else
                 long maxPrices[NUM_RESERVATION_TYPE] = { -1, -1, -1 };
                 long maxIds[NUM_RESERVATION_TYPE] = { -1, -1, -1 };
+#endif
                 long n;
                 long numQuery = random_generate(randomPtr) % numQueryPerTransaction + 1;
                 long customerId = random_generate(randomPtr) % queryRange + 1;

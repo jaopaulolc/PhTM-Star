@@ -85,8 +85,13 @@ typedef enum reservation_type {
 } reservation_type_t;
 
 typedef struct reservation_info {
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(reservation_type_t) type;
+    __TMVar(long) id;
+#else
     reservation_type_t type;
     long id;
+#endif
     long price; /* holds price at time reservation was made */
 } reservation_info_t;
 
