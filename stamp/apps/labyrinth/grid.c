@@ -118,6 +118,7 @@ grid_alloc (long width, long height, long depth)
  * Pgrid_alloc
  * =============================================================================
  */
+TM_SAFE
 grid_t*
 Pgrid_alloc (long width, long height, long depth)
 {
@@ -158,6 +159,7 @@ grid_free (grid_t* gridPtr)
  * TMgrid_free
  * =============================================================================
  */
+TM_SAFE
 void
 Pgrid_free (grid_t* gridPtr)
 {
@@ -170,7 +172,7 @@ Pgrid_free (grid_t* gridPtr)
  * grid_copy
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 grid_copy (grid_t* dstGridPtr, grid_t* srcGridPtr)
 {
@@ -200,7 +202,7 @@ grid_copy (grid_t* dstGridPtr, grid_t* srcGridPtr)
  * grid_isPointValid
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 grid_isPointValid (grid_t* gridPtr, long x, long y, long z)
 {
@@ -219,7 +221,7 @@ grid_isPointValid (grid_t* gridPtr, long x, long y, long z)
  * grid_getPointRef
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 long*
 grid_getPointRef (grid_t* gridPtr, long x, long y, long z)
 {
@@ -231,7 +233,7 @@ grid_getPointRef (grid_t* gridPtr, long x, long y, long z)
  * grid_getPointIndices
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 grid_getPointIndices (grid_t* gridPtr,
                       long* gridPointPtr, long* xPtr, long* yPtr, long* zPtr)
@@ -251,7 +253,7 @@ grid_getPointIndices (grid_t* gridPtr,
  * grid_getPoint
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 long
 grid_getPoint (grid_t* gridPtr, long x, long y, long z)
 {
@@ -263,7 +265,7 @@ grid_getPoint (grid_t* gridPtr, long x, long y, long z)
  * grid_isPointEmpty
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 grid_isPointEmpty (grid_t* gridPtr, long x, long y, long z)
 {
@@ -276,7 +278,7 @@ grid_isPointEmpty (grid_t* gridPtr, long x, long y, long z)
  * grid_isPointFull
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 bool_t
 grid_isPointFull (grid_t* gridPtr, long x, long y, long z)
 {
@@ -289,7 +291,7 @@ grid_isPointFull (grid_t* gridPtr, long x, long y, long z)
  * grid_setPoint
  * =============================================================================
  */
-TM_PURE
+TM_SAFE
 void
 grid_setPoint (grid_t* gridPtr, long x, long y, long z, long value)
 {
@@ -301,7 +303,6 @@ grid_setPoint (grid_t* gridPtr, long x, long y, long z, long value)
  * grid_addPath
  * =============================================================================
  */
-TM_PURE
 #if defined(TRANSMEM_MODIFICATION)
 bool_t
 #else /* ! TRANSMEM_MODIFICATION */
