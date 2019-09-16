@@ -86,7 +86,11 @@ extern char*      SOUGHT_STRING;
 extern long       MAX_STRLEN;
 
 extern long       SUBGR_EDGE_LENGTH;
+#if defined (CLAGTM_TMLOCALVARS)
+extern __TMVar(long)       MAX_CLUSTER_SIZE;
+#else
 extern long       MAX_CLUSTER_SIZE;
+#endif
 
 extern long       K3_DS;
 

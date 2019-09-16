@@ -78,7 +78,11 @@ float      PERC_INT_WEIGHTS;
 float      PROB_UNIDIRECTIONAL;
 float      PROB_INTERCL_EDGES;
 long       SUBGR_EDGE_LENGTH;
+#if defined (CLAGTM_TMLOCALVARS)
+__TMVar(long)       MAX_CLUSTER_SIZE;
+#else
 long       MAX_CLUSTER_SIZE;
+#endif
 long       K3_DS;
 long       THREADS;
 

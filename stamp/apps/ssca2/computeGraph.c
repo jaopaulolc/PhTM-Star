@@ -154,8 +154,13 @@ computeGraph (void* argPtr)
 {
     TM_THREAD_ENTER();
 
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(graph*)    GPtr       = ((computeGraph_arg_t*)argPtr)->GPtr;
+    __TMVar(graphSDG*) SDGdataPtr = ((computeGraph_arg_t*)argPtr)->SDGdataPtr;
+#else
     graph*    GPtr       = ((computeGraph_arg_t*)argPtr)->GPtr;
     graphSDG* SDGdataPtr = ((computeGraph_arg_t*)argPtr)->SDGdataPtr;
+#endif
 
     long myId = thread_getId();
     long numThread = thread_getNumThread();
