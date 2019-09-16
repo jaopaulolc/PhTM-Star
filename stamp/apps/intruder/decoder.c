@@ -82,8 +82,13 @@
 
 
 struct decoder {
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(MAP_T*) fragmentedMapPtr;  /* contains list of packet_t* */
+    __TMVar(queue_t*) decodedQueuePtr; /* contains decoded_t* */
+#else
     MAP_T* fragmentedMapPtr;  /* contains list of packet_t* */
     queue_t* decodedQueuePtr; /* contains decoded_t* */
+#endif
 };
 
 typedef struct decoded {
