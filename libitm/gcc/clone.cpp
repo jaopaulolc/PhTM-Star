@@ -41,9 +41,16 @@ static clone_table *all_tables;
 
 static pthread_mutex_t cloneTableLock = PTHREAD_MUTEX_INITIALIZER;
 
+static __thread void* last_orig_addr;
+static __thread void* last_clone_addr;
+
 static void *
 find_clone (void *ptr) {
 	clone_table *table;
+
+  if (last_clone_addr && last_orig_addr == ptr) {
+    return last_clone_addr;
+  }
 
 	for (table = all_tables; table; table = table->next) {
 		clone_entry *t = table->table;
@@ -61,8 +68,11 @@ find_clone (void *ptr) {
 				hi = i;
 			else if (ptr > t[i].orig)
 				lo = i + 1;
-			else
+			else {
+        last_orig_addr = t[i].orig;
+        last_clone_addr = t[i].clone;
 				return t[i].clone;
+      }
 		}
 
 		/* Given the quick test above, if we don't find the entry in
