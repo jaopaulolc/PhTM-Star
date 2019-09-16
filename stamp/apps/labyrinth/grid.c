@@ -222,7 +222,11 @@ grid_isPointValid (grid_t* gridPtr, long x, long y, long z)
  * =============================================================================
  */
 TM_SAFE
-long*
+#if defined(CLANGTM_TMLOCALVARS)
+__TMVar(long)*
+#else
+long *
+#endif
 grid_getPointRef (grid_t* gridPtr, long x, long y, long z)
 {
     return &(gridPtr->points[(z * gridPtr->height + y) * gridPtr->width + x]);
@@ -235,8 +239,13 @@ grid_getPointRef (grid_t* gridPtr, long x, long y, long z)
  */
 TM_SAFE
 void
+#if defined(CLANGTM_TMLOCALVARS)
+grid_getPointIndices (grid_t* gridPtr,
+                      __TMVar(long)* gridPointPtr, long* xPtr, long* yPtr, long* zPtr)
+#else
 grid_getPointIndices (grid_t* gridPtr,
                       long* gridPointPtr, long* xPtr, long* yPtr, long* zPtr)
+#endif
 {
     long height = gridPtr->height;
     long width  = gridPtr->width;

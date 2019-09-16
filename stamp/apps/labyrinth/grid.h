@@ -78,11 +78,19 @@
 
 
 typedef struct grid {
+#if defined(CLANGTM_TMLOCALVARS)
+    __TMVar(long) width;
+    __TMVar(long) height;
+    __TMVar(long) depth;
+    __TMVar(__TMVar(long)*) points;
+    __TMVar(__TMVar(long)*) points_unaligned;
+#else
     long width;
     long height;
     long depth;
     long* points;
     long* points_unaligned;
+#endif
 } grid_t;
 
 #define GRID_POINT_FULL  (-2L)
@@ -145,7 +153,11 @@ grid_isPointValid (grid_t* gridPtr, long x, long y, long z);
  * =============================================================================
  */
 TM_SAFE
+#if defined(CLANGTM_TMLOCALVARS)
+__TMVar(long)*
+#else
 long*
+#endif
 grid_getPointRef (grid_t* gridPtr, long x, long y, long z);
 
 
@@ -155,8 +167,13 @@ grid_getPointRef (grid_t* gridPtr, long x, long y, long z);
  */
 TM_SAFE
 void
+#if defined(CLANGTM_TMLOCALVARS)
+grid_getPointIndices (grid_t* gridPtr,
+                      __TMVar(long)* gridPointPtr, long* xPtr, long* yPtr, long* zPtr);
+#else
 grid_getPointIndices (grid_t* gridPtr,
                       long* gridPointPtr, long* xPtr, long* yPtr, long* zPtr);
+#endif
 
 
 /* =============================================================================
