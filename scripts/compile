@@ -140,7 +140,7 @@ function compile_with_tinystm {
 				fi
 				echo "## $build ${suffix} compiled"
 			
-				compile_stamp_apps
+				compile_stamp_apps $build
 				compile_microbench_apps
 			done # FOR EACH ORT HASH
 		done # FOR EACH CM
@@ -169,7 +169,7 @@ function compile_with_wlpdstm {
 		fi
 		echo "## $build ${suffix} compiled"
 			
-		compile_stamp_apps
+		compile_stamp_apps $build
 		compile_microbench_apps
 	done # FOR EACH DESIGN
 }
@@ -251,7 +251,7 @@ function compile_with_rtm {
 		suffix=-${lock}
 		echo "## RTM ${suffix} compiled"
 		
-		compile_stamp_apps
+		compile_stamp_apps $build
 		compile_microbench_apps
 		rm -f $HTM/Makefile
 	done # FOR EACH LOCK
@@ -270,7 +270,7 @@ function compile_with_powerTM {
 	suffix=-${lock}
 	echo "## powerTM ${suffix} compiled"
 	
-	compile_stamp_apps
+	compile_stamp_apps $build
 	compile_microbench_apps
 	rm -f $HTM/Makefile
 }
@@ -279,7 +279,7 @@ function compile_with_hle {
 	
 	suffix=""
 	echo "## HLE compiled"
-	compile_stamp_apps
+	compile_stamp_apps $build
 	compile_microbench_apps
 }
 
@@ -287,7 +287,7 @@ function compile_with_lock {
 	
 	suffix=""
 	echo "## LOCK compiled"
-	compile_stamp_apps
+	compile_stamp_apps $build
 	compile_microbench_apps
 }
 
@@ -295,7 +295,7 @@ function compile_seq {
 	
 	suffix=""
 	echo "## SEQ compiled"
-	compile_stamp_apps
+	compile_stamp_apps $build
 	compile_microbench_apps
 }
 
